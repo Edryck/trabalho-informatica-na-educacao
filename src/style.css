@@ -48,3 +48,160 @@ body {
   width: 100%;
   height: 100%;
 }
+
+.layout {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: 1fr 88px;
+  gap: 8px;
+  padding: 8px;
+}
+
+.stage {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  border-radius: 6px;
+  overflow: hidden;
+  outline: none;
+}
+
+.stage:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.toolbar {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.toolbar-gap {
+  height: 12px;
+}
+
+.tool {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  background: var(--color-panel-raised);
+  color: var(--color-text);
+}
+
+.tool.active {
+  color: var(--color-accent);
+}
+
+.tool.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--color-accent);
+}
+
+.tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tool:focus-visible,
+.tray-item:focus-visible,
+.swatch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.tray {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.tray-item {
+  min-width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 10px;
+  color: var(--color-text);
+  background: var(--color-panel-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font: 500 12px/1.2 var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+.tray-item.active {
+  border-color: var(--color-accent);
+}
+
+.tray-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tray-count {
+  align-self: flex-end;
+  font: 400 14px var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.wire-palette {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.wire-palette[hidden] {
+  display: none;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
