@@ -1,0 +1,50 @@
+:root {
+  --color-bg: #0e141b;
+  --color-panel: #16202b;
+  --color-panel-raised: #1d2a38;
+  --color-border: #2a3a4c;
+  --color-text: #e6edf3;
+  --color-text-muted: #93a4b5;
+  --color-blueprint: #0b2540;
+  --color-blueprint-grid: #16385c;
+  --color-blueprint-line: #9fd3ff;
+  --color-accent: #e0954a;
+  --color-accent-pressed: #c27a35;
+  --color-current: #ffd166;
+  --color-success: #4cc38a;
+  --color-warning: #e3b341;
+  --color-error: #e5534b;
+  --color-positive: #e5534b;
+  --color-negative: #5aa9e6;
+  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#app canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
