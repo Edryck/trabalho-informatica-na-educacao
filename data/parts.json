@@ -1,1 +1,76 @@
-{}
+{
+  "battery": {
+    "pins": ["+", "-"],
+    "placement": "offboard",
+    "cost": 2,
+    "model": { "kind": "battery" },
+    "thresholds": { "shortCurrent": 3 },
+    "values": [9, 5],
+    "symbolPins": { "+": [0, -2], "-": [0, 2] },
+    "datasheet": "battery"
+  },
+  "lamp": {
+    "pins": ["a", "b"],
+    "placement": "offboard",
+    "cost": 2,
+    "model": { "kind": "lamp", "resistance": 90, "nominalPower": 0.9 },
+    "thresholds": { "lit": 0.02, "maxCurrent": 0.2 },
+    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "datasheet": "lamp"
+  },
+  "switch": {
+    "pins": ["a", "b"],
+    "placement": "rigid",
+    "cost": 1,
+    "model": { "kind": "switch" },
+    "footprint": [[0, 0], [2, 0]],
+    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "datasheet": "switch"
+  },
+  "push_button": {
+    "pins": ["1", "2", "3", "4"],
+    "placement": "rigid",
+    "cost": 1,
+    "model": { "kind": "pushButton" },
+    "footprint": [[0, 0], [0, 1], [2, 0], [2, 1]],
+    "symbolPins": { "1": [-2, -1], "2": [-2, 1], "3": [2, -1], "4": [2, 1] },
+    "datasheet": "push_button"
+  },
+  "dc_motor": {
+    "pins": ["+", "-"],
+    "placement": "offboard",
+    "cost": 4,
+    "model": { "kind": "motor", "resistance": 30 },
+    "thresholds": { "spin": 0.05, "maxCurrent": 0.5 },
+    "symbolPins": { "+": [-2, 0], "-": [2, 0] },
+    "datasheet": "dc_motor"
+  },
+  "buzzer": {
+    "pins": ["+", "-"],
+    "placement": "offboard",
+    "cost": 3,
+    "model": { "kind": "buzzer", "resistance": 300 },
+    "thresholds": { "sound": 0.005, "maxCurrent": 0.05 },
+    "symbolPins": { "+": [-2, 0], "-": [2, 0] },
+    "datasheet": "buzzer"
+  },
+  "resistor": {
+    "pins": ["a", "b"],
+    "placement": "flexible",
+    "cost": 1,
+    "model": { "kind": "resistor" },
+    "values": [22, 100, 220, 330, 470, 1000, 2200, 4700, 10000],
+    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "datasheet": "resistor"
+  },
+  "led": {
+    "pins": ["a", "k"],
+    "placement": "flexible",
+    "cost": 1,
+    "model": { "kind": "led", "vf": 2.0, "rs": 5 },
+    "thresholds": { "lit": 0.001, "maxCurrent": 0.03 },
+    "variants": ["red", "green", "yellow"],
+    "symbolPins": { "a": [-2, 0], "k": [2, 0] },
+    "datasheet": "led"
+  }
+}
