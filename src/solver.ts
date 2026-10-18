@@ -4,6 +4,9 @@ export const LINK_RESISTANCE = 0.001
 export const GMIN = 1e-12
 export const BATTERY_RESISTANCE = 0.2
 export const MAX_PASSES = 20
+export const LED_OFF_CONDUCTANCE = 1e-9
+
+export const INITIAL_DISCRETE: DiscreteState = { leds: {}, outputs: {} }
 
 export type DiscreteState = { leds: Record<string, "on" | "off">; outputs: Record<PinRef, 0 | 1 | "z"> }
 
@@ -41,6 +44,10 @@ type SolveOptions = { overrides?: Record<string, string>; previous?: DiscreteSta
 
 const defaultInputState: Record<string, string> = { battery: "on", switch: "off", pushButton: "released" }
 
+function sortedEntries<T>(rec: Record<string, T>): [string, T][] {
+  return Object.entries(rec).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+}
+
 function gaussianSolve(matrix: number[][], rhs: number[]): number[] {
   const n = rhs.length
   for (let col = 0; col < n; col++) {
@@ -70,7 +77,7 @@ function gaussianSolve(matrix: number[][], rhs: number[]): number[] {
   return x
 }
 
-function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>): Branch[] {
+function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>, ledOn: boolean): Branch[] {
   const pin = (name: string): PointId | undefined => pinAt[`${part.id}.${name}`]
   const branch = (pa: string, pb: string, g: number, source = 0): Branch[] => {
     const a = pin(pa)
@@ -90,6 +97,8 @@ function partBranches(part: NetPart, def: PartDef, state: string | undefined, pi
     case "motor":
     case "buzzer":
       return branch(def.pins[0], def.pins[1], 1 / model.resistance)
+    case "led":
+      return ledOn ? branch("a", "k", 1 / model.rs, model.vf / model.rs) : branch("a", "k", LED_OFF_CONDUCTANCE)
     case "switch":
       return state === "on" ? branch("a", "b", link) : []
     case "pushButton":
@@ -121,46 +130,94 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   const index = new Map<PointId, number>()
   for (const p of points) if (p !== reference) index.set(p, index.size)
 
-  const partBranchList = new Map<string, Branch[]>()
   const states = new Map<string, string | undefined>()
   for (const part of known) {
     const def = catalog[part.type]
-    const state = opts.overrides?.[part.id] ?? part.inputState ?? defaultInputState[def.model.kind]
-    states.set(part.id, state)
-    partBranchList.set(part.id, partBranches(part, def, state, net.pinAt))
+    states.set(part.id, opts.overrides?.[part.id] ?? part.inputState ?? defaultInputState[def.model.kind])
   }
+  const ledParts = known.filter((p) => catalog[p.type].model.kind === "led")
+  const stateKey = (d: DiscreteState) =>
+    JSON.stringify({ leds: sortedEntries(d.leds), outputs: sortedEntries(d.outputs) })
+
+  const runPass = (discrete: DiscreteState) => {
+    const partBranchList = new Map<string, Branch[]>()
+    for (const part of known) {
+      const ledOn = discrete.leds[part.id] === "on"
+      partBranchList.set(part.id, partBranches(part, catalog[part.type], states.get(part.id), net.pinAt, ledOn))
+    }
+    const linkG = 1 / LINK_RESISTANCE
+    const all: Branch[] = [...net.links.map((l) => ({ a: l.a, b: l.b, g: linkG, source: 0 }))]
+    for (const list of partBranchList.values()) all.push(...list)
+
+    const n = index.size
+    const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0))
+    const rhs = new Array<number>(n).fill(0)
+    for (let i = 0; i < n; i++) matrix[i][i] += GMIN
+    for (const br of all) {
+      const ia = index.get(br.a)
+      const ib = index.get(br.b)
+      if (ia !== undefined) {
+        matrix[ia][ia] += br.g
+        rhs[ia] += br.source
+      }
+      if (ib !== undefined) {
+        matrix[ib][ib] += br.g
+        rhs[ib] -= br.source
+      }
+      if (ia !== undefined && ib !== undefined) {
+        matrix[ia][ib] -= br.g
+        matrix[ib][ia] -= br.g
+      }
+    }
+    const solution = gaussianSolve(matrix, rhs)
+    const voltages: Record<PointId, number> = {}
+    // soma 0 pra não devolver -0, que quebra comparação estrita
+    for (const p of points) voltages[p] = (p === reference ? 0 : solution[index.get(p) as number]) + 0
+    return { partBranchList, voltages }
+  }
+  const current = (br: Branch, voltages: Record<PointId, number>) => br.g * (voltages[br.a] - voltages[br.b]) - br.source
+
+  const reevaluate = (discrete: DiscreteState, run: ReturnType<typeof runPass>): DiscreteState => {
+    const leds: Record<string, "on" | "off"> = {}
+    for (const part of ledParts) {
+      const br = run.partBranchList.get(part.id)?.[0]
+      const model = catalog[part.type].model
+      if (part.fault !== undefined || br === undefined || model.kind !== "led") {
+        leds[part.id] = "off"
+      } else if (discrete.leds[part.id] === "on") {
+        leds[part.id] = current(br, run.voltages) <= 0 ? "off" : "on"
+      } else {
+        leds[part.id] = run.voltages[br.a] - run.voltages[br.b] > model.vf ? "on" : "off"
+      }
+    }
+    return { leds, outputs: discrete.outputs }
+  }
+
+  const start = opts.previous ?? INITIAL_DISCRETE
+  let discrete: DiscreteState = {
+    leds: Object.fromEntries(ledParts.map((p) => [p.id, start.leds[p.id] === "on" && p.fault === undefined ? "on" : "off"])),
+    outputs: start.outputs,
+  }
+  const visited = new Set<string>([stateKey(discrete)])
+  let status: SolveResult["status"] = "unstable"
+  let passes = 0
+  let run = runPass(discrete)
+  for (passes = 1; passes <= MAX_PASSES; passes++) {
+    if (passes > 1) run = runPass(discrete)
+    const next = reevaluate(discrete, run)
+    const key = stateKey(next)
+    if (key === stateKey(discrete)) {
+      status = "ok"
+      break
+    }
+    if (visited.has(key)) break
+    visited.add(key)
+    discrete = next
+  }
+  passes = Math.min(passes, MAX_PASSES)
+  const { partBranchList, voltages } = run
 
   const linkG = 1 / LINK_RESISTANCE
-  const all: Branch[] = [...net.links.map((l) => ({ a: l.a, b: l.b, g: linkG, source: 0 }))]
-  for (const list of partBranchList.values()) all.push(...list)
-
-  const n = index.size
-  const matrix: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0))
-  const rhs = new Array<number>(n).fill(0)
-  for (let i = 0; i < n; i++) matrix[i][i] += GMIN
-  for (const br of all) {
-    const ia = index.get(br.a)
-    const ib = index.get(br.b)
-    if (ia !== undefined) {
-      matrix[ia][ia] += br.g
-      rhs[ia] += br.source
-    }
-    if (ib !== undefined) {
-      matrix[ib][ib] += br.g
-      rhs[ib] -= br.source
-    }
-    if (ia !== undefined && ib !== undefined) {
-      matrix[ia][ib] -= br.g
-      matrix[ib][ia] -= br.g
-    }
-  }
-  const solution = gaussianSolve(matrix, rhs)
-
-  const voltages: Record<PointId, number> = {}
-  // soma 0 pra não devolver -0, que quebra comparação estrita
-  for (const p of points) voltages[p] = (p === reference ? 0 : solution[index.get(p) as number]) + 0
-  const current = (br: Branch) => br.g * (voltages[br.a] - voltages[br.b]) - br.source
-
   const linkCurrent: Record<string, number> = {}
   for (const l of net.links) linkCurrent[l.id] = linkG * (voltages[l.a] - voltages[l.b])
 
@@ -173,7 +230,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     const branches = partBranchList.get(part.id) ?? []
     // peça com defeito: o curto desvia do filamento/bobina, então a peça em si não conduz
     const bypassed = part.fault !== undefined && model.kind !== "switch" && model.kind !== "resistor"
-    const i = branches.length > 0 && !bypassed ? current(branches[0]) : 0
+    const i = branches.length > 0 && !bypassed ? current(branches[0], voltages) : 0
     const thresholds = def.thresholds ?? {}
     switch (model.kind) {
       case "battery": {
@@ -187,6 +244,12 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
       case "resistor":
         partCurrent[part.id] = i
         break
+      case "led": {
+        partCurrent[part.id] = i
+        const lit = i > (thresholds.lit ?? Infinity)
+        partState[part.id] = { kind: "led", lit, brightness: lit ? Math.min(1, i / (thresholds.nominal ?? Infinity)) : 0 }
+        break
+      }
       case "switch":
         if (branches.length > 0) partCurrent[part.id] = i
         break
@@ -215,14 +278,16 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     }
   }
 
+  if (status === "unstable") warnings.push({ kind: "unstable" })
+
   return {
-    status: "ok",
+    status,
     voltages,
     linkCurrent,
     partCurrent,
     partState,
     warnings,
-    discrete: { leds: {}, outputs: {} },
-    passes: 1,
+    discrete,
+    passes,
   }
 }

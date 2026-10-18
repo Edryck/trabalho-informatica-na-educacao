@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
-import { solve } from "../src/solver"
+import { solve, INITIAL_DISCRETE } from "../src/solver"
 import type { PartState } from "../src/solver"
 import type { Link, NetPart, Netlist, PartsCatalog } from "../src/netlist"
 
@@ -192,5 +192,86 @@ describe("solve", () => {
       [wire("w1", "x", "y")])
     const s = solve(n, catalog)
     expect(s.linkCurrent.w1).toBeCloseTo(s.partCurrent.L1, 6)
+  })
+})
+
+function led(id: string): NetPart {
+  return { id, type: "led", value: 0 }
+}
+
+function ledCircuit(opts: { r?: number; reversed?: boolean; count?: number }): Netlist {
+  const count = opts.count ?? 1
+  const parts: NetPart[] = [bat("B1")]
+  const pinAt: Record<string, string> = { "B1.+": "p", "B1.-": "n" }
+  let prev = "p"
+  if (opts.r !== undefined) {
+    parts.push(r("R1", opts.r))
+    pinAt["R1.a"] = "p"
+    pinAt["R1.b"] = "q"
+    prev = "q"
+  }
+  for (let i = 1; i <= count; i++) {
+    const id = `LED${i}`
+    const next = i === count ? "n" : `m${i}`
+    parts.push(led(id))
+    pinAt[`${id}.a`] = opts.reversed ? next : prev
+    pinAt[`${id}.k`] = opts.reversed ? prev : next
+    prev = next
+  }
+  return net(parts, pinAt)
+}
+
+describe("led", () => {
+  it("led with resistor", () => {
+    const s = solve(ledCircuit({ r: 330 }), catalog)
+    expect(s.partCurrent.LED1).toBeCloseTo((9 - 2) / (330 + 5 + 0.2), 6)
+    expect(s.partState.LED1).toMatchObject({ kind: "led", lit: true })
+    expect(s.discrete.leds.LED1).toBe("on")
+    expect(s.status).toBe("ok")
+  })
+
+  it("reversed led stays off", () => {
+    const s = solve(ledCircuit({ r: 330, reversed: true }), catalog)
+    expect(isLit(s.partState.LED1)).toBe(false)
+    expect(Math.abs(s.partCurrent.LED1)).toBeLessThan(1e-6)
+    expect(s.status).toBe("ok")
+  })
+
+  it("reversed led starting from on", () => {
+    const s = solve(ledCircuit({ r: 330, reversed: true }), catalog, { previous: { leds: { LED1: "on" }, outputs: {} } })
+    expect(s.discrete.leds.LED1).toBe("off")
+    expect(s.status).toBe("ok")
+    expect(s.passes).toBeGreaterThan(1)
+  })
+
+  it("led without resistor warns, does not burn", () => {
+    const s = solve(ledCircuit({}), catalog)
+    expect(isLit(s.partState.LED1)).toBe(true)
+    expect(s.warnings).toContainEqual({ kind: "overcurrent", partId: "LED1" })
+    expect(JSON.stringify(s)).not.toMatch(/burn/i)
+  })
+
+  it("two leds in series", () => {
+    const s = solve(ledCircuit({ r: 330, count: 2 }), catalog)
+    expect(s.partCurrent.LED1).toBeCloseTo((9 - 4) / (330 + 10 + 0.2), 6)
+    expect(s.discrete.leds).toEqual({ LED1: "on", LED2: "on" })
+  })
+
+  it("led open and short faults", () => {
+    const open = ledCircuit({ r: 330 })
+    open.parts[2] = { ...open.parts[2], fault: "open" }
+    const so = solve(open, catalog)
+    expect(isLit(so.partState.LED1)).toBe(false)
+    expect(so.partCurrent.LED1).toBe(0)
+    const short = ledCircuit({ r: 330 })
+    short.parts[2] = { ...short.parts[2], fault: "short" }
+    const ss = solve(short, catalog)
+    expect(isLit(ss.partState.LED1)).toBe(false)
+    expect(ss.partCurrent.LED1).toBe(0)
+    expect(ss.partCurrent.R1).toBeCloseTo(9 / (330 + 0.201), 4)
+  })
+
+  it("initial discrete state is empty", () => {
+    expect(INITIAL_DISCRETE).toEqual({ leds: {}, outputs: {} })
   })
 })

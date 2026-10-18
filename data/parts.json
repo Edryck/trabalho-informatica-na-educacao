@@ -68,7 +68,7 @@
     "placement": "flexible",
     "cost": 1,
     "model": { "kind": "led", "vf": 2.0, "rs": 5 },
-    "thresholds": { "lit": 0.001, "maxCurrent": 0.03 },
+    "thresholds": { "lit": 0.001, "nominal": 0.02, "maxCurrent": 0.03 },
     "variants": ["red", "green", "yellow"],
     "symbolPins": { "a": [-2, 0], "k": [2, 0] },
     "datasheet": "led"
