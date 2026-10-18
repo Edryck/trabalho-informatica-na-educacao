@@ -1,8 +1,44 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
+import { stripOf, benchToNetlist, blueprintToNetlist, collapse } from "../src/netlist"
 import type { PartsCatalog } from "../src/netlist"
+import { emptyDoc } from "../src/state"
+import type { CircuitDoc, Instance } from "../src/state"
 
 const catalog = parts as unknown as PartsCatalog
+
+type DocPatch = {
+  instances?: Instance[]
+  blueprint?: Partial<CircuitDoc["blueprint"]>
+  bench?: Partial<CircuitDoc["bench"]>
+}
+
+function docWith(partial: DocPatch): CircuitDoc {
+  const base = emptyDoc()
+  return {
+    ...base,
+    instances: partial.instances ?? base.instances,
+    blueprint: { ...base.blueprint, ...partial.blueprint },
+    bench: { ...base.bench, ...partial.bench },
+  }
+}
+
+function inst(id: string, type: string, value = 0): Instance {
+  return { id, type, value, actualValue: value }
+}
+
+function twoResistors(holesA: string, holesB: string, wires: CircuitDoc["bench"]["wires"] = []) {
+  return docWith({
+    instances: [inst("R1", "resistor", 220), inst("R2", "resistor", 220)],
+    bench: {
+      placements: [
+        { id: "R1", rotation: 0, holes: { a: holesA, b: null } },
+        { id: "R2", rotation: 0, holes: { a: holesB, b: null } },
+      ],
+      wires,
+    },
+  })
+}
 
 describe("parts catalog", () => {
   it("has symbol pins for every pin", () => {
@@ -11,5 +47,172 @@ describe("parts catalog", () => {
       for (const pin of def.pins) expect(def.symbolPins[pin], `${key}.${pin}`).toBeDefined()
       if (def.placement === "rigid") expect(def.footprint?.length, key).toBe(def.pins.length)
     }
+  })
+})
+
+describe("stripOf", () => {
+  it("maps both halves and rails", () => {
+    expect(stripOf("A12")).toBe("c12-top")
+    expect(stripOf("E12")).toBe("c12-top")
+    expect(stripOf("F12")).toBe("c12-bot")
+    expect(stripOf("J1")).toBe("c1-bot")
+    expect(stripOf("T+5")).toBe("rail-T+")
+    expect(stripOf("B-30")).toBe("rail-B-")
+    expect(stripOf("K3")).toBeNull()
+    expect(stripOf("A31")).toBeNull()
+  })
+})
+
+describe("benchToNetlist", () => {
+  it("same strip joins", () => {
+    const nodes = collapse(benchToNetlist(twoResistors("A3", "C3"), catalog))
+    expect(nodes.get("R1.a")).toBe(nodes.get("R2.a"))
+  })
+
+  it("channel separates", () => {
+    const nodes = collapse(benchToNetlist(twoResistors("E3", "F3"), catalog))
+    expect(nodes.get("R1.a")).not.toBe(nodes.get("R2.a"))
+  })
+
+  it("rail is continuous", () => {
+    const nodes = collapse(benchToNetlist(twoResistors("T+1", "T+30"), catalog))
+    expect(nodes.get("R1.a")).toBe(nodes.get("R2.a"))
+  })
+
+  it("wire joins strips", () => {
+    const doc = twoResistors("A3", "A9", [{ id: "w1", a: "C3", b: "C9", color: "red" }])
+    const nodes = collapse(benchToNetlist(doc, catalog))
+    expect(nodes.get("R1.a")).toBe(nodes.get("R2.a"))
+  })
+
+  it("degenerate wire ignored", () => {
+    const doc = twoResistors("A3", "A9", [{ id: "w1", a: "C3", b: "C3", color: "red" }])
+    const net = benchToNetlist(doc, catalog)
+    expect(net.links.filter((l) => l.kind === "wire")).toEqual([])
+  })
+
+  it("offboard lead", () => {
+    const doc = docWith({
+      instances: [inst("L1", "lamp")],
+      bench: { placements: [{ id: "L1", rotation: 0, holes: { a: "A3", b: null } }] },
+    })
+    const net = benchToNetlist(doc, catalog)
+    expect(net.links.some((l) => l.kind === "lead" && l.a === "p:L1.a" && l.b === "h:A3")).toBe(true)
+    expect(net.pinAt["L1.b"]).toBe("p:L1.b")
+  })
+
+  it("value comes from actualValue on bench", () => {
+    const doc = docWith({
+      instances: [{ id: "R1", type: "resistor", value: 220, actualValue: 2200 }],
+      bench: { placements: [{ id: "R1", rotation: 0, holes: { a: "A3", b: "A7" } }] },
+    })
+    expect(benchToNetlist(doc, catalog).parts[0].value).toBe(2200)
+  })
+
+  it("strip links chain consecutive holes", () => {
+    const doc = docWith({
+      instances: [inst("R1", "resistor", 220), inst("R2", "resistor", 220), inst("R3", "resistor", 220)],
+      bench: {
+        placements: [
+          { id: "R1", rotation: 0, holes: { a: "A3", b: null } },
+          { id: "R2", rotation: 0, holes: { a: "C3", b: null } },
+          { id: "R3", rotation: 0, holes: { a: "E3", b: null } },
+        ],
+      },
+    })
+    const strips = benchToNetlist(doc, catalog).links.filter((l) => l.kind === "strip")
+    expect(strips.map((l) => l.id)).toEqual(["s:A3-C3", "s:C3-E3"])
+  })
+
+  it("meter tips join the strips they touch", () => {
+    const doc = docWith({
+      instances: [inst("R1", "resistor", 220)],
+      bench: {
+        placements: [{ id: "R1", rotation: 0, holes: { a: "A3", b: "A7" } }],
+        meter: { mode: "V", red: "C3", black: null },
+      },
+    })
+    const net = benchToNetlist(doc, catalog)
+    const nodes = collapse(net)
+    expect(nodes.get("METER.red")).toBe(nodes.get("R1.a"))
+    expect(net.pinAt["METER.black"]).toBe("p:METER.black")
+    expect(net.parts.find((p) => p.id === "METER")).toEqual({
+      id: "METER", type: "multimeter", value: 0, inputState: "V", isTool: true,
+    })
+  })
+
+  it("instances without bench placement stay out", () => {
+    const doc = docWith({ instances: [inst("R1", "resistor", 220)] })
+    expect(benchToNetlist(doc, catalog).parts).toEqual([])
+  })
+})
+
+describe("blueprintToNetlist", () => {
+  const horizontal = { id: "s1", x1: 0, y1: 0, x2: 10, y2: 0 }
+
+  function bp(segments: CircuitDoc["blueprint"]["segments"], placements: CircuitDoc["blueprint"]["placements"]) {
+    return docWith({
+      instances: placements.map((p) => inst(p.id, "resistor", 220)),
+      blueprint: { placements, segments },
+    })
+  }
+
+  it("crossing without junction does not connect", () => {
+    const doc = bp(
+      [horizontal, { id: "s2", x1: 5, y1: -5, x2: 5, y2: 5 }],
+      [
+        { id: "R1", x: 2, y: 0, rotation: 0 },
+        { id: "R2", x: 7, y: -5, rotation: 0 },
+      ],
+    )
+    const nodes = collapse(blueprintToNetlist(doc, catalog))
+    expect(nodes.get("R1.a")).not.toBe(nodes.get("R2.a"))
+  })
+
+  it("T junction connects", () => {
+    const doc = bp(
+      [horizontal, { id: "s2", x1: 5, y1: -5, x2: 5, y2: 0 }],
+      [
+        { id: "R1", x: 2, y: 0, rotation: 0 },
+        { id: "R2", x: 7, y: -5, rotation: 0 },
+      ],
+    )
+    const nodes = collapse(blueprintToNetlist(doc, catalog))
+    expect(nodes.get("R1.a")).toBe(nodes.get("R2.a"))
+  })
+
+  it("collinear overlap merges", () => {
+    const doc = bp(
+      [{ id: "s1", x1: 0, y1: 0, x2: 6, y2: 0 }, { id: "s2", x1: 4, y1: 0, x2: 10, y2: 0 }],
+      [
+        { id: "R1", x: 2, y: 0, rotation: 0 },
+        { id: "R2", x: 8, y: 0, rotation: 0 },
+      ],
+    )
+    const net = blueprintToNetlist(doc, catalog)
+    const keys = net.links.map((l) => [l.a, l.b].sort().join("|"))
+    expect(new Set(keys).size).toBe(keys.length)
+    const nodes = collapse(net)
+    expect(nodes.get("R1.a")).toBe(nodes.get("R2.b"))
+  })
+
+  it("zero length segment ignored", () => {
+    const doc = bp([{ id: "s1", x1: 3, y1: 3, x2: 3, y2: 3 }], [])
+    expect(blueprintToNetlist(doc, catalog).links).toEqual([])
+  })
+
+  it("rotation moves pins", () => {
+    const doc = bp([], [{ id: "R1", x: 10, y: 10, rotation: 90 }])
+    const net = blueprintToNetlist(doc, catalog)
+    expect(net.pinAt["R1.a"]).toBe("g:10,8")
+    expect(net.pinAt["R1.b"]).toBe("g:10,12")
+  })
+
+  it("value comes from spec value on blueprint", () => {
+    const doc = docWith({
+      instances: [{ id: "R1", type: "resistor", value: 220, actualValue: 2200 }],
+      blueprint: { placements: [{ id: "R1", x: 0, y: 0, rotation: 0 }], segments: [] },
+    })
+    expect(blueprintToNetlist(doc, catalog).parts[0].value).toBe(220)
   })
 })
