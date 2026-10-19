@@ -1,1 +1,58 @@
-{}
+{
+  "battery": {
+    "title": "Bateria",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "lamp": {
+    "title": "Lâmpada",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "switch": {
+    "title": "Chave",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "push_button": {
+    "title": "Botão de pressão",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "dc_motor": {
+    "title": "Motor DC",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "buzzer": {
+    "title": "Buzzer",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "resistor": {
+    "title": "Resistor",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "led": {
+    "title": "LED",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  }
+}

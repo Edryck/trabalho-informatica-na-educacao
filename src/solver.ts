@@ -42,7 +42,7 @@ type Branch = { a: PointId; b: PointId; g: number; source: number }
 
 type SolveOptions = { overrides?: Record<string, string>; previous?: DiscreteState }
 
-const defaultInputState: Record<string, string> = { battery: "on", switch: "off", pushButton: "released" }
+export const DEFAULT_INPUT_STATE: Record<string, string> = { battery: "on", switch: "off", pushButton: "released" }
 
 function sortedEntries<T>(rec: Record<string, T>): [string, T][] {
   return Object.entries(rec).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
@@ -133,7 +133,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   const states = new Map<string, string | undefined>()
   for (const part of known) {
     const def = catalog[part.type]
-    states.set(part.id, opts.overrides?.[part.id] ?? part.inputState ?? defaultInputState[def.model.kind])
+    states.set(part.id, opts.overrides?.[part.id] ?? part.inputState ?? DEFAULT_INPUT_STATE[def.model.kind])
   }
   const ledParts = known.filter((p) => catalog[p.type].model.kind === "led")
   const stateKey = (d: DiscreteState) =>

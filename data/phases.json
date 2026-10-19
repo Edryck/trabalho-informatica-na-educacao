@@ -1,1 +1,2671 @@
-{ "groups": [], "future": [] }
+{
+  "groups": [
+    {
+      "id": "g0",
+      "title": "Bancada",
+      "demo": true,
+      "concept": "interface, blueprint, símbolos da norma, conexões internas da protoboard",
+      "unlocks": [
+        "battery",
+        "jumper_wire",
+        "lamp",
+        "breadboard"
+      ],
+      "phases": [
+        {
+          "id": "g0p1",
+          "type": "tutorial",
+          "goal": "navegar na bancada e no blueprint",
+          "brief": "Dá uma olhada em volta: gira a câmera, troca pro blueprint e passa o mouse nos furos da protoboard.",
+          "requireMatch": false,
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "steps": [
+            {
+              "text": "Arrasta com o botão esquerdo pra girar a câmera em volta da bancada.",
+              "until": {
+                "event": "cameraOrbited"
+              }
+            },
+            {
+              "text": "Aperta V (ou o botão Blueprint lá em cima) pra ver o mesmo circuito desenhado.",
+              "until": {
+                "event": "viewSwitched"
+              }
+            },
+            {
+              "text": "Volta pra bancada e passa o mouse num furo. Repara quais outros furos acendem junto.",
+              "until": {
+                "event": "holeHovered"
+              }
+            }
+          ]
+        },
+        {
+          "id": "g0p2",
+          "type": "tutorial",
+          "goal": "desenhar bateria + lâmpada com os símbolos",
+          "brief": "No blueprint, coloca a bateria e a lâmpada e liga as duas com fio até a lâmpada acender no desenho.",
+          "tray": {
+            "battery": 1,
+            "lamp": 1
+          },
+          "keyParts": [
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "L1": "lit"
+              }
+            }
+          ],
+          "evaluateOn": "blueprint",
+          "requireMatch": false,
+          "hints": [
+            "A corrente precisa de um caminho de ida e de volta: sai do + e volta pelo −.",
+            "Liga um fio do + da bateria até um lado da lâmpada, e outro do outro lado até o −."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [],
+              "wires": [],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g0p3",
+          "type": "tutorial",
+          "goal": "entender quais furos da protoboard são ligados",
+          "brief": "Os fios já trazem a energia até a placa. Espeta os cabinhos da lâmpada de um jeito que ela acenda, sem usar fio novo.",
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": null,
+                    "b": null
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "L1": "lit"
+              }
+            }
+          ],
+          "steps": [
+            {
+              "text": "Passa o mouse nos furos e repara: cada coluna de cinco furos é ligada por dentro.",
+              "until": {
+                "event": "holeHovered"
+              }
+            },
+            {
+              "text": "Espeta cada cabinho da lâmpada numa coluna onde chega um dos fios.",
+              "until": {
+                "expect": [
+                  {
+                    "when": {},
+                    "then": {
+                      "L1": "lit"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "hints": [
+            "Furos da mesma coluna, do mesmo lado do canal do meio, são o mesmo ponto elétrico.",
+            "O fio vermelho chega numa coluna e o preto em outra: um cabinho em cada uma."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g0p4",
+          "type": "build",
+          "goal": "montar na protoboard o que foi desenhado",
+          "brief": "O desenho já está pronto. Monta o mesmo circuito na protoboard.",
+          "keyParts": [
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [],
+              "wires": [],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "L1": "lit"
+              }
+            }
+          ],
+          "hints": [
+            "As peças do desenho estão na bandeja esperando pra ir pra bancada.",
+            "Usa os trilhos + e − pra levar a bateria até a placa, e fios até as colunas da lâmpada."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g0p5",
+          "type": "repair",
+          "goal": "lâmpada não acende: peça na trilha errada",
+          "brief": "Montaram esse circuito, mas a lâmpada não acende. O desenho está certo. Acha o que está diferente na bancada.",
+          "keyParts": [
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A15"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "showDivergence": false,
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "L1": "lit"
+              }
+            }
+          ],
+          "hints": [
+            "Compara o desenho com a bancada, ponta por ponta.",
+            "Olha onde cada cabinho da lâmpada está espetado e se aquela coluna recebe algum fio."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "g1",
+      "title": "Circuitos básicos",
+      "demo": true,
+      "concept": "circuito aberto/fechado, chave, polaridade, corrente não se gasta",
+      "unlocks": [
+        "switch",
+        "push_button",
+        "buzzer",
+        "dc_motor",
+        "current_view"
+      ],
+      "phases": [
+        {
+          "id": "g1p1",
+          "type": "build",
+          "goal": "ligar/desligar lâmpada com chave",
+          "brief": "Monta uma lâmpada que acende quando a chave está ligada e apaga quando está desligada.",
+          "tray": {
+            "battery": 1,
+            "switch": 1,
+            "lamp": 1
+          },
+          "keyParts": [
+            {
+              "id": "S1",
+              "part": "switch"
+            },
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "S1": "on"
+              },
+              "then": {
+                "L1": "lit"
+              }
+            },
+            {
+              "when": {
+                "S1": "off"
+              },
+              "then": {
+                "L1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "A chave só funciona se a corrente for obrigada a passar por ela.",
+            "Coloca a chave no meio do caminho entre o + da bateria e a lâmpada."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "S1",
+                "type": "switch",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "S1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "S1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C8",
+                    "b": "C10"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+8",
+                  "b": "B8",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g1p2",
+          "type": "build",
+          "goal": "campainha com botão",
+          "brief": "Faz uma campainha: o buzzer toca só enquanto o botão está apertado.",
+          "tray": {
+            "battery": 1,
+            "push_button": 1,
+            "buzzer": 1
+          },
+          "keyParts": [
+            {
+              "id": "K1",
+              "part": "push_button"
+            },
+            {
+              "id": "Z1",
+              "part": "buzzer"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "K1": "pressed"
+              },
+              "then": {
+                "Z1": "sounding"
+              }
+            },
+            {
+              "when": {
+                "K1": "released"
+              },
+              "then": {
+                "Z1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "O botão tem quatro pernas, e duas a duas já são ligadas por dentro. Abre o datasheet dele.",
+            "O buzzer tem lado: o + dele precisa ficar do lado do + da bateria."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "K1",
+                "type": "push_button",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "Z1",
+                "type": "buzzer",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "K1",
+                  "x": 0,
+                  "y": -3,
+                  "rotation": 0
+                },
+                {
+                  "id": "Z1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "K1",
+                  "rotation": 0,
+                  "holes": {
+                    "1": "E8",
+                    "2": "F8",
+                    "3": "E10",
+                    "4": "F10"
+                  }
+                },
+                {
+                  "id": "Z1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "+": "A10",
+                    "-": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+8",
+                  "b": "B8",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g1p3",
+          "type": "build",
+          "goal": "inverter a bateria e ver o motor girar ao contrário",
+          "brief": "O motor está girando num sentido. Faz ele girar pro outro lado.",
+          "keyParts": [
+            {
+              "id": "M1",
+              "part": "dc_motor"
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "M1",
+                "type": "dc_motor",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "M1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "M1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -60
+                  },
+                  "holes": {
+                    "+": "A10",
+                    "-": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "requireMatch": false,
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "M1": "ccw"
+              }
+            }
+          ],
+          "hints": [
+            "O sentido do giro depende de por qual perna a corrente entra.",
+            "Troca de lugar os fios que levam o + e o − até o motor."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "M1",
+                "type": "dc_motor",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "M1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "M1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -60
+                  },
+                  "holes": {
+                    "+": "A10",
+                    "-": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+14",
+                  "b": "B14",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B10",
+                  "b": "T-10",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g1p4",
+          "type": "build",
+          "goal": "2 lâmpadas em fila, visão de corrente ligada",
+          "brief": "Liga duas lâmpadas uma depois da outra, no mesmo caminho. Depois liga a visão de corrente e compara antes e depois de cada lâmpada.",
+          "tray": {
+            "battery": 1,
+            "lamp": 2
+          },
+          "keyParts": [
+            {
+              "id": "L1",
+              "part": "lamp"
+            },
+            {
+              "id": "L2",
+              "part": "lamp"
+            }
+          ],
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "L1": {
+                  "current": [
+                    0.03,
+                    0.07
+                  ]
+                },
+                "L2": {
+                  "current": [
+                    0.03,
+                    0.07
+                  ]
+                }
+              }
+            }
+          ],
+          "hints": [
+            "Em fila quer dizer que a corrente passa por uma lâmpada e depois pela outra, sem atalho.",
+            "Uma perna da primeira lâmpada liga numa perna da segunda; as outras duas vão uma pro + e uma pro −."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "L2",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                },
+                {
+                  "id": "L2",
+                  "x": 0,
+                  "y": 4,
+                  "rotation": 180
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": 2,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -2,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                },
+                {
+                  "id": "L2",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 30,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "C14",
+                    "b": "A18"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B18",
+                  "b": "T-18",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g1p5",
+          "type": "repair",
+          "goal": "chave montada fora do caminho da corrente",
+          "brief": "A chave desse circuito não faz nada: a lâmpada fica acesa o tempo todo. Descobre por quê e conserta.",
+          "keyParts": [
+            {
+              "id": "S1",
+              "part": "switch"
+            },
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "S1",
+                "type": "switch",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "S1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "S1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "H20",
+                    "b": "H22"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "showDivergence": false,
+          "expect": [
+            {
+              "when": {
+                "S1": "on"
+              },
+              "then": {
+                "L1": "lit"
+              }
+            },
+            {
+              "when": {
+                "S1": "off"
+              },
+              "then": {
+                "L1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "Liga a visão de corrente e vê se ela passa pela chave.",
+            "Compara com o desenho: a chave deveria estar entre o + e a lâmpada."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "S1",
+                "type": "switch",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "S1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "S1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C8",
+                    "b": "C10"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+8",
+                  "b": "B8",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        },
+        {
+          "id": "g1p6",
+          "type": "order",
+          "goal": "ventilador com chave e aviso sonoro",
+          "brief": "Encomenda: um ventilador que liga numa chave, com um aviso sonoro tocando enquanto ele gira. Orçamento de 12 créditos.",
+          "tray": {
+            "battery": 1,
+            "switch": 2,
+            "dc_motor": 1,
+            "buzzer": 1,
+            "lamp": 1
+          },
+          "budget": 12,
+          "keyParts": [
+            {
+              "id": "S1",
+              "part": "switch"
+            },
+            {
+              "id": "M1",
+              "part": "dc_motor"
+            },
+            {
+              "id": "Z1",
+              "part": "buzzer"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "S1": "on"
+              },
+              "then": {
+                "M1": "spinning",
+                "Z1": "sounding"
+              }
+            },
+            {
+              "when": {
+                "S1": "off"
+              },
+              "then": {
+                "M1": "off",
+                "Z1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "Uma chave só pode comandar as duas coisas se as duas dependerem dela.",
+            "Motor e buzzer podem ficar lado a lado, cada um com seu caminho, os dois depois da chave."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "S1",
+                "type": "switch",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "M1",
+                "type": "dc_motor",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "Z1",
+                "type": "buzzer",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "S1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "M1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                },
+                {
+                  "id": "Z1",
+                  "x": 10,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 10,
+                  "y2": -4
+                },
+                {
+                  "id": "F6",
+                  "x1": 10,
+                  "y1": -4,
+                  "x2": 10,
+                  "y2": -2
+                },
+                {
+                  "id": "F7",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F8",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F9",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                },
+                {
+                  "id": "F10",
+                  "x1": 10,
+                  "y1": 2,
+                  "x2": 10,
+                  "y2": 4
+                },
+                {
+                  "id": "F11",
+                  "x1": 10,
+                  "y1": 4,
+                  "x2": 6,
+                  "y2": 4
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "S1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C8",
+                    "b": "C10"
+                  }
+                },
+                {
+                  "id": "M1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 10,
+                    "z": -60
+                  },
+                  "holes": {
+                    "+": "A10",
+                    "-": "A14"
+                  }
+                },
+                {
+                  "id": "Z1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 45,
+                    "z": -50
+                  },
+                  "holes": {
+                    "+": "D10",
+                    "-": "B14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+8",
+                  "b": "B8",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "C14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "g2",
+      "title": "Circuitos lógicos",
+      "demo": false,
+      "concept": "níveis 0/1, tabela-verdade, portas como CIs na protoboard",
+      "unlocks": [
+        "logic_switch",
+        "logic_probe",
+        "chip_not",
+        "chip_and",
+        "chip_or",
+        "chip_xor",
+        "chip_nand",
+        "chip_nor",
+        "chip_xnor"
+      ],
+      "phases": [
+        {
+          "id": "g2p1",
+          "type": "tutorial",
+          "goal": "alimentar um CI (VCC/GND) e ler a saída"
+        },
+        {
+          "id": "g2p2",
+          "type": "build",
+          "goal": "NOT: luz acende quando a chave está desligada"
+        },
+        {
+          "id": "g2p3",
+          "type": "build",
+          "goal": "AND e OR: duas chaves, uma saída"
+        },
+        {
+          "id": "g2p4",
+          "type": "build",
+          "goal": "XOR: interruptor de escada"
+        },
+        {
+          "id": "g2p5",
+          "type": "build",
+          "goal": "montar AND usando só NAND"
+        },
+        {
+          "id": "g2p6",
+          "type": "repair",
+          "goal": "CI sem alimentação / pino trocado"
+        },
+        {
+          "id": "g2p7",
+          "type": "order",
+          "goal": "alarme: porta aberta E sistema armado"
+        }
+      ]
+    },
+    {
+      "id": "g3",
+      "title": "Resistência",
+      "demo": false,
+      "concept": "resistor limita corrente, lei de Ohm, código de cores, multímetro",
+      "unlocks": [
+        "resistor",
+        "led",
+        "multimeter"
+      ],
+      "phases": [
+        {
+          "id": "g3p1",
+          "type": "tutorial",
+          "goal": "ler o resistor pelas faixas de cor"
+        },
+        {
+          "id": "g3p2",
+          "type": "build",
+          "goal": "LED com resistor (polaridade do LED)"
+        },
+        {
+          "id": "g3p3",
+          "type": "tutorial",
+          "goal": "medir tensão e corrente com o multímetro"
+        },
+        {
+          "id": "g3p4",
+          "type": "build",
+          "goal": "escolher R pra corrente do datasheet do LED"
+        },
+        {
+          "id": "g3p5",
+          "type": "repair",
+          "goal": "LED fraco: resistor errado, achar pelo multímetro"
+        },
+        {
+          "id": "g3p6",
+          "type": "order",
+          "goal": "saída de porta lógica acendendo LED indicador"
+        }
+      ]
+    },
+    {
+      "id": "g4",
+      "title": "Série e paralelo",
+      "demo": false,
+      "concept": "resistência equivalente, divisor de tensão, corrente conservada nos ramos",
+      "unlocks": [
+        "potentiometer"
+      ],
+      "phases": [
+        {
+          "id": "g4p1",
+          "type": "build",
+          "goal": "2 resistores em série: medir em cada ponto"
+        },
+        {
+          "id": "g4p2",
+          "type": "build",
+          "goal": "2 LEDs em paralelo com resistores próprios"
+        },
+        {
+          "id": "g4p3",
+          "type": "build",
+          "goal": "divisor de tensão com 2 resistores"
+        },
+        {
+          "id": "g4p4",
+          "type": "build",
+          "goal": "dimmer com potenciômetro"
+        },
+        {
+          "id": "g4p5",
+          "type": "repair",
+          "goal": "um ramo apagado: achar o aberto"
+        },
+        {
+          "id": "g4p6",
+          "type": "order",
+          "goal": "painel de 3 LEDs com 1 bateria e peças limitadas"
+        }
+      ]
+    },
+    {
+      "id": "g5",
+      "title": "Capacitância",
+      "demo": false,
+      "concept": "capacitor armazena carga, carga/descarga RC, tempo",
+      "unlocks": [
+        "capacitor"
+      ],
+      "phases": [
+        {
+          "id": "g5p1",
+          "type": "tutorial",
+          "goal": "carregar e descarregar um capacitor"
+        },
+        {
+          "id": "g5p2",
+          "type": "build",
+          "goal": "LED que apaga devagar"
+        },
+        {
+          "id": "g5p3",
+          "type": "build",
+          "goal": "mudar R e C e comparar o tempo"
+        },
+        {
+          "id": "g5p4",
+          "type": "repair",
+          "goal": "capacitor eletrolítico invertido"
+        },
+        {
+          "id": "g5p5",
+          "type": "order",
+          "goal": "luz de cortesia que apaga sozinha"
+        }
+      ]
+    },
+    {
+      "id": "g6",
+      "title": "Limites",
+      "demo": false,
+      "concept": "potência, curto-circuito, componentes queimando, fusível",
+      "unlocks": [
+        "fuse",
+        "burn_enabled"
+      ],
+      "phases": [
+        {
+          "id": "g6p1",
+          "type": "build",
+          "goal": "o que acontece com LED sem resistor"
+        },
+        {
+          "id": "g6p2",
+          "type": "build",
+          "goal": "potência do resistor: escolher o certo"
+        },
+        {
+          "id": "g6p3",
+          "type": "build",
+          "goal": "fusível protegendo o circuito"
+        },
+        {
+          "id": "g6p4",
+          "type": "repair",
+          "goal": "achar o curto antes de ligar"
+        },
+        {
+          "id": "g6p5",
+          "type": "order",
+          "goal": "circuito com proteção, orçamento fixo"
+        }
+      ]
+    }
+  ],
+  "future": [
+    "diode",
+    "bridge_rectifier",
+    "transistor",
+    "relay",
+    "seven_segment",
+    "perfboard",
+    "pcb",
+    "sandbox_share",
+    "embedded",
+    "random_faults",
+    "split_rails",
+    "ohmmeter_autorange"
+  ]
+}
