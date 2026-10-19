@@ -403,3 +403,67 @@ describe("logic chips", () => {
     expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
   })
 })
+
+describe("multimeter", () => {
+  const meter = (mode: string): NetPart => ({ id: "METER", type: "multimeter", value: 0, inputState: mode, isTool: true })
+
+  it("voltmeter on a 1k divider reads within 0.1%", () => {
+    const ideal = (9 * 1000) / 2000.2
+    const pinAt = { "B1.+": "p", "R1.a": "p", "R1.b": "m", "R2.a": "m", "R2.b": "n", "B1.-": "n", "METER.red": "m", "METER.black": "n" }
+    const s = solve(net([bat("B1"), r("R1", 1000), r("R2", 1000), meter("V")], pinAt), catalog)
+    expect(s.meter?.mode).toBe("V")
+    expect(s.meter?.display).toBe("value")
+    expect(Math.abs(s.meter!.value! - ideal) / ideal).toBeLessThan(0.001)
+  })
+
+  it("ammeter in series reads the loop current", () => {
+    const pinAt = { "B1.+": "p", "METER.red": "p", "METER.black": "q", "L1.a": "q", "L1.b": "n", "B1.-": "n" }
+    const s = solve(net([bat("B1"), lamp("L1"), meter("A")], pinAt), catalog)
+    expect(s.meter!.value!).toBeCloseTo(9 / (90 + 0.2 + 0.1), 4)
+    expect(s.partState.L1).toMatchObject({ lit: true })
+  })
+
+  it("ammeter across the battery shows OL and warns, nothing burns", () => {
+    const pinAt = { "B1.+": "p", "B1.-": "n", "METER.red": "p", "METER.black": "n" }
+    const s = solve(net([bat("B1"), meter("A")], pinAt), catalog)
+    expect(s.meter).toEqual({ mode: "A", value: null, display: "OL" })
+    expect(s.warnings).toContainEqual({ kind: "ammeterParallel" })
+    expect(s.status).toBe("ok")
+    expect(Math.abs(s.partCurrent.B1)).toBeGreaterThan(2)
+  })
+
+  it("ohmmeter reads an isolated resistor", () => {
+    const s = solve(net([r("R1", 2200), meter("ohm")], { "R1.a": "x", "R1.b": "y", "METER.red": "x", "METER.black": "y" }), catalog)
+    expect(s.meter?.display).toBe("value")
+    expect(s.meter!.value!).toBeCloseTo(2200, 0)
+  })
+
+  it("ohmmeter reads a parallel pair with the battery off", () => {
+    const pinAt = { "B1.+": "x", "B1.-": "y", "R1.a": "x", "R1.b": "y", "R2.a": "x", "R2.b": "y", "METER.red": "x", "METER.black": "y" }
+    const s = solve(net([{ ...bat("B1"), inputState: "off" }, r("R1", 1000), r("R2", 1000), meter("ohm")], pinAt), catalog)
+    expect(s.meter!.value!).toBeCloseTo(500, 0)
+  })
+
+  it("ohmmeter above 3 kOhm shows OL", () => {
+    const s = solve(net([r("R1", 4700), meter("ohm")], { "R1.a": "x", "R1.b": "y", "METER.red": "x", "METER.black": "y" }), catalog)
+    expect(s.meter).toEqual({ mode: "ohm", value: null, display: "OL" })
+  })
+
+  it("ohmmeter on an open circuit shows OL", () => {
+    const s = solve(net([meter("ohm")], { "METER.red": "x", "METER.black": "y" }), catalog)
+    expect(s.meter).toEqual({ mode: "ohm", value: null, display: "OL" })
+  })
+
+  it("ohmmeter with a powered loop shows dashes and warns", () => {
+    const pinAt = { "B1.+": "x", "B1.-": "y", "R1.a": "x", "R1.b": "y", "METER.red": "x", "METER.black": "y" }
+    const s = solve(net([bat("B1"), r("R1", 1000), meter("ohm")], pinAt), catalog)
+    expect(s.meter).toEqual({ mode: "ohm", value: null, display: "----" })
+    expect(s.warnings).toContainEqual({ kind: "ohmmeterPowered" })
+  })
+
+  it("zero ohm resistor behaves as a short", () => {
+    const pinAt = { "B1.+": "p", "R1.a": "p", "R1.b": "q", "L1.a": "q", "L1.b": "n", "B1.-": "n" }
+    const s = solve(net([bat("B1"), r("R1", 0), lamp("L1")], pinAt), catalog)
+    expect(s.partCurrent.L1).toBeCloseTo(9 / (90 + 0.2 + 0.001), 4)
+  })
+})

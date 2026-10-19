@@ -77,7 +77,7 @@ function gaussianSolve(matrix: number[][], rhs: number[]): number[] {
   return x
 }
 
-function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>, discrete: DiscreteState): Branch[] {
+function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>, discrete: DiscreteState & { ohmBlocked?: boolean }): Branch[] {
   const pin = (name: string): PointId | undefined => pinAt[`${part.id}.${name}`]
   const branch = (pa: string, pb: string, g: number, source = 0): Branch[] => {
     const a = pin(pa)
@@ -92,7 +92,7 @@ function partBranches(part: NetPart, def: PartDef, state: string | undefined, pi
     case "battery":
       return state === "off" ? [] : branch("+", "-", 1 / BATTERY_RESISTANCE, part.value / BATTERY_RESISTANCE)
     case "resistor":
-      return part.value > 0 ? branch(def.pins[0], def.pins[1], 1 / part.value) : []
+      return branch(def.pins[0], def.pins[1], part.value > 0 ? 1 / part.value : link)
     case "lamp":
     case "motor":
     case "buzzer":
@@ -107,6 +107,13 @@ function partBranches(part: NetPart, def: PartDef, state: string | undefined, pi
       return branch("OUT", state === "1" ? "VCC" : "GND", link)
     case "logicProbe":
       return branch("IN", "GND", 1 / (def.thresholds?.inputResistance ?? Infinity))
+    case "multimeter": {
+      const t = def.thresholds ?? {}
+      if (state === "V") return branch("red", "black", 1 / (t.voltmeterResistance ?? Infinity))
+      if (state === "A") return branch("red", "black", 1 / (t.ammeterResistance ?? Infinity))
+      if (state === "ohm" && !discrete.ohmBlocked) return branch("red", "black", 0, t.ohmCurrent ?? 0)
+      return []
+    }
     case "logic": {
       const inputG = 1 / (def.thresholds?.inputResistance ?? Infinity)
       const outputG = 1 / (def.thresholds?.outputResistance ?? Infinity)
@@ -172,6 +179,10 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
       (other) => other === ref || toolIds.has(ownerOf(other)) || chipInputs.has(other) || discrete.outputs[other] === "z",
     )
   }
+  const meterPart = known.find((p) => catalog[p.type].model.kind === "multimeter")
+  const meterMode = meterPart ? states.get(meterPart.id) : undefined
+  // ohmímetro com fonte ligada no mesmo pedaço de circuito: leitura não faz sentido, mostra ----
+  const ohmBlocked = meterMode === "ohm" && poweredNear(net, catalog, known, states, meterPart!.id)
   const hasCompany = (ref: PinRef) => {
     const node = nodes.get(ref)
     return node !== undefined && (membersByNode.get(node) ?? []).some((other) => other !== ref)
@@ -182,7 +193,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   const runPass = (discrete: DiscreteState) => {
     const partBranchList = new Map<string, Branch[]>()
     for (const part of known) {
-      partBranchList.set(part.id, partBranches(part, catalog[part.type], states.get(part.id), net.pinAt, discrete))
+      partBranchList.set(part.id, partBranches(part, catalog[part.type], states.get(part.id), net.pinAt, { ...discrete, ohmBlocked }))
     }
     const linkG = 1 / LINK_RESISTANCE
     const all: Branch[] = [...net.links.map((l) => ({ a: l.a, b: l.b, g: linkG, source: 0 }))]
@@ -387,6 +398,26 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
 
   if (status === "unstable") warnings.push({ kind: "unstable" })
 
+  let meter: MeterReading | undefined
+  if (meterPart && (meterMode === "V" || meterMode === "A" || meterMode === "ohm")) {
+    const t = catalog[meterPart.type].thresholds ?? {}
+    const red = voltages[net.pinAt[`${meterPart.id}.red`]] ?? 0
+    const black = voltages[net.pinAt[`${meterPart.id}.black`]] ?? 0
+    const across = red - black
+    if (meterMode === "V") meter = { mode: "V", value: across, display: "value" }
+    else if (meterMode === "A") {
+      const amps = across / (t.ammeterResistance ?? Infinity)
+      if (Math.abs(amps) > (t.ammeterParallelCurrent ?? Infinity)) {
+        meter = { mode: "A", value: null, display: "OL" }
+        warnings.push({ kind: "ammeterParallel" })
+      } else meter = { mode: "A", value: amps, display: "value" }
+    } else if (ohmBlocked) {
+      meter = { mode: "ohm", value: null, display: "----" }
+      warnings.push({ kind: "ohmmeterPowered" })
+    } else if (across > (t.ohmMaxVoltage ?? 0)) meter = { mode: "ohm", value: null, display: "OL" }
+    else meter = { mode: "ohm", value: across / (t.ohmCurrent ?? 1), display: "value" }
+  }
+
   return {
     status,
     voltages,
@@ -396,7 +427,37 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     warnings,
     discrete,
     passes,
+    meter,
   }
+}
+
+function poweredNear(net: Netlist, catalog: PartsCatalog, parts: NetPart[], states: Map<string, string | undefined>, meterId: string): boolean {
+  const parent = new Map<string, string>()
+  const find = (x: string): string => {
+    let root = x
+    while ((parent.get(root) ?? root) !== root) root = parent.get(root)!
+    parent.set(x, root)
+    return root
+  }
+  const join = (a: string, b: string) => {
+    const ra = find(a)
+    const rb = find(b)
+    if (ra !== rb) parent.set(ra, rb)
+  }
+  for (const l of net.links) join(l.a, l.b)
+  for (const part of parts) {
+    if (part.id === meterId) continue
+    const points = (catalog[part.type].pins ?? []).map((pin) => net.pinAt[`${part.id}.${pin}`]).filter((p): p is PointId => p !== undefined)
+    for (let i = 1; i < points.length; i++) join(points[0], points[i])
+  }
+  const red = net.pinAt[`${meterId}.red`]
+  const black = net.pinAt[`${meterId}.black`]
+  const zones = new Set([red, black].filter((p): p is PointId => p !== undefined).map(find))
+  return parts.some((part) => {
+    if (catalog[part.type].model.kind !== "battery" || states.get(part.id) === "off") return false
+    const plus = net.pinAt[`${part.id}.+`]
+    return plus !== undefined && zones.has(find(plus))
+  })
 }
 
 function applyLogic(fn: "and" | "or" | "nand" | "nor" | "xor" | "xnor" | "not", levels: (0 | 1)[]): 0 | 1 {

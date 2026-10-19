@@ -1521,5 +1521,35 @@
       ]
     },
     "datasheet": "logic_probe"
+  },
+  "multimeter": {
+    "pins": [
+      "red",
+      "black"
+    ],
+    "placement": "offboard",
+    "cost": 0,
+    "model": {
+      "kind": "multimeter"
+    },
+    "isTool": true,
+    "thresholds": {
+      "voltmeterResistance": 10000000,
+      "ammeterResistance": 0.1,
+      "ammeterParallelCurrent": 2,
+      "ohmCurrent": 0.001,
+      "ohmMaxVoltage": 3
+    },
+    "symbolPins": {
+      "red": [
+        -2,
+        0
+      ],
+      "black": [
+        2,
+        0
+      ]
+    },
+    "datasheet": "multimeter"
   }
 }

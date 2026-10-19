@@ -117,5 +117,12 @@
     "values": [],
     "breadboard": "",
     "mistake": ""
+  },
+  "multimeter": {
+    "title": "Multímetro",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
   }
 }
