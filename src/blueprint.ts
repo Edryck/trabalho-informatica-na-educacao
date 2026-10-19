@@ -268,7 +268,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       g.appendChild(name)
       const value = valueText(instance.type, instance.value)
       if (value) {
-        const v = el("text", { class: "value", x: labelX, y: vertical ? 10 : 36, "text-anchor": anchor })
+        const v = el("text", { class: "value", x: labelX, y: vertical ? 10 : 36, "text-anchor": anchor, "data-value": placement.id })
         v.textContent = value
         g.appendChild(v)
       }
@@ -612,6 +612,8 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
 
   svg.addEventListener("dblclick", (event) => {
     if (mode.kind === "wire") return finishWire()
+    const valueNode = (event.target as Element | null)?.closest("[data-value]")
+    if (valueNode) return cb.onEvent(`editValue:${valueNode.getAttribute("data-value")}`)
     const pick = pickAt(event)
     if (pick?.kind === "label") startEditing(pick.id)
   })

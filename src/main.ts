@@ -6,7 +6,7 @@ import "@fontsource/ibm-plex-mono/500.css"
 import "./style.css"
 import partsJson from "../data/parts.json"
 import phasesJson from "../data/phases.json"
-import { createBench, WIRE_PALETTE, type BenchTool } from "./bench"
+import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
 import {
@@ -38,6 +38,9 @@ import {
 import {
   createDivergenceBar,
   createHint,
+  createMeterHud,
+  createValuePicker,
+  formatValue,
   createPendingList,
   createPhaseBrief,
   createPhaseList,
@@ -104,9 +107,11 @@ const stageEl = app.querySelector<HTMLElement>(".stage")!
 const blueprintLayer = app.querySelector<HTMLElement>(".layer-blueprint")!
 const benchLayer = app.querySelector<HTMLElement>(".layer-bench")!
 const trayEl = app.querySelector<HTMLElement>(".tray-host")!
-const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl] = Array.from({ length: 9 }, () => document.createElement("div"))
-stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl)
-benchLayer.append(paletteEl)
+const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl] = Array.from({ length: 11 }, () =>
+  document.createElement("div"),
+)
+stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl)
+benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
 type Session = {
@@ -155,6 +160,7 @@ const callbacks = (name: ViewName) => ({
   onEvent: (event: string) => {
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
+    else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
     else record(event as TutorialEvent)
   },
   onHint: (text: string | null) => {
@@ -167,14 +173,68 @@ const bench = createBench(benchLayer, catalog, { ...callbacks("bench"), onSelect
 const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
 
 const toolbar = createToolbar(toolbarEl, onToolbar)
-const tray = createTray(trayEl, (type) => {
+const tray = createTray(trayEl, (type) => void pickFromTray(type))
+
+async function pickFromTray(type: string) {
   if (!session || choosing || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
-  const values = session.phase.trayValues?.[type]
-  setTool(item ? { place: item.type, id: item.id } : { place: type, value: values?.length === 1 ? values[0] : undefined })
+  const partType = item?.type ?? type
+  const values = activeView === "bench" ? session.phase.trayValues?.[partType] : undefined
+  let value: number | undefined
+  if (values && values.length > 1) {
+    const chosen = await valuePicker.open(
+      partType === "resistor" ? "Qual resistor você pega?" : "Qual peça você pega?",
+      values.map((v) => ({ value: v, html: physicalHtml(partType, v), label: partType === "resistor" ? `Resistor com faixas ${resistorBands(v).join(", ")}` : String(v) })),
+    )
+    if (chosen === null) return
+    value = chosen
+  } else if (values?.length === 1) value = values[0]
+  else if (!item) {
+    const options = catalog[partType]?.values ?? []
+    if (options.length > 1) {
+      const unit = partType === "battery" ? "V" : "Ω"
+      const chosen = await valuePicker.open(
+        `Valor ${partType === "battery" ? "da bateria" : "do resistor"}`,
+        options.map((v) => ({ value: v, html: `<span class="mono">${formatValue(v, unit)}</span>`, label: formatValue(v, unit) })),
+      )
+      if (chosen === null) return
+      value = chosen
+    }
+  }
+  setTool(item ? { place: item.type, id: item.id, value } : { place: type, value })
   activePart = type
   tray.update(trayItems(view.doc), activePart)
-})
+}
+
+function physicalHtml(type: string, value: number): string {
+  // no código de cores o jogador vê só as faixas, sem o número
+  if (type === "resistor")
+    return `<span class="band-resistor">${resistorBands(value)
+      .map((band) => `<span class="band" style="background:${bandHex(band)}"></span>`)
+      .join("")}</span>`
+  return `<span class="mono">${formatValue(value, type === "battery" ? "V" : "Ω")}</span>`
+}
+
+async function editValue(id: string) {
+  const instance = view.doc.instances.find((i) => i.id === id)
+  const values = instance ? catalog[instance.type]?.values : undefined
+  if (!instance || !values || values.length === 0 || !session) return
+  const unit = instance.type === "battery" ? "V" : "Ω"
+  const chosen = await valuePicker.open(
+    `Valor de ${id} no esquema`,
+    values.map((v) => ({ value: v, html: `<span class="mono">${formatValue(v, unit)}</span>`, label: formatValue(v, unit) })),
+  )
+  if (chosen === null) return
+  const doc = structuredClone(view.doc)
+  const target = doc.instances.find((i) => i.id === id)!
+  target.value = chosen
+  if (!doc.bench.placements.some((p) => p.id === id)) target.actualValue = chosen
+  update(doc, { commit: true })
+}
+const valuePicker = createValuePicker(pickerEl)
+const meterHud = createMeterHud(meterEl, (mode) => setMeterMode(mode))
+let lastMeterMode: "V" | "A" | "ohm" = "V"
+let shownWarnings = new Set<string>()
 const palette = createWirePalette(paletteEl, WIRE_PALETTE, (color) => bench.setWireColor(color))
 palette.show(false)
 const pendingList = createPendingList(pendingEl, "Na protoboard, falta no esquema", (item: PendingItem) => setTool({ place: item.type, id: item.id }))
@@ -230,7 +290,10 @@ function render() {
   const evaluatesBench = phase?.evaluateOn !== "blueprint"
   bench.render(view, { currentView, reducedMotion, divergences, preview: evaluatesBench ? previewResult : undefined })
   blueprint.render(view, { currentView, reducedMotion, standard: store.data.settings.standard, divergences, preview: evaluatesBench ? undefined : previewResult })
-  bar.show(divergences)
+  bar.show(divergences, (partId) => (view.doc.instances.find((i) => i.id === partId)?.type === "battery" ? "V" : "Ω"))
+  const meter = view.doc.bench.meter
+  meterHud.render(meter.mode, (previewResult && evaluatesBench ? previewResult : view.benchResult).meter, !!meter.red && !!meter.black)
+  toolbar.setMeterAvailable(meterAvailable())
   pendingList.update(pendingFor("blueprint"))
   tray.update(trayItems(view.doc), activePart)
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
@@ -259,6 +322,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
     }
   }
   view = compute(doc)
+  noticeMeterAndWarnings()
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
   if (opts.commit) {
     advanceSteps()
@@ -281,11 +345,72 @@ function activeEditor() {
   return activeView === "bench" ? bench : blueprint
 }
 
+function meterAvailable(): boolean {
+  if (!session) return false
+  const groupIndex = phases.groups.findIndex((g) => g.phases.some((p) => p.id === session!.phase.id))
+  const unlockIndex = phases.groups.findIndex((g) => g.unlocks.includes("multimeter"))
+  return unlockIndex >= 0 && groupIndex >= unlockIndex
+}
+
+function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
+  if (!session) return
+  const doc = structuredClone(view.doc)
+  doc.bench.meter.mode = mode
+  if (mode !== "off") lastMeterMode = mode
+  update(doc, { commit: true })
+}
+
+function toggleMeter() {
+  if (!meterAvailable() || activeView !== "bench") return
+  if (view.doc.bench.meter.mode === "off") {
+    setMeterMode(lastMeterMode)
+    const meter = view.doc.bench.meter
+    if (!meter.red || !meter.black) setTool("meter")
+  } else {
+    setMeterMode("off")
+    setTool("select")
+  }
+}
+
+function warningText(kind: string, partId?: string): string | null {
+  switch (kind) {
+    case "ammeterParallel":
+      return "Amperímetro em paralelo vira um curto. Abre o circuito e põe o medidor no caminho da corrente."
+    case "ohmmeterPowered":
+      return "Desliga a fonte antes de medir resistência."
+    case "overcurrent":
+      return `${partId} está com corrente acima do que aguenta. Aqui nada queima, mas numa bancada de verdade ela não ia durar.`
+    case "unstable":
+      return "O circuito não se decide: a saída fica trocando de estado. Confere se alguma saída volta pra própria entrada."
+    default:
+      return null
+  }
+}
+
+function noticeMeterAndWarnings() {
+  const result = view.benchResult
+  const reading = result.meter
+  const meter = view.doc.bench.meter
+  if (meter.mode !== "off" && meter.red && meter.black) record("meterPlaced")
+  if (reading?.display === "value" && reading.value !== null) {
+    if (reading.mode === "V" && Math.abs(reading.value) > 0.1) record("meterReadVoltage")
+    if (reading.mode === "A" && Math.abs(reading.value) > 1e-4) record("meterReadCurrent")
+  }
+  const now = new Set(result.warnings.map((w) => `${w.kind}|${w.partId ?? ""}`))
+  for (const w of result.warnings) {
+    const key = `${w.kind}|${w.partId ?? ""}`
+    if (shownWarnings.has(key)) continue
+    const text = warningText(w.kind, w.partId)
+    if (text) toasts.show("warning", text)
+  }
+  shownWarnings = now
+}
+
 function setTool(tool: BenchTool) {
   bench.setTool(activeView === "bench" ? tool : "select")
   blueprint.setTool(activeView === "blueprint" ? tool : "select")
   activePart = typeof tool === "object" ? tool.place : null
-  toolbar.setActive(tool === "select" || tool === "wire" ? tool : null)
+  toolbar.setActive(tool === "select" || tool === "wire" || tool === "meter" ? tool : null)
   tray.update(trayItems(view.doc), activePart)
 }
 
@@ -408,6 +533,8 @@ function startPhase(phaseId: string) {
   choosing = false
   stageEl.classList.remove("choosing")
   blueprint.setLockedIds(phase.keyParts.map((k) => k.id))
+  shownWarnings = new Set()
+  valuePicker.close()
   history = createHistory(doc)
   benchDiscrete = undefined
   blueprintDiscrete = undefined
@@ -447,6 +574,7 @@ function onToolbar(id: ToolId) {
   if (choosing || !session) return
   if (session?.previewIndex !== null && session?.previewIndex !== undefined && id !== "currentView") return
   if (id === "select" || id === "wire") setTool(id)
+  else if (id === "meter") toggleMeter()
   else if (id === "currentView") {
     currentView = !currentView
     if (currentView) record("currentViewToggled")
@@ -501,6 +629,7 @@ window.addEventListener("keydown", (event) => {
   if (key === "s") setTool("select")
   else if (key === "w") setTool("wire")
   else if (key === "c") onToolbar("currentView")
+  else if (key === "m") toggleMeter()
   else if (key === "v") switchView(activeView === "bench" ? "blueprint" : "bench")
 })
 

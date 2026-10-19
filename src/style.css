@@ -1146,3 +1146,177 @@ body {
 .blueprint .symbol line.lit {
   stroke: var(--color-current);
 }
+
+.blueprint .value {
+  cursor: pointer;
+}
+
+.blueprint .value:hover {
+  fill: var(--color-accent);
+}
+
+.meter-hud {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  width: 220px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.meter-hud[hidden] {
+  display: none;
+}
+
+.meter-display {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  background: #0a1a12;
+  border: 1px solid #1f3a2b;
+  border-radius: 4px;
+}
+
+.meter-value {
+  font: 500 32px/1.1 var(--font-mono);
+  color: #b8f5cf;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.meter-mode {
+  font: 500 12px var(--font-ui);
+  letter-spacing: 0.04em;
+  color: #7fb894;
+  text-align: right;
+}
+
+.meter-hud.overload .meter-value {
+  color: var(--color-warning);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .meter-hud.overload .meter-value {
+    animation: meter-blink 1s steps(2, start) infinite;
+  }
+}
+
+@keyframes meter-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.meter-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.meter-modes button {
+  height: 32px;
+  font: 600 14px var(--font-mono);
+  color: var(--color-text-muted);
+  background: var(--color-panel-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.meter-modes button[aria-checked="true"] {
+  color: var(--color-bg);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.meter-modes button:focus-visible,
+.picker-option:focus-visible,
+.picker-cancel:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.value-picker {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.value-picker[hidden] {
+  display: none;
+}
+
+.picker-title {
+  margin: 0;
+  font: 600 14px var(--font-ui);
+}
+
+.picker-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.picker-option {
+  min-width: 96px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  color: var(--color-text);
+  background: var(--color-panel-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.picker-option:hover {
+  border-color: var(--color-accent);
+}
+
+.picker-cancel {
+  justify-self: end;
+  height: 30px;
+  padding: 0 12px;
+  font: 500 12px var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.band-resistor {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  background: #d9c49a;
+  border-radius: 999px;
+}
+
+.band-resistor .band {
+  width: 6px;
+  height: 18px;
+  border-radius: 1px;
+}
+
+.band-resistor .band:last-child {
+  margin-left: 6px;
+}

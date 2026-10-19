@@ -165,6 +165,40 @@ function offboardShape(type: string): OffboardShape {
   return OFFBOARD[type] ?? { size: [10, 8, 10], pins: {} }
 }
 
+const BAND_COLORS = ["black", "brown", "red", "orange", "yellow", "green", "blue", "violet", "gray", "white"]
+const BAND_HEX: Record<string, string> = {
+  black: "#1b1b1b",
+  brown: "#7a4a24",
+  red: "#c62828",
+  orange: "#ef7d22",
+  yellow: "#f2c630",
+  green: "#2e9e5b",
+  blue: "#2f6fd6",
+  violet: "#8a4fc8",
+  gray: "#8c8c8c",
+  white: "#f2f2f2",
+  gold: "#c9a227",
+}
+
+export function resistorBands(ohms: number): [string, string, string, string] {
+  if (!(ohms > 0)) return ["black", "black", "black", "gold"]
+  const exponent = Math.floor(Math.log10(ohms)) - 1
+  const digits = Math.round(ohms / 10 ** exponent)
+  const normalized = digits >= 100 ? { d: Math.round(digits / 10), e: exponent + 1 } : { d: digits, e: exponent }
+  const first = Math.floor(normalized.d / 10)
+  const second = normalized.d % 10
+  const multiplier = normalized.e < 0 ? "gold" : BAND_COLORS[normalized.e]
+  return [BAND_COLORS[first], BAND_COLORS[second], multiplier, "gold"]
+}
+
+export function bandHex(color: string): string {
+  return BAND_HEX[color] ?? "#888888"
+}
+
+const LED_COLORS: Record<string, number> = { red: 0xff3b30, green: 0x34d058, yellow: 0xffd60a }
+const FLEX_MIN = PITCH * 0.99
+const FLEX_MAX = PITCH * 8.01
+
 const CHIP_CODES: Record<string, string> = {
   chip_nand: "7400",
   chip_nor: "7402",
@@ -328,7 +362,7 @@ function std(color: number | string, extra: Partial<{ emissive: number; emissive
   return new MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, ...extra })
 }
 
-type Pickable = { kind: "part" | "wire" | "wireEnd" | "leadEnd"; id: string; end?: "a" | "b"; pin?: string }
+type Pickable = { kind: "part" | "wire" | "wireEnd" | "leadEnd" | "probeEnd"; id: string; end?: "a" | "b"; pin?: string }
 type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
 type Mode =
   | { kind: "idle" }
@@ -336,6 +370,8 @@ type Mode =
   | { kind: "rigid"; type: string; value?: number; id?: string; rotation: 0 | 90 | 180 | 270 }
   | { kind: "offboard"; type: string; value?: number; id?: string }
   | { kind: "leads"; id: string; pins: string[]; index: number }
+  | { kind: "flexible"; type: string; value?: number; id?: string; first: HoleId | null }
+  | { kind: "probes"; next: "red" | "black" }
 type Particle = { mesh: Mesh; curve: Curve<Vector3>; length: number; t: number; speed: number; direction: number }
 type Spinner = { obj: Object3D; direction: number }
 
@@ -456,6 +492,14 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
 
   function result(): SolveResult | undefined {
     return opts.preview ?? view?.benchResult
+  }
+
+  function flexibleDistanceOk(a: HoleId, b: HoleId): boolean {
+    const pa = holePosition(a)
+    const pb = holePosition(b)
+    if (!pa || !pb || a === b) return false
+    const d = Math.hypot(pa.x - pb.x, pa.z - pb.z)
+    return d >= FLEX_MIN && d <= FLEX_MAX
   }
 
   function occupiedHoles(d: CircuitDoc, except?: { wireEnd?: string; lead?: string }): Set<HoleId> {
@@ -781,6 +825,117 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     return g
   }
 
+  function buildFlexible(placement: BenchPlacement, type: string, r: SolveResult | undefined, instanceValue: number, variant?: string): Group {
+    const g = new Group()
+    const pins = catalog[type]?.pins ?? []
+    const ha = placement.holes[pins[0]]
+    const hb = placement.holes[pins[1]]
+    const pa = ha ? holePosition(ha) : null
+    const pb = hb ? holePosition(hb) : null
+    if (!pa || !pb) return g
+    const a = new Vector3(pa.x, 0, pa.z)
+    const b = new Vector3(pb.x, 0, pb.z)
+    const mid = a.clone().add(b).multiplyScalar(0.5)
+    const sel = selectedEmissive(placement.id, "part")
+    const legMat = std(0xb8bcc2, { metalness: 0.8, roughness: 0.3 })
+    if (type === "resistor") {
+      const top = 3.2
+      for (const p of [a, b]) {
+        const leg = new Mesh(new CylinderGeometry(0.22, 0.22, top), legMat)
+        leg.position.set(p.x, top / 2, p.z)
+        g.add(leg)
+      }
+      const span = new Mesh(new TubeGeometry(new LineCurve3(a.clone().setY(top), b.clone().setY(top)), 2, 0.22, 6), legMat)
+      g.add(span)
+      const length = Math.min(6.2, Math.max(2.2, a.distanceTo(b) - 1.2))
+      const body = new Mesh(new CylinderGeometry(1.05, 1.05, length, 16), std(0xd9c49a, { roughness: 0.7, emissive: COLOR.accent, emissiveIntensity: sel }))
+      body.position.copy(mid).setY(top)
+      body.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), b.clone().sub(a).normalize())
+      g.add(body)
+      addPickable(body, { kind: "part", id: placement.id })
+      resistorBands(instanceValue).forEach((band, i) => {
+        const ring = new Mesh(new CylinderGeometry(1.1, 1.1, 0.42, 16), std(bandHex(band)))
+        const t = -0.32 + i * 0.2 + (i === 3 ? 0.08 : 0)
+        ring.position.copy(mid.clone().add(b.clone().sub(a).normalize().multiplyScalar(t * length))).setY(top)
+        ring.quaternion.copy(body.quaternion)
+        g.add(ring)
+      })
+      const tag = label(placement.id)
+      tag.position.copy(mid).setY(top + 5)
+      g.add(tag)
+      return g
+    }
+    const state = r?.partState[placement.id]
+    const lit = state?.kind === "led" && state.lit ? state.brightness : 0
+    const color = LED_COLORS[variant ?? "red"] ?? LED_COLORS.red
+    const height = 6
+    for (const [p, extra] of [[a, 1.2], [b, 0]] as const) {
+      const leg = new Mesh(new TubeGeometry(new LineCurve3(p.clone().setY(0.2), mid.clone().add(p.clone().sub(mid).multiplyScalar(0.25)).setY(height - 1)), 2, 0.2, 6), legMat)
+      g.add(leg)
+      if (extra > 0) {
+        const plus = label("+", 4, "#E5534B")
+        plus.position.copy(p).setY(height + extra)
+        g.add(plus)
+      }
+    }
+    const base = new Mesh(new CylinderGeometry(1.75, 1.75, 0.6, 20), std(color, { transparent: true, opacity: 0.85, emissive: color, emissiveIntensity: lit * 1.6 + sel }))
+    base.position.copy(mid).setY(height - 0.7)
+    g.add(base)
+    const dome = new Mesh(new CylinderGeometry(1.5, 1.5, 2.6, 20), std(color, { transparent: true, opacity: 0.75, roughness: 0.2, emissive: color, emissiveIntensity: lit * 2 + sel }))
+    dome.position.copy(mid).setY(height + 0.9)
+    g.add(dome)
+    const cap = new Mesh(new SphereGeometry(1.5, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), std(color, { transparent: true, opacity: 0.75, roughness: 0.2, emissive: color, emissiveIntensity: lit * 2 + sel }))
+    cap.position.copy(mid).setY(height + 2.2)
+    g.add(cap)
+    addPickable(dome, { kind: "part", id: placement.id })
+    addPickable(cap, { kind: "part", id: placement.id })
+    const flat = new Mesh(new BoxGeometry(0.3, 0.7, 2.4), std(0x1b1b1b))
+    const towardK = b.clone().sub(mid).normalize()
+    flat.position.copy(mid.clone().add(towardK.multiplyScalar(1.7))).setY(height - 0.7)
+    flat.lookAt(mid.clone().setY(height - 0.7))
+    g.add(flat)
+    if (lit > 0) {
+      const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.3 + lit), color }))
+      const size = 8 + lit * 14
+      halo.scale.set(size, size, 1)
+      halo.position.copy(mid).setY(height + 1.5)
+      g.add(halo)
+    }
+    const tag = label(placement.id)
+    tag.position.copy(mid).setY(height + 7)
+    g.add(tag)
+    return g
+  }
+
+  function buildProbes(): Group {
+    const g = new Group()
+    if (!view || view.doc.bench.meter.mode === "off") return g
+    const meter = view.doc.bench.meter
+    const offsets = { red: new Vector3(-6, 0, 10), black: new Vector3(6, 0, 10) }
+    for (const color of ["red", "black"] as const) {
+      const hole = meter[color]
+      const p = hole ? holePosition(hole) : null
+      const tip = p ? new Vector3(p.x, 0.6, p.z) : new Vector3(color === "red" ? 30 : 40, MAT_Y + 1, 40)
+      const handleEnd = tip.clone().add(offsets[color]).setY(tip.y + 16)
+      const shaft = new Mesh(new TubeGeometry(new LineCurve3(tip.clone().setY(tip.y + 1.5), handleEnd), 2, 0.35, 8), std(0xd0d4d8, { metalness: 0.7 }))
+      g.add(shaft)
+      const grip = new Mesh(new CylinderGeometry(1.1, 1.1, 9, 12), std(color === "red" ? 0xc62828 : 0x202020))
+      const dir = handleEnd.clone().sub(tip).normalize()
+      grip.position.copy(handleEnd.clone().add(dir.clone().multiplyScalar(4)))
+      grip.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), dir)
+      g.add(grip)
+      addPickable(grip, { kind: "probeEnd", id: "METER", pin: color })
+      const point = new Mesh(new SphereGeometry(0.7, 12, 8), std(color === "red" ? 0xe5534b : 0x93a4b5))
+      point.position.copy(tip)
+      g.add(point)
+      addPickable(point, { kind: "probeEnd", id: "METER", pin: color })
+      const glyph = label(color === "red" ? "+" : "−", 4, color === "red" ? "#E5534B" : "#93A4B5")
+      glyph.position.copy(handleEnd).setY(handleEnd.y + 10)
+      g.add(glyph)
+    }
+    return g
+  }
+
   function leadColor(pin: string): number {
     if (pin === "+" || pin === "IN" || pin === "VCC") return 0xc62828
     if (pin === "-" || pin === "GND") return 0x202020
@@ -892,11 +1047,14 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       if (def?.placement === "offboard") {
         partsGroup.add(buildOffboard(placement, instance.type, state, r))
         partsGroup.add(buildLeads(placement, instance.type))
+      } else if (def?.placement === "flexible") {
+        partsGroup.add(buildFlexible(placement, instance.type, r, instance.actualValue, instance.variant))
       } else {
         partsGroup.add(buildRigid(placement, instance.type, state))
       }
     }
     for (const wire of view.doc.bench.wires) partsGroup.add(buildWire(wire))
+    partsGroup.add(buildProbes())
     if (opts.divergences) partsGroup.add(buildDivergences(opts.divergences))
     rebuildParticles()
   }
@@ -960,6 +1118,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         return "Clique na mesa, fora da protoboard, pra apoiar a peça"
       case "leads":
         return `Espete o cabinho ${pinName(m.pins[m.index] ?? "")} num furo · Esc deixa solto`
+      case "flexible":
+        if (m.type === "led") return m.first ? "Agora o furo da perna curta (cátodo, −) · Esc cancela" : "Primeiro clique: perna comprida (ânodo, +)"
+        return m.first ? "Clique no furo da outra perna · Esc cancela" : "Clique no furo da primeira perna"
+      case "probes":
+        return m.next === "red" ? "Encoste a ponta vermelha num furo" : "Agora a ponta preta · Esc deixa como está"
       default:
         return null
     }
@@ -1007,6 +1170,16 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         ghostGroup.add(forbid)
       }
     }
+    if (mode.kind === "flexible" && mode.first && hoverHole) {
+      const pa = holePosition(mode.first)!
+      const pb = holePosition(hoverHole)!
+      const valid = flexibleDistanceOk(mode.first, hoverHole) && !occupiedHoles(view.doc).has(hoverHole)
+      const ghost = new Mesh(
+        new TubeGeometry(new LineCurve3(new Vector3(pa.x, 3, pa.z), new Vector3(pb.x, 3, pb.z)), 2, 1, 10),
+        valid ? new MeshBasicMaterial({ color: COLOR.accent, transparent: true, opacity: 0.5 }) : new MeshBasicMaterial({ map: hatch(), transparent: true }),
+      )
+      ghostGroup.add(ghost)
+    }
     if (mode.kind === "leads") {
       const leadId = mode.id
       const placement = view.doc.bench.placements.find((p) => p.id === leadId)
@@ -1037,6 +1210,39 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     ghostGroup.add(ghost)
   }
 
+  function clickFlexible(hole: HoleId) {
+    if (mode.kind !== "flexible" || !view) return
+    if (occupiedHoles(view.doc).has(hole)) return
+    if (!mode.first) {
+      mode = { ...mode, first: hole }
+      updateGhost()
+      return
+    }
+    if (!flexibleDistanceOk(mode.first, hole)) return
+    const d = doc()
+    const id = claimInstance(d, mode.type, mode.value, mode.id)
+    const pins = catalog[mode.type].pins
+    d.bench.placements = d.bench.placements.filter((p) => p.id !== id)
+    d.bench.placements.push({ id, holes: { [pins[0]]: mode.first, [pins[1]]: hole }, rotation: 0 })
+    cb.onChange(d, true)
+    cb.onEvent("partPlaced")
+    finishPlacement()
+  }
+
+  function clickProbe(hole: HoleId) {
+    if (mode.kind !== "probes" || !view) return
+    const d = doc()
+    d.bench.meter[mode.next] = hole
+    const done = mode.next === "black"
+    cb.onChange(d, true)
+    if (d.bench.meter.red && d.bench.meter.black) cb.onEvent("meterPlaced")
+    if (done) finishPlacement()
+    else {
+      mode = { kind: "probes", next: "black" }
+      updateGhost()
+    }
+  }
+
   function finishPlacement() {
     mode = { kind: "idle" }
     tool = "select"
@@ -1045,7 +1251,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   }
 
   function claimInstance(d: CircuitDoc, type: string, value: number | undefined, existing: string | undefined): string {
-    if (existing && d.instances.some((i) => i.id === existing)) return existing
+    const found = existing ? d.instances.find((i) => i.id === existing) : undefined
+    if (found) {
+      // peça nova tirada da bandeja: valor físico escolhido (ou o do esquema) e sem defeito
+      found.actualValue = value ?? found.value
+      delete found.fault
+      return found.id
+    }
     const id = nextInstanceId(d, prefixFor(type))
     const v = value ?? catalog[type]?.values?.[0] ?? 0
     d.instances.push({ id, type, value: v, actualValue: v })
@@ -1157,6 +1369,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const used = occupiedHoles(d, { wireEnd: `${wire.id}.${pick.end}` })
       if (!hole || used.has(hole) || hole === other) return
       wire[pick.end] = hole
+    } else if (pick.kind === "probeEnd" && (pick.pin === "red" || pick.pin === "black")) {
+      d.bench.meter[pick.pin] = hole
     } else if (pick.kind === "leadEnd" && pick.pin) {
       const placement = d.bench.placements.find((p) => p.id === pick.id)
       if (!placement) return
@@ -1189,7 +1403,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     downAt = { x: event.clientX, y: event.clientY }
     if (mode.kind !== "idle" || !view) return
     const pick = pickHit()
-    if (pick && (pick.kind === "wireEnd" || pick.kind === "leadEnd")) {
+    if (pick && (pick.kind === "wireEnd" || pick.kind === "leadEnd" || pick.kind === "probeEnd")) {
       drag = { pick, doc: doc(), moved: false }
       controls.enabled = false
       return
@@ -1210,7 +1424,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (drag) {
       const moved = drag.moved
       drag = null
-      if (moved && view) cb.onChange(doc(), true)
+      if (moved && view) {
+        cb.onChange(doc(), true)
+        const m = view.doc.bench.meter
+        if (m.mode !== "off" && m.red && m.black) cb.onEvent("meterPlaced")
+      }
       return
     }
     const click = downAt && Math.hypot(event.clientX - downAt.x, event.clientY - downAt.y) < 5
@@ -1221,6 +1439,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (mode.kind === "wire") return hole ? clickWire(hole) : undefined
     if (mode.kind === "rigid") return hole ? placeRigid(hole) : undefined
     if (mode.kind === "leads") return hole ? plugLead(hole) : undefined
+    if (mode.kind === "flexible") return hole ? clickFlexible(hole) : undefined
+    if (mode.kind === "probes") return hole ? clickProbe(hole) : undefined
     if (mode.kind === "offboard") {
       const at = matHit()
       return at ? placeOffboard(at) : undefined
@@ -1256,11 +1476,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     tool = next
     clearGroup(ghostGroup)
     if (next === "wire") mode = { kind: "wire", start: null }
+    else if (next === "meter") mode = { kind: "probes", next: "red" }
     else if (typeof next === "object") {
       const def = catalog[next.place]
       if (!def) mode = { kind: "idle" }
       else if (def.placement === "offboard") mode = { kind: "offboard", type: next.place, value: next.value, id: next.id }
       else if (def.placement === "rigid") mode = { kind: "rigid", type: next.place, value: next.value, id: next.id, rotation: 0 }
+      else if (def.placement === "flexible") mode = { kind: "flexible", type: next.place, value: next.value, id: next.id, first: null }
       else mode = { kind: "idle" }
     } else mode = { kind: "idle" }
     updateGhost()
@@ -1304,6 +1526,16 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       if (mode.kind === "rigid") {
         mode = { ...mode, rotation: ((mode.rotation + 90) % 360) as 0 | 90 | 180 | 270 }
         updateGhost()
+        return true
+      }
+      if (selection?.kind === "part" && view) {
+        const instance = view.doc.instances.find((i) => i.id === selection!.id)
+        if (instance?.type !== "led") return false
+        const d = doc()
+        const placement = d.bench.placements.find((p) => p.id === instance.id)
+        if (!placement) return false
+        placement.holes = { a: placement.holes.k ?? null, k: placement.holes.a ?? null }
+        cb.onChange(d, true)
         return true
       }
       return false

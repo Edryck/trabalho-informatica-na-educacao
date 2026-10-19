@@ -14,7 +14,8 @@ function decimalsFor(scaled: number): number {
 
 export function formatValue(value: number, unit: Unit): string {
   const abs = Math.abs(value)
-  if (abs === 0 || !Number.isFinite(abs)) return `0,00${THIN_SPACE}${unit}`
+  if (!Number.isFinite(abs)) return `—${THIN_SPACE}${unit}`
+  if (abs === 0) return `0,00${THIN_SPACE}${unit}`
   let exponent = Math.min(6, Math.max(-9, Math.floor(Math.log10(abs) / 3) * 3))
   let scaled = abs / 10 ** exponent
   let text = scaled.toFixed(decimalsFor(scaled))
@@ -38,11 +39,12 @@ export function particleSpeed(current: number): number {
   return Math.min(SPEED_MAX, Math.max(SPEED_MIN, SPEED_MIN + t * (SPEED_MAX - SPEED_MIN)))
 }
 
-export type ToolId = "select" | "wire" | "currentView" | "undo" | "redo"
+export type ToolId = "select" | "wire" | "meter" | "currentView" | "undo" | "redo"
 
 const ICONS: Record<ToolId, string> = {
   select: '<path d="M5 3l12 6-5 2-2 5z"/>',
   wire: '<path d="M4 16c4 0 4-12 8-12s4 12 8 12"/><circle cx="4" cy="16" r="1.6"/><circle cx="20" cy="16" r="1.6"/>',
+  meter: '<rect x="6" y="3" width="12" height="18" rx="2"/><rect x="8.5" y="5.5" width="7" height="4" rx="0.5"/><circle cx="12" cy="15" r="2.5"/><path d="M12 15l1.5-1.5"/>',
   currentView: '<path d="M3 12h14"/><path d="M13 7l5 5-5 5"/><circle cx="6" cy="12" r="1.2"/><circle cx="10" cy="12" r="1.2"/>',
   undo: '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 010 12"/>',
   redo: '<path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 000 12"/>',
@@ -51,6 +53,7 @@ const ICONS: Record<ToolId, string> = {
 const TOOL_LABELS: Record<ToolId, string> = {
   select: "Selecionar (S)",
   wire: "Fio (W)",
+  meter: "Multímetro (M)",
   currentView: "Visão de corrente (C)",
   undo: "Desfazer (Ctrl+Z)",
   redo: "Refazer (Ctrl+Y)",
@@ -78,8 +81,11 @@ export function createToolbar(el: HTMLElement, onTool: (tool: ToolId) => void) {
     buttons.set(id, button)
   }
   return {
-    setActive(active: "select" | "wire" | null) {
-      for (const id of ["select", "wire"] as const) {
+    setMeterAvailable(available: boolean) {
+      buttons.get("meter")!.hidden = !available
+    },
+    setActive(active: "select" | "wire" | "meter" | null) {
+      for (const id of ["select", "wire", "meter"] as const) {
         const on = id === active
         buttons.get(id)!.classList.toggle("active", on)
         buttons.get(id)!.setAttribute("aria-pressed", String(on))
@@ -193,9 +199,9 @@ function pinText(ref: PinRef): string {
   return `${ref.slice(0, dot)} ${pin === "-" ? MINUS : pin}`
 }
 
-export function divergenceLabel(d: Divergence): string {
+export function divergenceLabel(d: Divergence, unitFor: (partId: string) => Unit = () => "Ω"): string {
   if (d.kind === "value") {
-    const unit = "Ω"
+    const unit = unitFor(d.partId)
     return `${d.partId} no esquema é ${formatValue(d.specValue ?? 0, unit)}, a peça na protoboard é ${formatValue(d.actualValue ?? 0, unit)}`
   }
   if (d.kind === "pending") {
@@ -215,11 +221,11 @@ export function createDivergenceBar(el: HTMLElement) {
   el.setAttribute("role", "status")
   el.hidden = true
   return {
-    show(list: Divergence[]) {
+    show(list: Divergence[], unitFor?: (partId: string) => Unit) {
       const { shown, more } = visibleDivergences(list)
       el.hidden = shown.length === 0
       if (shown.length === 0) return
-      el.innerHTML = `${WARNING_ICON}<ul>${shown.map((d) => `<li>${divergenceLabel(d)}</li>`).join("")}</ul>${more > 0 ? `<span class="divergence-more">+${more}</span>` : ""}`
+      el.innerHTML = `${WARNING_ICON}<ul>${shown.map((d) => `<li>${divergenceLabel(d, unitFor)}</li>`).join("")}</ul>${more > 0 ? `<span class="divergence-more">+${more}</span>` : ""}`
     },
   }
 }
@@ -463,5 +469,97 @@ export function createPreviewBanner(el: HTMLElement, onExit: () => void) {
       el.hidden = text === null
       el.innerHTML = text === null ? "" : `<span>Pré-visualizando: ${text}</span><span class="preview-exit">Esc ou clique pra voltar</span>`
     },
+  }
+}
+
+export type MeterMode = "off" | "V" | "A" | "ohm"
+export type MeterView = { mode: "V" | "A" | "ohm"; value: number | null; display: "value" | "OL" | "----" } | undefined
+
+const MODE_LABELS: Record<Exclude<MeterMode, "off">, { short: string; name: string; unit: Unit }> = {
+  V: { short: "V", name: "Tensão", unit: "V" },
+  A: { short: "A", name: "Corrente", unit: "A" },
+  ohm: { short: "Ω", name: "Resistência", unit: "Ω" },
+}
+
+export function createMeterHud(el: HTMLElement, onMode: (mode: Exclude<MeterMode, "off">) => void) {
+  el.className = "meter-hud"
+  el.setAttribute("aria-label", "Multímetro")
+  el.hidden = true
+  el.innerHTML = `<div class="meter-display" role="status" aria-live="polite"><span class="meter-value mono">—</span><span class="meter-mode"></span></div><div class="meter-modes" role="radiogroup" aria-label="Escala"></div>`
+  const valueEl = el.querySelector<HTMLElement>(".meter-value")!
+  const modeEl = el.querySelector<HTMLElement>(".meter-mode")!
+  const modesEl = el.querySelector<HTMLElement>(".meter-modes")!
+  const buttons = new Map<string, HTMLButtonElement>()
+  for (const mode of ["V", "A", "ohm"] as const) {
+    const button = document.createElement("button")
+    button.type = "button"
+    button.setAttribute("role", "radio")
+    button.textContent = MODE_LABELS[mode].short
+    button.title = MODE_LABELS[mode].name
+    button.setAttribute("aria-label", MODE_LABELS[mode].name)
+    button.addEventListener("click", () => onMode(mode))
+    modesEl.appendChild(button)
+    buttons.set(mode, button)
+  }
+  return {
+    render(mode: MeterMode, reading: MeterView, probesPlaced: boolean) {
+      el.hidden = mode === "off"
+      if (mode === "off") return
+      for (const [m, button] of buttons) button.setAttribute("aria-checked", String(m === mode))
+      modeEl.textContent = MODE_LABELS[mode].name
+      el.classList.toggle("overload", reading?.display === "OL")
+      if (!probesPlaced || !reading) valueEl.textContent = "— —"
+      else if (reading.display === "OL") valueEl.textContent = "OL"
+      else if (reading.display === "----") valueEl.textContent = "----"
+      else valueEl.textContent = formatValue(reading.value ?? 0, MODE_LABELS[mode].unit)
+    },
+  }
+}
+
+export function createValuePicker(el: HTMLElement) {
+  el.className = "value-picker"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-label", "Escolha a peça")
+  let resolve: ((value: number | null) => void) | null = null
+  const close = (value: number | null) => {
+    el.hidden = true
+    el.replaceChildren()
+    resolve?.(value)
+    resolve = null
+  }
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation()
+      close(null)
+    }
+  })
+  return {
+    open(title: string, options: { value: number; html: string; label: string }[]): Promise<number | null> {
+      el.hidden = false
+      el.innerHTML = `<p class="picker-title">${title}</p>`
+      const list = document.createElement("div")
+      list.className = "picker-options"
+      for (const option of options) {
+        const button = document.createElement("button")
+        button.type = "button"
+        button.className = "picker-option"
+        button.innerHTML = option.html
+        button.setAttribute("aria-label", option.label)
+        button.addEventListener("click", () => close(option.value))
+        list.appendChild(button)
+      }
+      const cancel = document.createElement("button")
+      cancel.type = "button"
+      cancel.className = "picker-cancel"
+      cancel.textContent = "Cancelar"
+      cancel.addEventListener("click", () => close(null))
+      el.append(list, cancel)
+      list.querySelector<HTMLButtonElement>("button")?.focus()
+      return new Promise((r) => {
+        resolve = r
+      })
+    },
+    close: () => close(null),
   }
 }

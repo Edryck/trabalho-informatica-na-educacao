@@ -78,3 +78,18 @@ describe("scenarioLabel", () => {
     expect(scenarioLabel({ when: {}, then: { L1: { current: [0.03, 0.07] } } }).then).toBe("L1 com corrente entre 30,0 mA e 70,0 mA")
   })
 })
+
+import { resistorBands } from "../src/bench"
+
+describe("resistorBands", () => {
+  it("encodes standard values", () => {
+    expect(resistorBands(220)).toEqual(["red", "red", "brown", "gold"])
+    expect(resistorBands(4700)).toEqual(["yellow", "violet", "red", "gold"])
+    expect(resistorBands(22)).toEqual(["red", "red", "black", "gold"])
+    expect(resistorBands(10000)).toEqual(["brown", "black", "orange", "gold"])
+    expect(resistorBands(330)).toEqual(["orange", "orange", "brown", "gold"])
+    expect(resistorBands(1000)).toEqual(["brown", "black", "red", "gold"])
+    expect(resistorBands(100)).toEqual(["brown", "black", "brown", "gold"])
+    expect(resistorBands(2.2)).toEqual(["red", "red", "gold", "gold"])
+  })
+})
