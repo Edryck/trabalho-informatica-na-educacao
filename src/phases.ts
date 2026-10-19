@@ -37,7 +37,7 @@ export type Phase = {
 }
 export type Group = { id: string; title: string; demo: boolean; concept: string; unlocks: string[]; phases: Phase[] }
 export type PhaseData = { groups: Group[]; future: string[] }
-export type Failure = { partId: string; reason: "missing" | "state" | "range" | "unstable" }
+export type Failure = { partId: string; reason: "missing" | "state" | "range" | "unstable" | "undefinedInput" }
 export type ScenarioResult = { when: Record<string, string>; ok: boolean; isCurrent: boolean; failures: Failure[]; result: SolveResult }
 export type Evaluation = {
   scenarios: ScenarioResult[]
@@ -144,6 +144,10 @@ export function evaluateScenarios(scenarios: Scenario[], net: Netlist, catalog: 
       const currentOk = !expected.current || within(result.partCurrent[id], expected.current)
       const voltageOk = !expected.voltage || within(voltageAcross(net, result, id, catalog), expected.voltage)
       if (!currentOk || !voltageOk) failures.push({ partId: id, reason: "range" })
+    }
+    // CI com entrada solta pode até dar o resultado certo por acaso; isso não conta como solução
+    for (const w of result.warnings) {
+      if ((w.kind === "floatingInput" || w.kind === "undefinedInput") && w.partId) failures.push({ partId: w.partId, reason: "undefinedInput" })
     }
     const isCurrent = Object.entries(scenario.when).every(([id, value]) => currentInput(net, catalog, id) === value)
     return { when: scenario.when, ok: failures.length === 0, isCurrent, failures, result }

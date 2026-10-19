@@ -5,6 +5,7 @@ export const GMIN = 1e-12
 export const BATTERY_RESISTANCE = 0.2
 export const MAX_PASSES = 20
 export const LED_OFF_CONDUCTANCE = 1e-9
+export const DRIVE_CONDUCTANCE = 1e-5
 
 export const INITIAL_DISCRETE: DiscreteState = { leds: {}, outputs: {} }
 
@@ -161,23 +162,40 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   }
   const ledParts = known.filter((p) => catalog[p.type].model.kind === "led")
   const chipParts = known.filter((p) => catalog[p.type].model.kind === "logic")
-  const toolIds = new Set(known.filter((p) => p.isTool || catalog[p.type].isTool).map((p) => p.id))
   const nodes = collapse(net)
   const membersByNode = new Map<string, PinRef[]>()
   for (const [ref, node] of nodes) membersByNode.set(node, [...(membersByNode.get(node) ?? []), ref])
-  const ownerOf = (ref: PinRef) => ref.slice(0, ref.indexOf("."))
-  const chipInputs = new Set<PinRef>()
-  for (const part of chipParts) {
-    const model = catalog[part.type].model
-    if (model.kind === "logic") for (const gate of model.gates) for (const pin of gate.slice(0, -1)) chipInputs.add(`${part.id}.${pin}`)
+  // linha "dirigida" = tem caminho de baixa resistência até um polo de bateria ligada;
+  // entrada de CI, ponta lógica e voltímetro (alta impedância) não contam como caminho
+  const drivenPoints = (run: { partBranchList: Map<string, Branch[]> }): Set<PointId> => {
+    const adjacency = new Map<PointId, PointId[]>()
+    const connect = (a: PointId, b: PointId) => {
+      adjacency.set(a, [...(adjacency.get(a) ?? []), b])
+      adjacency.set(b, [...(adjacency.get(b) ?? []), a])
+    }
+    for (const l of net.links) connect(l.a, l.b)
+    const sources: PointId[] = []
+    for (const part of known) {
+      const branches = run.partBranchList.get(part.id) ?? []
+      for (const br of branches) if (br.g >= DRIVE_CONDUCTANCE) connect(br.a, br.b)
+      if (catalog[part.type].model.kind === "battery" && branches.length > 0) sources.push(branches[0].a, branches[0].b)
+    }
+    const seen = new Set<PointId>(sources)
+    const queue = [...sources]
+    while (queue.length > 0) {
+      const p = queue.pop()!
+      for (const q of adjacency.get(p) ?? []) {
+        if (!seen.has(q)) {
+          seen.add(q)
+          queue.push(q)
+        }
+      }
+    }
+    return seen
   }
-  // solto = ninguém no nó que defina tensão: ferramenta, entrada de CI e saída em alta impedância não contam
-  const isFloating = (ref: PinRef, discrete: DiscreteState) => {
-    const node = nodes.get(ref)
-    if (node === undefined) return true
-    return (membersByNode.get(node) ?? []).every(
-      (other) => other === ref || toolIds.has(ownerOf(other)) || chipInputs.has(other) || discrete.outputs[other] === "z",
-    )
+  const isFloating = (ref: PinRef, driven: Set<PointId>) => {
+    const point = net.pinAt[ref]
+    return point === undefined || !driven.has(point)
   }
   const meterPart = known.find((p) => catalog[p.type].model.kind === "multimeter")
   const meterMode = meterPart ? states.get(meterPart.id) : undefined
@@ -229,7 +247,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
 
   const levelFrom = (volts: number, vil: number, vih: number): 0 | 1 | "undefined" => (volts < vil ? 0 : volts > vih ? 1 : "undefined")
 
-  const chipReader = (part: NetPart, voltages: Record<PointId, number>, discrete: DiscreteState) => {
+  const chipReader = (part: NetPart, voltages: Record<PointId, number>, driven: Set<PointId>) => {
     const def = catalog[part.type]
     const at = (pin: string) => {
       const point = net.pinAt[`${part.id}.${pin}`]
@@ -237,10 +255,15 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     }
     const vcc = at("VCC")
     const gnd = at("GND")
-    const powered = vcc !== undefined && gnd !== undefined && vcc - gnd >= (def.thresholds?.minSupply ?? Infinity)
+    const powered =
+      vcc !== undefined &&
+      gnd !== undefined &&
+      !isFloating(`${part.id}.VCC`, driven) &&
+      !isFloating(`${part.id}.GND`, driven) &&
+      vcc - gnd >= (def.thresholds?.minSupply ?? Infinity)
     const level = (pin: string): 0 | 1 | "undefined" => {
       const v = at(pin)
-      if (v === undefined || gnd === undefined || isFloating(`${part.id}.${pin}`, discrete)) return "undefined"
+      if (v === undefined || gnd === undefined || isFloating(`${part.id}.${pin}`, driven)) return "undefined"
       return levelFrom(v - gnd, def.thresholds?.vil ?? 0.8, def.thresholds?.vih ?? 2)
     }
     return { powered, level }
@@ -261,7 +284,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     }
     const outputs: DiscreteState["outputs"] = {}
     for (const part of chipParts) {
-      const read = chipReader(part, run.voltages, discrete)
+      const read = chipReader(part, run.voltages, drivenPoints(run))
       const model = catalog[part.type].model
       if (model.kind !== "logic") continue
       for (const gate of model.gates) {
@@ -308,6 +331,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   }
   passes = Math.min(passes, MAX_PASSES)
   const { partBranchList, voltages } = run
+  const finalDriven = drivenPoints(run)
 
   const linkG = 1 / LINK_RESISTANCE
   const linkCurrent: Record<string, number> = {}
@@ -366,22 +390,22 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
       case "logicProbe": {
         const inPoint = net.pinAt[`${part.id}.IN`]
         const gndPoint = net.pinAt[`${part.id}.GND`]
-        const floating = inPoint === undefined || gndPoint === undefined || isFloating(`${part.id}.IN`, discrete)
+        const floating = inPoint === undefined || gndPoint === undefined || isFloating(`${part.id}.IN`, finalDriven) || isFloating(`${part.id}.GND`, finalDriven)
         const level = floating ? "undefined" : levelFrom(voltages[inPoint] - voltages[gndPoint], thresholds.vil ?? 0.8, thresholds.vih ?? 2)
         partState[part.id] = { kind: "probe", level }
         break
       }
       case "logic": {
-        const read = chipReader(part, voltages, discrete)
+        const read = chipReader(part, voltages, finalDriven)
         const outputs: Record<string, 0 | 1 | "undefined" | "hiz"> = {}
         for (const gate of model.gates) {
           const out = gate[gate.length - 1]
           const value = discrete.outputs[`${part.id}.${out}`]
           outputs[out] = !read.powered ? "hiz" : value === "z" || value === undefined ? "undefined" : value
-          const inUse = hasCompany(`${part.id}.${out}`) || gate.slice(0, -1).some((pin) => !isFloating(`${part.id}.${pin}`, discrete))
+          const inUse = hasCompany(`${part.id}.${out}`) || gate.slice(0, -1).some((pin) => !isFloating(`${part.id}.${pin}`, finalDriven))
           if (!inUse || !read.powered) continue
           for (const pin of gate.slice(0, -1)) {
-            if (isFloating(`${part.id}.${pin}`, discrete)) warnings.push({ kind: "floatingInput", partId: part.id, pin })
+            if (isFloating(`${part.id}.${pin}`, finalDriven)) warnings.push({ kind: "floatingInput", partId: part.id, pin })
             else if (read.level(pin) === "undefined") warnings.push({ kind: "undefinedInput", partId: part.id, pin })
           }
         }

@@ -275,3 +275,17 @@ describe("game copy", () => {
     for (const p of demo) expect(p.brief, p.id).not.toBe(p.goal)
   })
 })
+
+describe("logic references need their ground wires", () => {
+  const data = loadPhases(phasesRaw)
+  const logic = data.groups.filter((g) => g.id === "g2").flatMap((g) => g.phases).filter((p) => p.referenceSolution)
+  for (const p of logic)
+    it(`${p.id} loses without any single ground wire`, () => {
+      const ref = p.referenceSolution!
+      for (const wire of ref.bench.wires.filter((w) => w.a.startsWith("T-") || w.b.startsWith("T-"))) {
+        const broken = structuredClone(ref)
+        broken.bench.wires = broken.bench.wires.filter((w) => w.id !== wire.id)
+        expect(evaluate(p, broken, catalog).won, `${p.id} sem ${wire.id}`).toBe(false)
+      }
+    })
+})

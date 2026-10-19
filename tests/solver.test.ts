@@ -467,3 +467,58 @@ describe("multimeter", () => {
     expect(s.partCurrent.L1).toBeCloseTo(9 / (90 + 0.2 + 0.001), 4)
   })
 })
+
+describe("driven lines", () => {
+  const chip = (id: string, type: string): NetPart => ({ id, type, value: 0 })
+  const probe = (id: string): NetPart => ({ id, type: "logic_probe", value: 0, isTool: true })
+  const ls = (state: string): NetPart => ({ id: "SW1", type: "logic_switch", value: 0, inputState: state })
+  const base = (): Record<string, string> => ({
+    "B1.+": "vcc",
+    "B1.-": "gnd",
+    "U1.VCC": "vcc",
+    "U1.GND": "gnd",
+    "SW1.VCC": "vcc",
+    "SW1.GND": "gnd",
+    "SW1.OUT": "in",
+    "U1.1A": "in",
+    "U1.1Y": "out",
+    "P1.IN": "out",
+    "P1.GND": "gnd",
+  })
+
+  it("logic switch without its ground wire leaves the input undefined at 0", () => {
+    const pinAt = { ...base(), "SW1.GND": "loose" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), ls("0"), probe("P1")], pinAt), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+  })
+
+  it("chip without its ground wire is not powered", () => {
+    const pinAt = { ...base(), "U1.GND": "loose" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), ls("0"), probe("P1")], pinAt), catalog)
+    expect(s.partState.U1).toMatchObject({ kind: "logic", powered: false })
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+  })
+
+  it("probe with its ground lead loose reads undefined", () => {
+    const pinAt = { ...base(), "P1.GND": "loose" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), ls("0"), probe("P1")], pinAt), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+  })
+
+  it("fully wired circuit still reads normally", () => {
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), ls("0"), probe("P1")], base()), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: 1 })
+  })
+
+  it("ammeter in series with a chip input still drives it", () => {
+    const meter: NetPart = { id: "METER", type: "multimeter", value: 0, inputState: "A", isTool: true }
+    const pinAt = { ...base(), "SW1.OUT": "sw", "METER.red": "sw", "METER.black": "in" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), ls("1"), probe("P1"), meter], pinAt), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: 0 })
+  })
+
+  it("battery switched off leaves logic undefined", () => {
+    const s = solve(net([{ ...bat("B1", 5), inputState: "off" }, chip("U1", "chip_not"), ls("0"), probe("P1")], base()), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+  })
+})
