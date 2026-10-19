@@ -1,4 +1,4 @@
-import type { HoleId, Netlist, PartsCatalog } from "./netlist"
+import type { Divergence, HoleId, Netlist, PartsCatalog } from "./netlist"
 import type { SolveResult } from "./solver"
 
 export type Instance = { id: string; type: string; value: number; actualValue: number; fault?: "open" | "short"; inputState?: string; variant?: string }
@@ -94,13 +94,28 @@ export const STORAGE_KEY = "fio-continuo:v1"
 const DRAFT_DEBOUNCE_MS = 1000
 
 export type Settings = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number }
-export type SessionAttempt = Record<string, unknown>
+export type SessionAttempt = {
+  phaseId: string
+  startedAt: string
+  endedAt: string | null
+  won: boolean
+  durationMs: number | null
+  changes: number
+  hintsOffered: number
+  hintsOpened: number
+  divergences: { pending: number; wiring: number; value: number }
+  meterPlacements: number
+  meterModes: ("V" | "A" | "ohm")[]
+}
+
+export const SESSION_LOG_LIMIT = 2000
 export type SaveData = {
   version: 1
   progress: Record<string, { won: boolean; bestCost: number | null }>
   settings: Settings
   draft: { phaseId: string; doc: CircuitDoc } | null
   sessionLog: SessionAttempt[]
+  seenDatasheets: string[]
 }
 export type StorageLike = Pick<Storage, "getItem" | "setItem">
 export type Store = {
@@ -112,7 +127,7 @@ export type Store = {
 }
 
 export function defaultSave(): SaveData {
-  return { version: 1, progress: {}, settings: { standard: "IEC", reducedMotion: false, volume: 0.8 }, draft: null, sessionLog: [] }
+  return { version: 1, progress: {}, settings: { standard: "IEC", reducedMotion: false, volume: 0.8 }, draft: null, sessionLog: [], seenDatasheets: [] }
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
@@ -190,7 +205,8 @@ function parseSave(text: string | null, catalog: PartsCatalog): SaveData {
     progress: cleanProgress(raw.progress),
     settings: { ...base.settings, ...(raw.settings as Partial<Settings>) },
     draft,
-    sessionLog: Array.isArray(raw.sessionLog) ? (raw.sessionLog as SessionAttempt[]) : [],
+    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt) : [],
+    seenDatasheets: Array.isArray(raw.seenDatasheets) ? raw.seenDatasheets.filter((k): k is string => typeof k === "string") : [],
   }
 }
 
@@ -231,4 +247,65 @@ export function createStore(storage: StorageLike | null, catalog: PartsCatalog):
   }
   let timer: ReturnType<typeof setTimeout> | null = null
   return store
+}
+
+function validAttempt(a: unknown): a is SessionAttempt {
+  return (
+    isObject(a) &&
+    isString(a.phaseId) &&
+    isString(a.startedAt) &&
+    (a.endedAt === null || isString(a.endedAt)) &&
+    typeof a.won === "boolean" &&
+    isNumber(a.changes) &&
+    isObject(a.divergences) &&
+    Array.isArray(a.meterModes)
+  )
+}
+
+function closeActive(log: SessionAttempt[], won: boolean, now: Date): SessionAttempt[] {
+  const last = log.at(-1)
+  if (!last || last.endedAt !== null) return log
+  const durationMs = now.getTime() - new Date(last.startedAt).getTime()
+  return [...log.slice(0, -1), { ...last, endedAt: now.toISOString(), won, durationMs }]
+}
+
+export function startAttempt(data: SaveData, phaseId: string, now: Date): SaveData {
+  const attempt: SessionAttempt = {
+    phaseId,
+    startedAt: now.toISOString(),
+    endedAt: null,
+    won: false,
+    durationMs: null,
+    changes: 0,
+    hintsOffered: 0,
+    hintsOpened: 0,
+    divergences: { pending: 0, wiring: 0, value: 0 },
+    meterPlacements: 0,
+    meterModes: [],
+  }
+  const log = [...closeActive(data.sessionLog, false, now), attempt]
+  return { ...data, sessionLog: log.slice(Math.max(0, log.length - SESSION_LOG_LIMIT)) }
+}
+
+export function updateAttempt(data: SaveData, patch: (a: SessionAttempt) => SessionAttempt): SaveData {
+  const last = data.sessionLog.at(-1)
+  if (!last || last.endedAt !== null) return data
+  return { ...data, sessionLog: [...data.sessionLog.slice(0, -1), patch(last)] }
+}
+
+export function finishAttempt(data: SaveData, won: boolean, now: Date): SaveData {
+  const log = closeActive(data.sessionLog, won, now)
+  return log === data.sessionLog ? data : { ...data, sessionLog: log }
+}
+
+export function trackDivergences(prev: Divergence[], next: Divergence[], counts: SessionAttempt["divergences"]): SessionAttempt["divergences"] {
+  const key = (d: Divergence) => `${d.kind}|${d.partId}|${d.pin ?? ""}`
+  const seen = new Set(prev.map(key))
+  const result = { ...counts }
+  for (const d of next) if (!seen.has(key(d))) result[d.kind]++
+  return result
+}
+
+export function exportLog(data: SaveData, now: Date): string {
+  return JSON.stringify({ app: "fio-continuo", version: 1, exportedAt: now.toISOString(), progress: data.progress, sessionLog: data.sessionLog }, null, 2)
 }

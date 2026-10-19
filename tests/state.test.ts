@@ -172,3 +172,78 @@ describe("deep validation", () => {
     expect(data.progress).toEqual({ g0p2: { won: true, bestCost: 4 } })
   })
 })
+
+describe("seen datasheets", () => {
+  it("defaults to empty and survives old saves without the field", () => {
+    expect(defaultSave().seenDatasheets).toEqual([])
+    const s = memory()
+    const old = defaultSave() as Partial<ReturnType<typeof defaultSave>>
+    delete old.seenDatasheets
+    s.setItem(STORAGE_KEY, JSON.stringify(old))
+    expect(createStore(s, catalog).data.seenDatasheets).toEqual([])
+  })
+
+  it("keeps only string entries", () => {
+    const s = memory()
+    s.setItem(STORAGE_KEY, JSON.stringify({ ...defaultSave(), seenDatasheets: ["lamp", 3, null] }))
+    expect(createStore(s, catalog).data.seenDatasheets).toEqual(["lamp"])
+  })
+})
+
+import { exportLog, finishAttempt, SESSION_LOG_LIMIT, startAttempt, trackDivergences, updateAttempt } from "../src/state"
+import type { Divergence } from "../src/netlist"
+
+describe("session log", () => {
+  it("tracks only newly appeared divergences", () => {
+    const a = { kind: "wiring", partId: "L1", pin: "a", power: false } as Divergence
+    const b = { kind: "value", partId: "R1", power: false } as Divergence
+    let c = trackDivergences([], [a], { pending: 0, wiring: 0, value: 0 })
+    c = trackDivergences([a], [a, b], c)
+    c = trackDivergences([a, b], [a, b], c)
+    expect(c).toEqual({ pending: 0, wiring: 1, value: 1 })
+  })
+
+  it("finishing records duration and win", () => {
+    let d = startAttempt(defaultSave(), "g0p2", new Date(0))
+    d = finishAttempt(d, true, new Date(90_000))
+    expect(d.sessionLog.at(-1)).toMatchObject({ phaseId: "g0p2", won: true, durationMs: 90_000, endedAt: new Date(90_000).toISOString() })
+  })
+
+  it("opening another phase closes the active attempt as not won", () => {
+    let d = startAttempt(defaultSave(), "g0p2", new Date(0))
+    d = startAttempt(d, "g0p3", new Date(1000))
+    expect(d.sessionLog[0]).toMatchObject({ won: false, endedAt: new Date(1000).toISOString(), durationMs: 1000 })
+    expect(d.sessionLog[1]).toMatchObject({ phaseId: "g0p3", endedAt: null })
+  })
+
+  it("updates only the active attempt", () => {
+    let d = startAttempt(defaultSave(), "g0p2", new Date(0))
+    d = updateAttempt(d, (a) => ({ ...a, changes: a.changes + 1, meterModes: [...a.meterModes, "V"] }))
+    expect(d.sessionLog[0]).toMatchObject({ changes: 1, meterModes: ["V"] })
+    d = finishAttempt(d, true, new Date(5))
+    const after = updateAttempt(d, (a) => ({ ...a, changes: 99 }))
+    expect(after.sessionLog[0].changes).toBe(1)
+  })
+
+  it("finishing without an active attempt changes nothing", () => {
+    const d = defaultSave()
+    expect(finishAttempt(d, true, new Date(0))).toEqual(d)
+  })
+
+  it("log is capped", () => {
+    let d = defaultSave()
+    for (let i = 0; i < SESSION_LOG_LIMIT + 5; i++) d = startAttempt(d, "g0p1", new Date(i))
+    expect(d.sessionLog.length).toBe(SESSION_LOG_LIMIT)
+  })
+
+  it("export is parseable and versioned", () => {
+    const out = JSON.parse(exportLog(defaultSave(), new Date(0)))
+    expect(out).toMatchObject({ app: "fio-continuo", version: 1, exportedAt: new Date(0).toISOString(), sessionLog: [], progress: {} })
+  })
+
+  it("drops malformed attempts from storage", () => {
+    const s = memory()
+    s.setItem(STORAGE_KEY, JSON.stringify({ ...defaultSave(), sessionLog: [{ phaseId: "g0p1" }, null, startAttempt(defaultSave(), "g0p2", new Date(0)).sessionLog[0]] }))
+    expect(createStore(s, catalog).data.sessionLog.map((a) => a.phaseId)).toEqual(["g0p2"])
+  })
+})
