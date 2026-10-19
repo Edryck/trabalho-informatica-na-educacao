@@ -66,6 +66,15 @@ const PART_LABELS: Record<string, string> = {
   buzzer: "Buzzer",
   resistor: "Resistor",
   led: "LED",
+  logic_switch: "Chave lógica",
+  logic_probe: "Ponta lógica",
+  chip_not: "CI NOT 7404",
+  chip_and: "CI AND 7408",
+  chip_or: "CI OR 7432",
+  chip_xor: "CI XOR 7486",
+  chip_nand: "CI NAND 7400",
+  chip_nor: "CI NOR 7402",
+  chip_xnor: "CI XNOR",
 }
 
 const HINT_CHECK_MS = 10_000
@@ -161,7 +170,8 @@ const toolbar = createToolbar(toolbarEl, onToolbar)
 const tray = createTray(trayEl, (type) => {
   if (!session || choosing || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
-  setTool(item ? { place: item.type, id: item.id } : { place: type })
+  const values = session.phase.trayValues?.[type]
+  setTool(item ? { place: item.type, id: item.id } : { place: type, value: values?.length === 1 ? values[0] : undefined })
   activePart = type
   tray.update(trayItems(view.doc), activePart)
 })
@@ -195,7 +205,9 @@ function trayItems(doc: CircuitDoc): TrayItem[] {
     activeView === "bench" ? pendingFor("bench").map((p) => ({ type: `pending:${p.id}`, icon: p.type, label: `${p.id} · posicionar`, count: 1 })) : []
   const initialCounts = new Map<string, number>()
   for (const i of session.phase.initial?.instances ?? []) initialCounts.set(i.type, (initialCounts.get(i.type) ?? 0) + 1)
-  const stock: TrayItem[] = Object.entries(session.phase.tray).map(([type, total]) => {
+  const stock: TrayItem[] = Object.entries(session.phase.tray)
+    .filter(([type]) => activeView === "bench" || !catalog[type]?.isTool)
+    .map(([type, total]) => {
     const used = doc.instances.filter((i) => i.type === type).length - (initialCounts.get(type) ?? 0)
     return { type, label: PART_LABELS[type] ?? type, count: Math.max(0, total - Math.max(0, used)) }
   })

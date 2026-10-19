@@ -1124,3 +1124,25 @@ body {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+.blueprint .symbol .chip-code {
+  font: 600 14px var(--font-mono);
+  letter-spacing: 0.08em;
+}
+
+.blueprint .symbol .pin-name {
+  font: 500 10px var(--font-mono);
+}
+
+.blueprint .symbol .pin-number {
+  font: 400 9px var(--font-mono);
+  fill: var(--color-text-muted);
+}
+
+.blueprint .symbol .notch {
+  fill: none;
+}
+
+.blueprint .symbol line.lit {
+  stroke: var(--color-current);
+}

@@ -24,6 +24,16 @@ type Mode =
   | { kind: "wire"; points: [number, number][] }
   | { kind: "place"; type: string; value?: number; id?: string; rotation: Rotation }
 
+const CHIP_TITLES: Record<string, string> = {
+  chip_nand: "7400 NAND",
+  chip_nor: "7402 NOR",
+  chip_not: "7404 NOT",
+  chip_and: "7408 AND",
+  chip_or: "7432 OR",
+  chip_xor: "7486 XOR",
+  chip_xnor: "XNOR",
+}
+
 const lead = (x1: number, y1: number, x2: number, y2: number) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
 
 export const SYMBOLS: Record<string, (state: PartState | undefined, input: string | undefined, standard: SymbolStandard) => string> = {
@@ -50,6 +60,10 @@ export const SYMBOLS: Record<string, (state: PartState | undefined, input: strin
     const on = state?.kind === "buzzer" && state.sounding
     const waves = on ? `<path class="wave" d="M24 -22a14 14 0 010 20"/><path class="wave" d="M30 -28a22 22 0 010 32"/>` : ""
     return `${lead(-40, 0, -14, 0)}${lead(14, 0, 40, 0)}<path class="${on ? "lit" : ""}" d="M-14 6v-6a14 14 0 0128 0v6z"/><text class="pole" x="-34" y="-8">+</text>${waves}`
+  },
+  logic_switch: (_state, input) => {
+    const high = input === "1"
+    return `${lead(0, -40, 0, -20)}${lead(0, 20, 0, 40)}${lead(20, 0, 40, 0)}<circle class="node" cx="0" cy="-20" r="2.5"/><circle class="node" cx="0" cy="20" r="2.5"/><circle class="node" cx="20" cy="0" r="2.5"/><line x1="20" y1="0" x2="${high ? 3 : 3}" y2="${high ? -17 : 17}"/><text class="pole" x="-12" y="-16">1</text><text class="pole" x="-12" y="26">0</text>`
   },
   led: (state) => {
     const on = state?.kind === "led" && state.lit
@@ -197,8 +211,31 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     })
   }
 
+  function chipSymbol(type: string, state: PartState | undefined): string {
+    const def = catalog[type]
+    if (!def) return ""
+    const outputs = state?.kind === "logic" ? state.outputs : {}
+    const parts: string[] = [`<rect x="-44" y="-136" width="88" height="272" rx="3"/><path class="notch" d="M-10 -136a10 10 0 0020 0"/>`]
+    parts.push(`<text class="chip-code" x="0" y="4" transform="rotate(-90)">${CHIP_TITLES[type] ?? type}</text>`)
+    def.pins.forEach((pin, i) => {
+      const [gx, gy] = def.symbolPins[pin]
+      const x = gx * GRID
+      const y = gy * GRID
+      const inner = x < 0 ? -44 : 44
+      const high = outputs[pin] === 1
+      parts.push(`<line class="${high ? "lit" : ""}" x1="${x}" y1="${y}" x2="${inner}" y2="${y}"/>`)
+      parts.push(`<text class="pin-name" x="${x < 0 ? -38 : 38}" y="${y + 4}" style="text-anchor:${x < 0 ? "start" : "end"}">${pin}</text>`)
+      parts.push(`<text class="pin-number" x="${x < 0 ? -52 : 52}" y="${y - 4}">${i + 1}</text>`)
+    })
+    return parts.join("")
+  }
+
   function symbolGroup(type: string, state: PartState | undefined, input: string | undefined): SVGGElement {
     const g = el("g", { class: `symbol symbol-${type}` })
+    if (type.startsWith("chip_")) {
+      g.innerHTML = chipSymbol(type, state)
+      return g
+    }
     const draw = SYMBOLS[type]
     g.innerHTML = draw ? draw(state, input, opts.standard) : `<rect x="-20" y="-12" width="40" height="24"/>`
     return g
@@ -215,7 +252,8 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       const input = pressedButton === placement.id ? "pressed" : instance.inputState
       const g = el("g", { class: "part", transform: `translate(${placement.x * GRID} ${placement.y * GRID})`, "data-id": placement.id })
       if (selection?.kind === "part" && selection.id === placement.id) g.classList.add("selected")
-      const hit = el("rect", { class: "hit", x: -44, y: -26, width: 88, height: 52 })
+      const chip = instance.type.startsWith("chip_")
+      const hit = chip ? el("rect", { class: "hit", x: -64, y: -142, width: 128, height: 284 }) : el("rect", { class: "hit", x: -44, y: -26, width: 88, height: 52 })
       const sym = symbolGroup(instance.type, r?.partState[placement.id], input)
       sym.setAttribute("transform", `rotate(${placement.rotation})`)
       g.append(hit, sym)
@@ -223,7 +261,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       const spread = Object.values(pins).map((pin) => rotatePin(pin, placement.rotation))
       const vertical = spread.length > 0 && Math.max(...spread.map(([, y]) => Math.abs(y))) > Math.max(...spread.map(([x]) => Math.abs(x)))
       const labelX = vertical ? 30 : 0
-      const labelY = vertical ? -6 : -24
+      const labelY = chip ? -150 : vertical ? -6 : -24
       const anchor = vertical ? "start" : "middle"
       const name = el("text", { class: "label", x: labelX, y: labelY, "text-anchor": anchor, "data-label": placement.id })
       name.textContent = placement.id
@@ -396,10 +434,11 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
   function toggleInput(id: string) {
     if (!view) return
     const instance = view.doc.instances.find((i) => i.id === id)
-    if (!instance || (instance.type !== "switch" && instance.type !== "battery")) return
+    if (!instance || !["switch", "battery", "logic_switch"].includes(instance.type)) return
     const d = doc()
     const target = d.instances.find((i) => i.id === id)!
     if (target.type === "switch") target.inputState = target.inputState === "on" ? "off" : "on"
+    else if (target.type === "logic_switch") target.inputState = target.inputState === "1" ? "0" : "1"
     else target.inputState = target.inputState === "off" ? "on" : "off"
     cb.onChange(d, true)
   }
@@ -622,7 +661,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
 
   function setTool(next: BenchTool) {
     if (next === "wire") mode = { kind: "wire", points: [] }
-    else if (typeof next === "object") mode = { kind: "place", type: next.place, value: next.value, id: next.id, rotation: 0 }
+    else if (typeof next === "object" && !catalog[next.place]?.isTool) mode = { kind: "place", type: next.place, value: next.value, id: next.id, rotation: 0 }
     else mode = { kind: "idle" }
     renderGhost()
     emitHint()

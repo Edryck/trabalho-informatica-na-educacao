@@ -156,12 +156,23 @@ type OffboardShape = { size: [number, number, number]; pins: Record<string, [num
 const OFFBOARD: Record<string, OffboardShape> = {
   battery: { size: [26, 17, 46], pins: { "+": [-6, 9, -23], "-": [6, 9, -23] } },
   lamp: { size: [14, 8, 14], pins: { a: [-7, 2, 0], b: [7, 2, 0] } },
+  logic_probe: { size: [8, 8, 34], pins: { IN: [-2, 4, -17], GND: [3, 4, -17] } },
   dc_motor: { size: [20, 20, 26], pins: { "+": [-5, 4, -13], "-": [5, 4, -13] } },
   buzzer: { size: [12, 9, 12], pins: { "+": [-6, 2, 0], "-": [6, 2, 0] } },
 }
 
 function offboardShape(type: string): OffboardShape {
   return OFFBOARD[type] ?? { size: [10, 8, 10], pins: {} }
+}
+
+const CHIP_CODES: Record<string, string> = {
+  chip_nand: "7400",
+  chip_nor: "7402",
+  chip_not: "7404",
+  chip_and: "7408",
+  chip_or: "7432",
+  chip_xor: "7486",
+  chip_xnor: "XNOR",
 }
 
 const labelCache = new Map<string, CanvasTexture>()
@@ -195,7 +206,7 @@ function label(text: string, scale = 7, color?: string, background?: string): Sp
   return sprite
 }
 
-type IconName = "forbidden" | "turnCw" | "turnCcw"
+type IconName = "forbidden" | "turnCw" | "turnCcw" | "levelHigh" | "levelLow" | "levelUnknown"
 const iconCache = new Map<string, CanvasTexture>()
 
 function iconTexture(name: IconName, color: string): CanvasTexture {
@@ -219,6 +230,24 @@ function iconTexture(name: IconName, color: string): CanvasTexture {
     ctx.moveTo(21, 43)
     ctx.lineTo(43, 21)
     ctx.stroke()
+  } else if (name === "levelHigh" || name === "levelLow") {
+    const up = name === "levelHigh"
+    ctx.beginPath()
+    ctx.moveTo(32, up ? 46 : 18)
+    ctx.lineTo(32, up ? 18 : 46)
+    ctx.moveTo(22, up ? 28 : 36)
+    ctx.lineTo(32, up ? 18 : 46)
+    ctx.lineTo(42, up ? 28 : 36)
+    ctx.stroke()
+  } else if (name === "levelUnknown") {
+    ctx.beginPath()
+    ctx.arc(32, 25, 8, Math.PI * 1.1, Math.PI * 0.4)
+    ctx.quadraticCurveTo(32, 33, 32, 38)
+    ctx.stroke()
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(32, 46, 3, 0, Math.PI * 2)
+    ctx.fill()
   } else {
     const cw = name === "turnCw"
     const start = -Math.PI * 0.8
@@ -460,6 +489,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   function rigidValid(type: string, holesByPin: Record<string, HoleId> | null, d: CircuitDoc): boolean {
     if (!holesByPin) return false
     const used = occupiedHoles(d)
+    // CI só encaixa montado sobre o canal do meio, com uma fileira de pinos em E e outra em F
+    if (type.startsWith("chip_") && !Object.values(holesByPin).every((h) => h.startsWith("E") || h.startsWith("F"))) return false
     return Object.values(holesByPin).every((h) => !used.has(h)) && catalog[type] !== undefined
   }
 
@@ -563,6 +594,44 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       cap.position.set(cx, pressed ? 5 : 5.6, cz)
       g.add(cap)
       addPickable(cap, { kind: "part", id: placement.id })
+    } else if (type.startsWith("chip_")) {
+      const xs = positions.map((p) => p.x)
+      const zs = positions.map((p) => p.z)
+      const width = Math.max(...xs) - Math.min(...xs) + PITCH * 0.9
+      const depth = Math.max(...zs) - Math.min(...zs) - PITCH * 0.6
+      const body = new Mesh(new BoxGeometry(width, 3.4, depth), std(0x1b1d21, { roughness: 0.5, emissive: COLOR.accent, emissiveIntensity: sel }))
+      body.position.set(cx, 3.2, cz)
+      g.add(body)
+      addPickable(body, { kind: "part", id: placement.id })
+      const pin1 = placement.holes[catalog[type].pins[0]]
+      const p1 = pin1 ? holePosition(pin1) : null
+      if (p1) {
+        const side = Math.sign(p1.x - cx) || -1
+        const notch = new Mesh(new CylinderGeometry(1, 1, 0.4, 16, 1, false, 0, Math.PI), std(0x0e0f12))
+        notch.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2
+        notch.position.set(cx + side * (width / 2 - 0.05), 4.95, cz)
+        g.add(notch)
+        const dot = new Mesh(new CylinderGeometry(0.45, 0.45, 0.2, 12), std(0xd0d4d8))
+        dot.position.set(p1.x, 5, p1.z + Math.sign(cz - p1.z) * 1.2)
+        g.add(dot)
+      }
+      const code = label(CHIP_CODES[type] ?? type, 9, "#E6EDF3", "rgba(0,0,0,0)")
+      code.position.set(cx, 5.6, cz)
+      g.add(code)
+    } else if (type === "logic_switch") {
+      const xs = positions.map((p) => p.x)
+      const width = Math.max(...xs) - Math.min(...xs) + 3.5
+      const body = new Mesh(new BoxGeometry(width, 4, 4.5), std(0x23415f, { emissive: COLOR.accent, emissiveIntensity: sel }))
+      body.position.set(cx, 3.5, cz)
+      g.add(body)
+      addPickable(body, { kind: "part", id: placement.id })
+      const high = state === "1"
+      const lever = new Mesh(new BoxGeometry(1.6, 3, 1.6), std(0xe6edf3))
+      lever.position.set(cx + (high ? width / 4 : -width / 4), 6.5, cz)
+      g.add(lever)
+      const tag = label(high ? "1" : "0", 6, high ? "#FFD166" : "#93A4B5")
+      tag.position.set(cx, 11, cz)
+      g.add(tag)
     } else {
       const body = new Mesh(new BoxGeometry(5, 3, 5), std(0x555b63, { emissive: COLOR.accent, emissiveIntensity: sel }))
       body.position.set(cx, 3, cz)
@@ -570,7 +639,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       addPickable(body, { kind: "part", id: placement.id })
     }
     const tag = label(placement.id)
-    tag.position.set(cx, type === "switch" ? 15 : 10, cz)
+    tag.position.set(cx, type === "switch" || type === "logic_switch" ? 15 : 10, cz)
     g.add(tag)
     return g
   }
@@ -687,6 +756,24 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       g.add(tag)
       return g
     }
+    if (type === "logic_probe") {
+      const body = new Mesh(new CylinderGeometry(w / 2, w / 2, d, 16), std(0x2b2f36, { emissive: COLOR.accent, emissiveIntensity: sel }))
+      body.rotation.x = Math.PI / 2
+      body.position.set(base.x, MAT_Y + h / 2, base.z)
+      g.add(body)
+      addPickable(body, { kind: "part", id: placement.id })
+      const level = partState?.kind === "probe" ? partState.level : "undefined"
+      const icon = level === 1 ? iconSprite("levelHigh", "#FFD166", 7) : level === 0 ? iconSprite("levelLow", "#5AA9E6", 7) : iconSprite("levelUnknown", "#93A4B5", 7)
+      icon.position.set(base.x - 5, MAT_Y + h + 7, base.z)
+      g.add(icon)
+      const reading = label(level === "undefined" ? "?" : String(level), 7, level === 1 ? "#FFD166" : level === 0 ? "#5AA9E6" : "#93A4B5")
+      reading.position.set(base.x + 4, MAT_Y + h + 7, base.z)
+      g.add(reading)
+      const tag = label(placement.id)
+      tag.position.set(base.x, MAT_Y + h + 14, base.z)
+      g.add(tag)
+      return g
+    }
     const body = new Mesh(new BoxGeometry(w, h, d), std(0x555b63))
     body.position.set(base.x, MAT_Y + h / 2, base.z)
     g.add(body)
@@ -695,8 +782,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   }
 
   function leadColor(pin: string): number {
-    if (pin === "+") return 0xc62828
-    if (pin === "-") return 0x202020
+    if (pin === "+" || pin === "IN" || pin === "VCC") return 0xc62828
+    if (pin === "-" || pin === "GND") return 0x202020
     return 0x8a9aab
   }
 
@@ -1032,6 +1119,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const d = doc()
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "on" ? "off" : "on"
+      cb.onChange(d, true)
+    } else if (instance.type === "logic_switch") {
+      const d = doc()
+      const target = d.instances.find((i) => i.id === id)!
+      target.inputState = target.inputState === "1" ? "0" : "1"
       cb.onChange(d, true)
     } else if (instance.type === "battery") {
       const d = doc()

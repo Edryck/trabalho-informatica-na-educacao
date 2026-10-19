@@ -2445,7 +2445,7 @@
     {
       "id": "g2",
       "title": "Circuitos lógicos",
-      "demo": false,
+      "demo": true,
       "concept": "níveis 0/1, tabela-verdade, portas como CIs na protoboard",
       "unlocks": [
         "logic_switch",
@@ -2462,37 +2462,1879 @@
         {
           "id": "g2p1",
           "type": "tutorial",
-          "goal": "alimentar um CI (VCC/GND) e ler a saída"
+          "goal": "alimentar um CI (VCC/GND) e ler a saída",
+          "brief": "O CI inversor já está na placa, mas sem energia. Liga o VCC (pino 14) no + e o GND (pino 7) no −, e põe a ponta lógica na saída 1Y.",
+          "tray": {
+            "logic_probe": 1
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "U1",
+              "part": "chip_not"
+            },
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "P1",
+              "part": "logic_probe"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0"
+              },
+              "then": {
+                "P1": "1"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1"
+              },
+              "then": {
+                "P1": "0"
+              }
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "U1",
+                "type": "chip_not",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1Y": "F11",
+                    "2A": "F12",
+                    "2Y": "F13",
+                    "3A": "F14",
+                    "3Y": "F15",
+                    "GND": "F16",
+                    "4Y": "E16",
+                    "4A": "E15",
+                    "5Y": "E14",
+                    "5A": "E13",
+                    "6Y": "E12",
+                    "6A": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A20",
+                    "GND": "A21",
+                    "OUT": "A22"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+20",
+                  "b": "B20",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B21",
+                  "b": "T-21",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "C22",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "hints": [
+            "Todo CI precisa de alimentação pra funcionar. Sem isso a saída fica indefinida.",
+            "O pino 14 fica na fileira de cima, do lado do chanfro. O pino 7 fica embaixo, na outra ponta."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "U1",
+                "type": "chip_not",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "P1",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1Y": "F11",
+                    "2A": "F12",
+                    "2Y": "F13",
+                    "3A": "F14",
+                    "3Y": "F15",
+                    "GND": "F16",
+                    "4Y": "E16",
+                    "4A": "E15",
+                    "5Y": "E14",
+                    "5A": "E13",
+                    "6Y": "E12",
+                    "6A": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A20",
+                    "GND": "A21",
+                    "OUT": "A22"
+                  }
+                },
+                {
+                  "id": "P1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 20,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G11",
+                    "GND": "T-24"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+20",
+                  "b": "B20",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B21",
+                  "b": "T-21",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "C22",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W4",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W5",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p2",
           "type": "build",
-          "goal": "NOT: luz acende quando a chave está desligada"
+          "goal": "NOT: luz acende quando a chave está desligada",
+          "brief": "Monta uma luz que acende quando a chave lógica está em 0 e apaga quando está em 1.",
+          "tray": {
+            "battery": 1,
+            "logic_switch": 1,
+            "chip_not": 1,
+            "lamp": 1
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0"
+              },
+              "then": {
+                "L1": "lit"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1"
+              },
+              "then": {
+                "L1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "Uma porta NOT devolve o contrário do que entra.",
+            "Chave na entrada 1A, lâmpada entre a saída 1Y e o −, e o CI alimentado."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "U1",
+                "type": "chip_not",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1Y": "F11",
+                    "2A": "F12",
+                    "2Y": "F13",
+                    "3A": "F14",
+                    "3Y": "F15",
+                    "GND": "F16",
+                    "4Y": "E16",
+                    "4A": "E15",
+                    "5Y": "E14",
+                    "5A": "E13",
+                    "6Y": "E12",
+                    "6A": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A20",
+                    "GND": "A21",
+                    "OUT": "A22"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 40,
+                    "z": 60
+                  },
+                  "holes": {
+                    "a": "G11",
+                    "b": "T-27"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+20",
+                  "b": "B20",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B21",
+                  "b": "T-21",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "C22",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W4",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W5",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p3",
           "type": "build",
-          "goal": "AND e OR: duas chaves, uma saída"
+          "goal": "AND e OR: duas chaves, uma saída",
+          "brief": "Com duas chaves lógicas, faz a ponta P1 mostrar o AND das duas e a ponta P2 mostrar o OR.",
+          "tray": {
+            "battery": 1,
+            "logic_switch": 2,
+            "chip_and": 1,
+            "chip_or": 1,
+            "logic_probe": 2
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "SW2",
+              "part": "logic_switch"
+            },
+            {
+              "id": "P1",
+              "part": "logic_probe"
+            },
+            {
+              "id": "P2",
+              "part": "logic_probe"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0",
+                "P2": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "0",
+                "P2": "1"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0",
+                "P2": "1"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "1",
+                "P2": "1"
+              }
+            }
+          ],
+          "hints": [
+            "Cada chave pode alimentar a entrada de mais de uma porta ao mesmo tempo.",
+            "SW1 vai na entrada A das duas portas, SW2 na entrada B das duas."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_and",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "U2",
+                "type": "chip_or",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "P1",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "P2",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "U2",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F20",
+                    "1B": "F21",
+                    "1Y": "F22",
+                    "2A": "F23",
+                    "2B": "F24",
+                    "2Y": "F25",
+                    "GND": "F26",
+                    "3Y": "E26",
+                    "3A": "E25",
+                    "3B": "E24",
+                    "4Y": "E23",
+                    "4A": "E22",
+                    "4B": "E21",
+                    "VCC": "E20"
+                  }
+                },
+                {
+                  "id": "P1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G12",
+                    "GND": "T-29"
+                  }
+                },
+                {
+                  "id": "P2",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 25,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G22",
+                    "GND": "T-30"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "D3",
+                  "b": "G20",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W7",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W8",
+                  "a": "D7",
+                  "b": "G21",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W9",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W10",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W11",
+                  "a": "T+20",
+                  "b": "A20",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W12",
+                  "a": "J26",
+                  "b": "T-26",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p4",
           "type": "build",
-          "goal": "XOR: interruptor de escada"
+          "goal": "XOR: interruptor de escada",
+          "brief": "Interruptor de escada: a luz troca de estado sempre que qualquer uma das duas chaves muda.",
+          "tray": {
+            "battery": 1,
+            "logic_switch": 2,
+            "chip_xor": 1,
+            "lamp": 1
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "SW2",
+              "part": "logic_switch"
+            },
+            {
+              "id": "L1",
+              "part": "lamp"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "0"
+              },
+              "then": {
+                "L1": "off"
+              }
+            },
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "1"
+              },
+              "then": {
+                "L1": "lit"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "0"
+              },
+              "then": {
+                "L1": "lit"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "1"
+              },
+              "then": {
+                "L1": "off"
+              }
+            }
+          ],
+          "hints": [
+            "A luz acende quando as chaves estão diferentes uma da outra.",
+            "Essa é a tabela do XOR: uma chave em cada entrada, lâmpada na saída."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_xor",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 40,
+                    "z": 60
+                  },
+                  "holes": {
+                    "a": "G12",
+                    "b": "T-28"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W7",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W8",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p5",
           "type": "build",
-          "goal": "montar AND usando só NAND"
+          "goal": "montar AND usando só NAND",
+          "brief": "Só tem CI NAND na bandeja. Monta um AND com ele: a ponta P1 tem que mostrar 1 só quando as duas chaves estão em 1.",
+          "tray": {
+            "battery": 1,
+            "logic_switch": 2,
+            "chip_nand": 1,
+            "logic_probe": 1
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "SW2",
+              "part": "logic_switch"
+            },
+            {
+              "id": "P1",
+              "part": "logic_probe"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "1"
+              }
+            }
+          ],
+          "hints": [
+            "NAND é um AND com a saída invertida. O que desfaz uma inversão?",
+            "Um NAND com as duas entradas ligadas juntas vira um NOT. Passa a saída da primeira porta por ele."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_nand",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "P1",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "P1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 20,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G15",
+                    "GND": "T-29"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W7",
+                  "a": "H12",
+                  "b": "H13",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W8",
+                  "a": "I12",
+                  "b": "I14",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W9",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W10",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p6",
           "type": "repair",
-          "goal": "CI sem alimentação / pino trocado"
+          "goal": "CI sem alimentação / pino trocado",
+          "brief": "Esse AND não responde às chaves: a ponta lógica só mostra ?. Descobre o que falta.",
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "requireMatch": false,
+          "showDivergence": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "SW2",
+              "part": "logic_switch"
+            },
+            {
+              "id": "P1",
+              "part": "logic_probe"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "0"
+              },
+              "then": {
+                "P1": "0"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "1"
+              },
+              "then": {
+                "P1": "1"
+              }
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_and",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "P1",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "P1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 20,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G12",
+                    "GND": "T-29"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W7",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "hints": [
+            "Interrogação na ponta quer dizer que a saída não tem nível definido. Quando o CI faz isso?",
+            "Confere os dois pinos de alimentação: o 14 tem que ir no + e o 7 no −."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_and",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "P1",
+                "type": "logic_probe",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "P1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 20,
+                    "z": -58
+                  },
+                  "holes": {
+                    "IN": "G12",
+                    "GND": "T-29"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W7",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W8",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         },
         {
           "id": "g2p7",
           "type": "order",
-          "goal": "alarme: porta aberta E sistema armado"
+          "goal": "alarme: porta aberta E sistema armado",
+          "brief": "Encomenda: um alarme que toca só quando a porta está aberta (SW1 em 1) e o sistema está armado (SW2 em 1). Orçamento de 10 créditos.",
+          "tray": {
+            "battery": 1,
+            "logic_switch": 3,
+            "chip_and": 1,
+            "chip_or": 1,
+            "buzzer": 1
+          },
+          "trayValues": {
+            "battery": [
+              5
+            ]
+          },
+          "budget": 10,
+          "requireMatch": false,
+          "keyParts": [
+            {
+              "id": "SW1",
+              "part": "logic_switch"
+            },
+            {
+              "id": "SW2",
+              "part": "logic_switch"
+            },
+            {
+              "id": "Z1",
+              "part": "buzzer"
+            }
+          ],
+          "expect": [
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "0"
+              },
+              "then": {
+                "Z1": "off"
+              }
+            },
+            {
+              "when": {
+                "SW1": "0",
+                "SW2": "1"
+              },
+              "then": {
+                "Z1": "off"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "0"
+              },
+              "then": {
+                "Z1": "off"
+              }
+            },
+            {
+              "when": {
+                "SW1": "1",
+                "SW2": "1"
+              },
+              "then": {
+                "Z1": "sounding"
+              }
+            }
+          ],
+          "hints": [
+            "As duas condições precisam ser verdade ao mesmo tempo. Que porta faz isso?",
+            "Buzzer na saída da porta AND, com o + dele virado pra saída."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 5,
+                "actualValue": 5
+              },
+              {
+                "id": "SW1",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "SW2",
+                "type": "logic_switch",
+                "value": 0,
+                "actualValue": 0,
+                "inputState": "0"
+              },
+              {
+                "id": "U1",
+                "type": "chip_and",
+                "value": 0,
+                "actualValue": 0
+              },
+              {
+                "id": "Z1",
+                "type": "buzzer",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [],
+              "segments": []
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "SW1",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A1",
+                    "GND": "A2",
+                    "OUT": "A3"
+                  }
+                },
+                {
+                  "id": "SW2",
+                  "rotation": 0,
+                  "holes": {
+                    "VCC": "A5",
+                    "GND": "A6",
+                    "OUT": "A7"
+                  }
+                },
+                {
+                  "id": "U1",
+                  "rotation": 0,
+                  "holes": {
+                    "1A": "F10",
+                    "1B": "F11",
+                    "1Y": "F12",
+                    "2A": "F13",
+                    "2B": "F14",
+                    "2Y": "F15",
+                    "GND": "F16",
+                    "3Y": "E16",
+                    "3A": "E15",
+                    "3B": "E14",
+                    "4Y": "E13",
+                    "4A": "E12",
+                    "4B": "E11",
+                    "VCC": "E10"
+                  }
+                },
+                {
+                  "id": "Z1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 40,
+                    "z": 60
+                  },
+                  "holes": {
+                    "+": "G12",
+                    "-": "T-28"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+1",
+                  "b": "B1",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B2",
+                  "b": "T-2",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W3",
+                  "a": "T+5",
+                  "b": "B5",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W4",
+                  "a": "B6",
+                  "b": "T-6",
+                  "color": "#202020"
+                },
+                {
+                  "id": "W5",
+                  "a": "C3",
+                  "b": "G10",
+                  "color": "#3D8BD9"
+                },
+                {
+                  "id": "W6",
+                  "a": "C7",
+                  "b": "G11",
+                  "color": "#2E9E5B"
+                },
+                {
+                  "id": "W7",
+                  "a": "T+10",
+                  "b": "A10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W8",
+                  "a": "J16",
+                  "b": "T-16",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          }
         }
       ]
     },

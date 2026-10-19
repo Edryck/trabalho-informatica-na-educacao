@@ -107,10 +107,13 @@ const PART_ICONS: Record<string, string> = {
   buzzer: '<circle cx="9" cy="13" r="5"/><path d="M16 9a5 5 0 010 8M18.5 6.5a8.5 8.5 0 010 13"/>',
   resistor: '<path d="M2 12h4l1.5-3 3 6 3-6 3 6 1.5-3h4"/>',
   led: '<path d="M7 7l7 5-7 5z"/><path d="M14 7v10M3 12h4M14 12h7M16 5l2-2M18 7l2-2"/>',
+  chip: '<rect x="7" y="4" width="10" height="16" rx="1"/><path d="M10.5 4a1.5 1.5 0 003 0M4 7h3M4 10.5h3M4 14h3M4 17.5h3M17 7h3M17 10.5h3M17 14h3M17 17.5h3"/>',
+  logic_switch: '<rect x="4" y="9" width="16" height="7" rx="3.5"/><circle cx="16" cy="12.5" r="2"/><path d="M7 5h2M8 4v2M15 5h2"/>',
+  logic_probe: '<path d="M14 3l7 7-9 9-4 1 1-4z"/><path d="M8 16l-5 5"/><path d="M12 7l5 5"/>',
 }
 
 function partIcon(type: string): string {
-  const body = PART_ICONS[type] ?? '<rect x="5" y="5" width="14" height="14" rx="2"/>'
+  const body = PART_ICONS[type.startsWith("chip_") ? "chip" : type] ?? '<rect x="5" y="5" width="14" height="14" rx="2"/>'
   return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
 }
 
