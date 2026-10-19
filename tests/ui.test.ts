@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { formatValue, particleSpeed } from "../src/ui"
+import { divergenceLabel, formatValue, particleSpeed, visibleDivergences } from "../src/ui"
+import type { Divergence } from "../src/netlist"
 
 const T = " "
 
@@ -33,5 +34,36 @@ describe("particleSpeed", () => {
     expect(particleSpeed(1)).toBe(8)
     expect(particleSpeed(50)).toBe(8)
     expect(particleSpeed(-0.05)).toBe(particleSpeed(0.05))
+  })
+})
+
+describe("divergences", () => {
+  const d = (partId: string): Divergence => ({ kind: "wiring", partId, pin: "a", power: false, expected: [], actual: [] })
+
+  it("shows two and counts the rest", () => {
+    const r = visibleDivergences([d("A"), d("B"), d("C"), d("D"), d("E")])
+    expect(r.shown.map((x) => x.partId)).toEqual(["A", "B"])
+    expect(r.more).toBe(3)
+  })
+
+  it("handles an empty list", () => {
+    expect(visibleDivergences([])).toEqual({ shown: [], more: 0 })
+  })
+
+  it("labels value and pending divergences", () => {
+    expect(divergenceLabel({ kind: "value", partId: "R1", power: false, specValue: 220, actualValue: 2200 })).toBe(
+      "R1 no esquema é 220 Ω, a peça na protoboard é 2,20 kΩ",
+    )
+    expect(divergenceLabel({ kind: "pending", partId: "L2", power: false, side: "bench" })).toBe("L2 está no esquema, mas ainda não está na protoboard")
+    expect(divergenceLabel({ kind: "pending", partId: "L2", power: false, side: "blueprint" })).toBe("L2 está na protoboard, mas ainda não está no esquema")
+  })
+
+  it("labels a loose wiring end with readable pins", () => {
+    expect(divergenceLabel({ kind: "wiring", partId: "L1", pin: "b", power: true, expected: ["B1.-"], actual: [] })).toBe(
+      "L1 b: no esquema liga em B1 −, na protoboard está solta",
+    )
+    expect(divergenceLabel({ kind: "wiring", partId: "L1", pin: "b", power: false, expected: ["R1.a"], actual: ["S1.a"] })).toBe(
+      "L1 b: no esquema liga em R1 a, na protoboard liga em S1 a",
+    )
   })
 })
