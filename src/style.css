@@ -152,11 +152,7 @@ body {
 }
 
 .tray-item {
-  min-width: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
+  min-width: 120px;
   padding: 8px 10px;
   color: var(--color-text);
   background: var(--color-panel-raised);
@@ -177,7 +173,6 @@ body {
 }
 
 .tray-count {
-  align-self: flex-end;
   font: 400 14px var(--font-mono);
   color: var(--color-text-muted);
 }
@@ -204,4 +199,404 @@ body {
   border: 1px solid var(--color-border);
   border-radius: 4px;
   cursor: pointer;
+}
+
+::selection {
+  background: rgba(224, 149, 74, 0.35);
+  color: var(--color-text);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.tray-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+}
+
+.tray-icon {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-radius: 6px;
+}
+
+.tray-item:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+}
+
+.tray-item:hover:not(:disabled) .tray-icon,
+.tray-item.active .tray-icon {
+  color: var(--color-accent);
+}
+
+.tray-count {
+  align-self: end;
+  justify-self: end;
+}
+
+.palette-title {
+  align-self: center;
+  margin-right: 4px;
+  font: 500 12px/1 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.stage-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  font: 500 12px/1.2 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.stage-hint[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tool,
+  .tray-item,
+  .tray-icon {
+    transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
+  }
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.stage[data-view="bench"] .layer-blueprint,
+.stage[data-view="blueprint"] .layer-bench {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 200ms ease-out, visibility 0s linear 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer,
+  .stage[data-view] .layer {
+    transition: none;
+  }
+}
+
+.layer-blueprint {
+  background: var(--color-blueprint);
+}
+
+.blueprint {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.blueprint .grid-line {
+  fill: none;
+  stroke: var(--color-blueprint-grid);
+  stroke-width: 1;
+}
+
+.blueprint .grid-line.major {
+  stroke: #1d4672;
+}
+
+.blueprint .symbol {
+  fill: none;
+  stroke: var(--color-blueprint-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.blueprint .symbol .plate.thick {
+  stroke-width: 5;
+}
+
+.blueprint .symbol .node {
+  fill: var(--color-blueprint-line);
+}
+
+.blueprint .symbol text {
+  fill: var(--color-blueprint-line);
+  stroke: none;
+  text-anchor: middle;
+  font: 500 14px var(--font-mono);
+}
+
+.blueprint .symbol .glyph {
+  font: 600 18px var(--font-ui);
+}
+
+.blueprint .symbol .lit {
+  fill: rgba(255, 209, 102, 0.22);
+  stroke: var(--color-current);
+  filter: drop-shadow(0 0 6px rgba(255, 209, 102, 0.55));
+}
+
+.blueprint .symbol .wave {
+  stroke: var(--color-current);
+}
+
+.blueprint .part .hit {
+  fill: transparent;
+  stroke: none;
+  cursor: grab;
+}
+
+.blueprint .part.selected .hit {
+  fill: rgba(224, 149, 74, 0.08);
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.blueprint .label,
+.blueprint .value {
+  fill: var(--color-text);
+  font: 500 12px var(--font-mono);
+  letter-spacing: 0.04em;
+  cursor: text;
+}
+
+.blueprint .value {
+  fill: var(--color-text-muted);
+  cursor: default;
+}
+
+.blueprint .wire {
+  stroke: var(--color-blueprint-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.blueprint .wire.selected {
+  stroke: var(--color-accent);
+  stroke-width: 3;
+}
+
+.blueprint .wire-hit {
+  stroke: transparent;
+  stroke-width: 12;
+  stroke-linecap: round;
+  cursor: pointer;
+}
+
+.blueprint .junction {
+  fill: var(--color-blueprint-line);
+}
+
+.blueprint .ghost-part .symbol {
+  stroke: var(--color-accent);
+  opacity: 0.7;
+}
+
+.blueprint .ghost-wire {
+  stroke: var(--color-accent);
+  stroke-dasharray: 6 4;
+}
+
+.blueprint .wire-cursor {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+}
+
+.blueprint .particle {
+  fill: var(--color-current);
+}
+
+.blueprint .arrow {
+  fill: var(--color-current);
+}
+
+.blueprint .divergence {
+  fill: none;
+  stroke: var(--color-warning);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.label-editor {
+  position: absolute;
+  width: 72px;
+  padding: 4px 6px;
+  font: 500 12px var(--font-mono);
+  color: var(--color-text);
+  background: var(--color-panel);
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  outline: none;
+}
+
+.label-editor.invalid {
+  border-color: var(--color-error);
+}
+
+.label-editor[hidden] {
+  display: none;
+}
+
+.view-toggle {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  padding: 3px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.view-toggle button {
+  min-width: 96px;
+  height: 30px;
+  padding: 0 12px;
+  font: 500 12px/1 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.view-toggle button:hover {
+  color: var(--color-text);
+}
+
+.view-toggle button.active {
+  color: var(--color-bg);
+  background: var(--color-accent);
+}
+
+.view-toggle button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.divergence-bar {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: min(640px, calc(100% - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--color-text);
+  background: var(--color-panel);
+  border: 1px dashed var(--color-warning);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.divergence-bar[hidden] {
+  display: none;
+}
+
+.divergence-bar svg {
+  flex: none;
+  color: var(--color-warning);
+}
+
+.divergence-bar ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font: 400 14px/1.35 var(--font-ui);
+}
+
+.divergence-more {
+  align-self: center;
+  font: 500 12px var(--font-mono);
+  color: var(--color-warning);
+}
+
+.pending-list {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  width: 220px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.pending-list[hidden] {
+  display: none;
+}
+
+.pending-title {
+  margin: 0 0 2px;
+  font: 500 12px/1.3 var(--font-ui);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.pending-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font: 500 12px var(--font-mono);
+  color: var(--color-text);
+  background: var(--color-panel-raised);
+  border: 1px dashed var(--color-warning);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pending-item:hover {
+  border-style: solid;
+}
+
+.pending-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.pending-type {
+  justify-self: end;
+  font: 400 12px var(--font-ui);
+  color: var(--color-text-muted);
+}
+
+.tray-item.pending {
+  border-style: dashed;
+  border-color: var(--color-warning);
 }

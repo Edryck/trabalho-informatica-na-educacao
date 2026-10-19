@@ -38,12 +38,13 @@ import type { SolveResult } from "./solver"
 import { nextInstanceId, prefixFor, type AppView, type BenchPlacement, type CircuitDoc, type Wire } from "./state"
 import { particleSpeed } from "./ui"
 
-export type BenchTool = "select" | "wire" | { place: string; value?: number } | "meter"
+export type BenchTool = "select" | "wire" | { place: string; value?: number; id?: string } | "meter"
 export type BenchSelection = { kind: "wire" | "part"; id: string }
 export type BenchCallbacks = {
   onChange(doc: CircuitDoc, commit: boolean): void
   onEvent(name: string): void
   onSelect?(selection: BenchSelection | null): void
+  onHint?(text: string | null): void
 }
 export type BenchRenderOpts = { currentView: boolean; reducedMotion: boolean; preview?: SolveResult; divergences?: Divergence[] }
 
@@ -59,7 +60,14 @@ const BOARD_HALF_Z = 10 * PITCH
 const WIRE_RADIUS = 0.32
 const WIRE_COLORS = { positive: "#C62828", negative: "#202020", neutral: "#3D8BD9" }
 
-export const WIRE_PALETTE = ["#3D8BD9", "#C62828", "#202020", "#2E9E5B", "#E0954A", "#E6EDF3"]
+export const WIRE_PALETTE = [
+  { value: "#3D8BD9", name: "Azul" },
+  { value: "#C62828", name: "Vermelho" },
+  { value: "#202020", name: "Preto" },
+  { value: "#2E9E5B", name: "Verde" },
+  { value: "#E0954A", name: "Laranja" },
+  { value: "#E6EDF3", name: "Branco" },
+]
 
 const COLOR = {
   mat: 0x1a2128,
@@ -187,6 +195,80 @@ function label(text: string, scale = 7, color?: string, background?: string): Sp
   return sprite
 }
 
+type IconName = "forbidden" | "turnCw" | "turnCcw"
+const iconCache = new Map<string, CanvasTexture>()
+
+function iconTexture(name: IconName, color: string): CanvasTexture {
+  const key = `${name}|${color}`
+  const cached = iconCache.get(key)
+  if (cached) return cached
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext("2d")!
+  ctx.fillStyle = "rgba(14,20,27,0.85)"
+  ctx.beginPath()
+  ctx.arc(32, 32, 30, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 5
+  ctx.lineCap = "round"
+  ctx.lineJoin = "round"
+  if (name === "forbidden") {
+    ctx.beginPath()
+    ctx.arc(32, 32, 16, 0, Math.PI * 2)
+    ctx.moveTo(21, 43)
+    ctx.lineTo(43, 21)
+    ctx.stroke()
+  } else {
+    const cw = name === "turnCw"
+    const start = -Math.PI * 0.8
+    const end = Math.PI * 0.55
+    ctx.save()
+    if (!cw) {
+      ctx.translate(64, 0)
+      ctx.scale(-1, 1)
+    }
+    ctx.beginPath()
+    ctx.arc(32, 32, 15, start, end)
+    ctx.stroke()
+    const tx = 32 + 15 * Math.cos(end)
+    const ty = 32 + 15 * Math.sin(end)
+    ctx.beginPath()
+    ctx.moveTo(tx + 8, ty - 1)
+    ctx.lineTo(tx, ty)
+    ctx.lineTo(tx + 2, ty - 8)
+    ctx.stroke()
+    ctx.restore()
+  }
+  const texture = new CanvasTexture(canvas)
+  iconCache.set(key, texture)
+  return texture
+}
+
+function iconSprite(name: IconName, color: string, size = 5): Sprite {
+  const sprite = new Sprite(new SpriteMaterial({ map: iconTexture(name, color), depthTest: false }))
+  sprite.scale.set(size, size, 1)
+  sprite.renderOrder = 10
+  return sprite
+}
+
+let glowTexture: CanvasTexture | null = null
+
+function glow(): CanvasTexture {
+  if (glowTexture) return glowTexture
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext("2d")!
+  const gradient = ctx.createRadialGradient(64, 64, 4, 64, 64, 64)
+  gradient.addColorStop(0, "rgba(255,226,150,0.9)")
+  gradient.addColorStop(0.35, "rgba(255,200,110,0.35)")
+  gradient.addColorStop(1, "rgba(255,190,90,0)")
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 128, 128)
+  glowTexture = new CanvasTexture(canvas)
+  return glowTexture
+}
+
 let hatchTexture: CanvasTexture | null = null
 
 function hatch(): CanvasTexture {
@@ -222,8 +304,8 @@ type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
 type Mode =
   | { kind: "idle" }
   | { kind: "wire"; start: HoleId | null }
-  | { kind: "rigid"; type: string; value?: number; rotation: 0 | 90 | 180 | 270 }
-  | { kind: "offboard"; type: string; value?: number }
+  | { kind: "rigid"; type: string; value?: number; id?: string; rotation: 0 | 90 | 180 | 270 }
+  | { kind: "offboard"; type: string; value?: number; id?: string }
   | { kind: "leads"; id: string; pins: string[]; index: number }
 type Particle = { mesh: Mesh; curve: Curve<Vector3>; length: number; t: number; speed: number; direction: number }
 type Spinner = { obj: Object3D; direction: number }
@@ -519,11 +601,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         g.add(t)
       }
       const value = view?.doc.instances.find((i) => i.id === placement.id)?.actualValue ?? 9
-      const tag = label(`${placement.id} ${String(value).replace(".", ",")}V`, 14)
-      tag.position.set(base.x, MAT_Y + h + 13, base.z + 6)
+      const tag = label(`${placement.id} ${String(value).replace(".", ",")} V`, 11)
+      tag.position.set(base.x, MAT_Y + h + 9, base.z + 4)
       g.add(tag)
-      const power = label(off ? "DESLIGADA" : "LIGADA", 14, off ? "#93A4B5" : "#4CC38A")
-      power.position.set(base.x, MAT_Y + h + 3, base.z + d / 2 - 6)
+      const power = label(off ? "desligada" : "ligada", 9, off ? "#93A4B5" : "#4CC38A")
+      power.position.set(base.x, MAT_Y + h + 4, base.z + 12)
       g.add(power)
       return g
     }
@@ -539,6 +621,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       )
       bulb.position.set(base.x, MAT_Y + h + 4.5, base.z)
       g.add(bulb)
+      if (lit > 0) {
+        const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.25 + lit) }))
+        const size = 14 + lit * 26
+        halo.scale.set(size, size, 1)
+        halo.position.copy(bulb.position)
+        g.add(halo)
+      }
       addPickable(bulb, { kind: "part", id: placement.id })
       const tag = label(placement.id)
       tag.position.set(base.x, MAT_Y + h + 14, base.z)
@@ -569,9 +658,14 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       rotor.add(marker)
       g.add(rotor)
       if (partState?.kind === "motor" && partState.spinning) spinners.push({ obj: rotor, direction: partState.direction })
-      const tag = label(partState?.kind === "motor" && partState.spinning ? `${placement.id} ${partState.direction > 0 ? "↻" : "↺"}` : placement.id, 9)
+      const tag = label(placement.id)
       tag.position.set(base.x, MAT_Y + w + 8, base.z)
       g.add(tag)
+      if (partState?.kind === "motor" && partState.spinning) {
+        const turn = iconSprite(partState.direction > 0 ? "turnCw" : "turnCcw", "#FFD166", 6)
+        turn.position.set(base.x + 9, MAT_Y + w + 8, base.z)
+        g.add(turn)
+      }
       return g
     }
     if (type === "buzzer") {
@@ -588,7 +682,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
           g.add(wave)
         }
       }
-      const tag = label(sounding ? `${placement.id} ♪` : placement.id, 9)
+      const tag = label(placement.id)
       tag.position.set(base.x, MAT_Y + h + 10, base.z)
       g.add(tag)
       return g
@@ -763,8 +857,40 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     rebuild()
   }
 
+  function pinName(pin: string): string {
+    if (pin === "+") return "+"
+    if (pin === "-") return "−"
+    return pin === "a" ? "1" : pin === "b" ? "2" : pin
+  }
+
+  function hintFor(m: Mode): string | null {
+    switch (m.kind) {
+      case "wire":
+        return m.start ? "Clique no furo de destino · Esc cancela" : "Clique no furo onde o fio começa"
+      case "rigid":
+        return "Clique num furo pra encaixar · R gira · Esc cancela"
+      case "offboard":
+        return "Clique na mesa, fora da protoboard, pra apoiar a peça"
+      case "leads":
+        return `Espete o cabinho ${pinName(m.pins[m.index] ?? "")} num furo · Esc deixa solto`
+      default:
+        return null
+    }
+  }
+
+  let lastHint: string | null = null
+
+  function emitHint() {
+    const next = hintFor(mode)
+    if (next !== lastHint) {
+      lastHint = next
+      cb.onHint?.(next)
+    }
+  }
+
   function updateGhost() {
     clearGroup(ghostGroup)
+    emitHint()
     if (!view) return
     if (mode.kind === "wire" && mode.start && hoverHole && hoverHole !== mode.start) {
       const pa = holePosition(mode.start)!
@@ -789,7 +915,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       }
       if (!valid) {
         const p = holePosition(hoverHole)!
-        const forbid = label("⊘", 6, "#E5534B")
+        const forbid = iconSprite("forbidden", "#E5534B", 5)
         forbid.position.set(p.x, 6, p.z)
         ghostGroup.add(forbid)
       }
@@ -831,15 +957,20 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     cb.onEvent("toolReset")
   }
 
+  function claimInstance(d: CircuitDoc, type: string, value: number | undefined, existing: string | undefined): string {
+    if (existing && d.instances.some((i) => i.id === existing)) return existing
+    const id = nextInstanceId(d, prefixFor(type))
+    const v = value ?? catalog[type]?.values?.[0] ?? 0
+    d.instances.push({ id, type, value: v, actualValue: v })
+    return id
+  }
+
   function placeRigid(anchor: HoleId) {
     if (mode.kind !== "rigid" || !view) return
     const holesByPin = rigidHoles(mode.type, anchor, mode.rotation)
     if (!holesByPin || !rigidValid(mode.type, holesByPin, view.doc)) return
     const d = doc()
-    const id = nextInstanceId(d, prefixFor(mode.type))
-    const def = catalog[mode.type]
-    const value = mode.value ?? def.values?.[0] ?? 0
-    d.instances.push({ id, type: mode.type, value, actualValue: value })
+    const id = claimInstance(d, mode.type, mode.value, mode.id)
     d.bench.placements.push({ id, holes: holesByPin, rotation: mode.rotation })
     cb.onChange(d, true)
     cb.onEvent("partPlaced")
@@ -851,10 +982,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const [w, , d0] = offboardShape(mode.type).size
     if (Math.abs(at.x) < BOARD_HALF_X + w / 2 && Math.abs(at.z) < BOARD_HALF_Z + d0 / 2) return
     const d = doc()
-    const id = nextInstanceId(d, prefixFor(mode.type))
     const def = catalog[mode.type]
-    const value = mode.value ?? def.values?.[0] ?? 0
-    d.instances.push({ id, type: mode.type, value, actualValue: value })
+    const id = claimInstance(d, mode.type, mode.value, mode.id)
     d.bench.placements.push({ id, holes: Object.fromEntries(def.pins.map((p) => [p, null])), rotation: 0, offboard: { x: Math.round(at.x), z: Math.round(at.z) } })
     cb.onChange(d, true)
     cb.onEvent("partPlaced")
@@ -1038,8 +1167,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     else if (typeof next === "object") {
       const def = catalog[next.place]
       if (!def) mode = { kind: "idle" }
-      else if (def.placement === "offboard") mode = { kind: "offboard", type: next.place, value: next.value }
-      else if (def.placement === "rigid") mode = { kind: "rigid", type: next.place, value: next.value, rotation: 0 }
+      else if (def.placement === "offboard") mode = { kind: "offboard", type: next.place, value: next.value, id: next.id }
+      else if (def.placement === "rigid") mode = { kind: "rigid", type: next.place, value: next.value, id: next.id, rotation: 0 }
       else mode = { kind: "idle" }
     } else mode = { kind: "idle" }
     updateGhost()

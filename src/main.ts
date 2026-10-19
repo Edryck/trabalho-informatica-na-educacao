@@ -6,10 +6,23 @@ import "@fontsource/ibm-plex-mono/500.css"
 import "./style.css"
 import partsJson from "../data/parts.json"
 import { createBench, WIRE_PALETTE, type BenchTool } from "./bench"
-import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
+import { createBlueprint } from "./blueprint"
+import { benchToNetlist, blueprintToNetlist, compare, type Divergence, type PartsCatalog } from "./netlist"
 import { solve, type DiscreteState } from "./solver"
 import { createHistory, current, emptyDoc, pushSnapshot, redo, undo, type AppView, type CircuitDoc, type History } from "./state"
-import { createToolbar, createTray, createWirePalette, type ToolId, type TrayItem } from "./ui"
+import {
+  createDivergenceBar,
+  createHint,
+  createPendingList,
+  createToolbar,
+  createTray,
+  createViewToggle,
+  createWirePalette,
+  type PendingItem,
+  type ToolId,
+  type TrayItem,
+  type ViewName,
+} from "./ui"
 
 const catalog = partsJson as unknown as PartsCatalog
 
@@ -30,35 +43,61 @@ const app = document.getElementById("app")!
 app.innerHTML = `
   <div class="layout">
     <nav class="toolbar-host"></nav>
-    <main class="stage" tabindex="0" aria-label="Bancada"></main>
+    <main class="stage" tabindex="0" aria-label="Bancada">
+      <div class="layer layer-blueprint"></div>
+      <div class="layer layer-bench"></div>
+    </main>
     <section class="tray-host"></section>
   </div>`
 const toolbarEl = app.querySelector<HTMLElement>(".toolbar-host")!
 const stageEl = app.querySelector<HTMLElement>(".stage")!
+const blueprintLayer = app.querySelector<HTMLElement>(".layer-blueprint")!
+const benchLayer = app.querySelector<HTMLElement>(".layer-bench")!
 const trayEl = app.querySelector<HTMLElement>(".tray-host")!
-const paletteEl = document.createElement("div")
-stageEl.appendChild(paletteEl)
+const [paletteEl, hintEl, toggleEl, barEl, pendingEl] = Array.from({ length: 5 }, () => document.createElement("div"))
+stageEl.append(toggleEl, barEl, hintEl)
+benchLayer.append(paletteEl)
+blueprintLayer.append(pendingEl)
 
 let history: History = createHistory(emptyDoc())
 let view: AppView
+let divergences: Divergence[] = []
 let benchDiscrete: DiscreteState | undefined
 let blueprintDiscrete: DiscreteState | undefined
 let currentView = false
 let activePart: string | null = null
+let activeView: ViewName = "bench"
+const hints: Record<ViewName, string | null> = { bench: null, blueprint: null }
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-const bench = createBench(stageEl, catalog, {
-  onChange: (doc, commit) => update(doc, { commit }),
-  onEvent: (name) => {
-    if (name === "toolReset") setTool("select")
+const hint = createHint(hintEl)
+const bar = createDivergenceBar(barEl)
+const toggle = createViewToggle(toggleEl, switchView)
+
+const callbacks = (name: ViewName) => ({
+  onChange: (doc: CircuitDoc, commit: boolean) => update(doc, { commit }),
+  onEvent: (event: string) => {
+    if (event === "toolReset") setTool("select")
   },
-  onSelect: (selection) => palette.show(selection?.kind === "wire"),
+  onHint: (text: string | null) => {
+    hints[name] = text
+    if (activeView === name) hint.show(text)
+  },
 })
 
+const bench = createBench(benchLayer, catalog, { ...callbacks("bench"), onSelect: (selection) => palette.show(selection?.kind === "wire") })
+const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
+
 const toolbar = createToolbar(toolbarEl, onToolbar)
-const tray = createTray(trayEl, (type) => setTool({ place: type }))
+const tray = createTray(trayEl, (type) => {
+  const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
+  setTool(item ? { place: item.type, id: item.id } : { place: type })
+  activePart = type
+  tray.update(trayItems(view.doc), activePart)
+})
 const palette = createWirePalette(paletteEl, WIRE_PALETTE, (color) => bench.setWireColor(color))
 palette.show(false)
+const pendingList = createPendingList(pendingEl, "Na protoboard, falta no esquema", (item: PendingItem) => setTool({ place: item.type, id: item.id }))
 
 function compute(doc: CircuitDoc): AppView {
   const benchNet = benchToNetlist(doc, catalog)
@@ -67,19 +106,35 @@ function compute(doc: CircuitDoc): AppView {
   const blueprintResult = solve(blueprintNet, catalog, { previous: blueprintDiscrete })
   benchDiscrete = benchResult.discrete
   blueprintDiscrete = blueprintResult.discrete
+  divergences = compare(blueprintNet, benchNet, catalog)
   return { doc, benchNet, benchResult, blueprintNet, blueprintResult }
 }
 
+function pendingFor(missingOn: ViewName): PendingItem[] {
+  const placedOn = (side: ViewName, id: string) =>
+    side === "bench" ? view.doc.bench.placements.some((p) => p.id === id) : view.doc.blueprint.placements.some((p) => p.id === id)
+  const other: ViewName = missingOn === "bench" ? "blueprint" : "bench"
+  return view.doc.instances
+    .filter((i) => placedOn(other, i.id) && !placedOn(missingOn, i.id) && !catalog[i.type]?.isTool)
+    .map((i) => ({ id: i.id, type: i.type, label: PART_LABELS[i.type] ?? i.type }))
+}
+
 function trayItems(doc: CircuitDoc): TrayItem[] {
-  return Object.entries(SANDBOX_TRAY).map(([type, total]) => ({
+  const pending: TrayItem[] =
+    activeView === "bench" ? pendingFor("bench").map((p) => ({ type: `pending:${p.id}`, icon: p.type, label: `${p.id} · posicionar`, count: 1 })) : []
+  const stock: TrayItem[] = Object.entries(SANDBOX_TRAY).map(([type, total]) => ({
     type,
     label: PART_LABELS[type] ?? type,
     count: total - doc.instances.filter((i) => i.type === type).length,
   }))
+  return [...pending, ...stock]
 }
 
 function render() {
-  bench.render(view, { currentView, reducedMotion })
+  bench.render(view, { currentView, reducedMotion, divergences })
+  blueprint.render(view, { currentView, reducedMotion, standard: "IEC", divergences })
+  bar.show(divergences)
+  pendingList.update(pendingFor("blueprint"))
   tray.update(trayItems(view.doc), activePart)
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
   toolbar.setCurrentView(currentView)
@@ -97,11 +152,29 @@ function restore(next: History) {
   render()
 }
 
+function activeEditor() {
+  return activeView === "bench" ? bench : blueprint
+}
+
 function setTool(tool: BenchTool) {
-  bench.setTool(tool)
+  bench.setTool(activeView === "bench" ? tool : "select")
+  blueprint.setTool(activeView === "blueprint" ? tool : "select")
   activePart = typeof tool === "object" ? tool.place : null
   toolbar.setActive(tool === "select" || tool === "wire" ? tool : null)
   tray.update(trayItems(view.doc), activePart)
+}
+
+function switchView(next: ViewName) {
+  if (next === activeView) return
+  activeView = next
+  stageEl.dataset.view = next
+  stageEl.setAttribute("aria-label", next === "bench" ? "Bancada" : "Blueprint")
+  toggle.set(next)
+  setTool("select")
+  if (next === "blueprint") blueprint.activate()
+  hint.show(hints[next])
+  palette.show(false)
+  render()
 }
 
 function onToolbar(id: ToolId) {
@@ -125,7 +198,11 @@ window.addEventListener("keydown", (event) => {
     return restore(redo(history))
   }
   if (ctrl || event.altKey) return
-  if (bench.handleKey(event)) {
+  if (event.key === "Tab" && document.activeElement === stageEl) {
+    event.preventDefault()
+    return switchView(activeView === "bench" ? "blueprint" : "bench")
+  }
+  if (activeEditor().handleKey(event)) {
     event.preventDefault()
     return
   }
@@ -133,10 +210,15 @@ window.addEventListener("keydown", (event) => {
   if (key === "s") setTool("select")
   else if (key === "w") setTool("wire")
   else if (key === "c") onToolbar("currentView")
+  else if (key === "v") switchView(activeView === "bench" ? "blueprint" : "bench")
 })
 
+stageEl.addEventListener("pointerdown", () => stageEl.focus({ preventScroll: true }))
+
 view = compute(current(history))
+stageEl.dataset.view = activeView
+toggle.set(activeView)
 setTool("select")
 render()
 
-if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, bench } })
+if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, bench, blueprint, switchView } })

@@ -1,3 +1,5 @@
+import type { Divergence, PinRef } from "./netlist"
+
 export type Unit = "V" | "A" | "Ω" | "W"
 
 const PREFIXES: Record<number, string> = { [-9]: "n", [-6]: "µ", [-3]: "m", 0: "", 3: "k", 6: "M" }
@@ -94,7 +96,23 @@ export function createToolbar(el: HTMLElement, onTool: (tool: ToolId) => void) {
   }
 }
 
-export type TrayItem = { type: string; label: string; count: number }
+export type TrayItem = { type: string; label: string; count: number; icon?: string }
+
+const PART_ICONS: Record<string, string> = {
+  battery: '<rect x="5" y="7" width="14" height="13" rx="1.5"/><path d="M9 4v3M15 4v3M8.5 12h3M10 10.5v3M13 12h2.5"/>',
+  lamp: '<path d="M9 17h6M10 20h4"/><path d="M12 3a6 6 0 00-3.5 10.9V17h7v-3.1A6 6 0 0012 3z"/>',
+  switch: '<circle cx="5" cy="15" r="1.5"/><circle cx="19" cy="15" r="1.5"/><path d="M6.4 14.3L17 8"/>',
+  push_button: '<rect x="4" y="11" width="16" height="7" rx="1.5"/><path d="M9 11V8h6v3"/>',
+  dc_motor: '<circle cx="12" cy="12" r="7"/><path d="M9 15V9l3 4 3-4v6"/>',
+  buzzer: '<circle cx="9" cy="13" r="5"/><path d="M16 9a5 5 0 010 8M18.5 6.5a8.5 8.5 0 010 13"/>',
+  resistor: '<path d="M2 12h4l1.5-3 3 6 3-6 3 6 1.5-3h4"/>',
+  led: '<path d="M7 7l7 5-7 5z"/><path d="M14 7v10M3 12h4M14 12h7M16 5l2-2M18 7l2-2"/>',
+}
+
+function partIcon(type: string): string {
+  const body = PART_ICONS[type] ?? '<rect x="5" y="5" width="14" height="14" rx="2"/>'
+  return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+}
 
 export function createTray(el: HTMLElement, onPick: (type: string) => void) {
   el.classList.add("tray")
@@ -109,7 +127,8 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void) {
         button.disabled = item.count <= 0
         button.classList.toggle("active", item.type === active)
         button.setAttribute("aria-label", `${item.label}, ${item.count} disponível`)
-        button.innerHTML = `<span class="tray-name">${item.label}</span><span class="tray-count">${item.count}</span>`
+        button.classList.toggle("pending", item.type.startsWith("pending:"))
+        button.innerHTML = `<span class="tray-icon">${partIcon(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${item.count}</span>`
         button.addEventListener("click", () => onPick(item.type))
         el.appendChild(button)
       }
@@ -117,21 +136,134 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void) {
   }
 }
 
-export function createWirePalette(el: HTMLElement, colors: string[], onPick: (color: string) => void) {
+export function createWirePalette(el: HTMLElement, colors: { value: string; name: string }[], onPick: (color: string) => void) {
   el.classList.add("wire-palette")
+  el.setAttribute("role", "group")
   el.setAttribute("aria-label", "Cor do fio")
-  for (const color of colors) {
+  const title = document.createElement("span")
+  title.className = "palette-title"
+  title.textContent = "Cor do fio"
+  el.appendChild(title)
+  for (const { value: color, name } of colors) {
     const button = document.createElement("button")
     button.type = "button"
     button.className = "swatch"
     button.style.background = color
-    button.setAttribute("aria-label", `Cor ${color}`)
+    button.title = name
+    button.setAttribute("aria-label", name)
     button.addEventListener("click", () => onPick(color))
     el.appendChild(button)
   }
   return {
     show(visible: boolean) {
       el.hidden = !visible
+    },
+  }
+}
+
+export function createHint(el: HTMLElement) {
+  el.className = "stage-hint"
+  el.setAttribute("role", "status")
+  el.hidden = true
+  return {
+    show(text: string | null) {
+      el.hidden = text === null
+      el.textContent = text ?? ""
+    },
+  }
+}
+
+export function visibleDivergences(list: Divergence[]): { shown: Divergence[]; more: number } {
+  return { shown: list.slice(0, 2), more: Math.max(0, list.length - 2) }
+}
+
+function pinText(ref: PinRef): string {
+  const dot = ref.indexOf(".")
+  const pin = ref.slice(dot + 1)
+  return `${ref.slice(0, dot)} ${pin === "-" ? MINUS : pin}`
+}
+
+export function divergenceLabel(d: Divergence): string {
+  if (d.kind === "value") {
+    const unit = "Ω"
+    return `${d.partId} no esquema é ${formatValue(d.specValue ?? 0, unit)}, a peça na protoboard é ${formatValue(d.actualValue ?? 0, unit)}`
+  }
+  if (d.kind === "pending") {
+    return d.side === "bench" ? `${d.partId} está no esquema, mas ainda não está na protoboard` : `${d.partId} está na protoboard, mas ainda não está no esquema`
+  }
+  const where = pinText(`${d.partId}.${d.pin ?? ""}`)
+  const expected = d.expected?.length ? `liga em ${d.expected.map(pinText).join(", ")}` : "fica solta"
+  const actual = d.actual?.length ? `liga em ${d.actual.map(pinText).join(", ")}` : "está solta"
+  return `${where}: no esquema ${expected}, na protoboard ${actual}`
+}
+
+const WARNING_ICON =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg>'
+
+export function createDivergenceBar(el: HTMLElement) {
+  el.className = "divergence-bar"
+  el.setAttribute("role", "status")
+  el.hidden = true
+  return {
+    show(list: Divergence[]) {
+      const { shown, more } = visibleDivergences(list)
+      el.hidden = shown.length === 0
+      if (shown.length === 0) return
+      el.innerHTML = `${WARNING_ICON}<ul>${shown.map((d) => `<li>${divergenceLabel(d)}</li>`).join("")}</ul>${more > 0 ? `<span class="divergence-more">+${more}</span>` : ""}`
+    },
+  }
+}
+
+export type ViewName = "blueprint" | "bench"
+
+export function createViewToggle(el: HTMLElement, onSwitch: (view: ViewName) => void) {
+  el.className = "view-toggle"
+  el.setAttribute("role", "tablist")
+  el.setAttribute("aria-label", "Vista")
+  const buttons = new Map<ViewName, HTMLButtonElement>()
+  for (const [name, text] of [["blueprint", "Blueprint"], ["bench", "Bancada"]] as const) {
+    const button = document.createElement("button")
+    button.type = "button"
+    button.setAttribute("role", "tab")
+    button.textContent = text
+    button.title = `${text} (V)`
+    button.addEventListener("click", () => onSwitch(name))
+    el.appendChild(button)
+    buttons.set(name, button)
+  }
+  return {
+    set(active: ViewName) {
+      for (const [name, button] of buttons) {
+        button.setAttribute("aria-selected", String(name === active))
+        button.classList.toggle("active", name === active)
+      }
+    },
+  }
+}
+
+export type PendingItem = { id: string; type: string; label: string }
+
+export function createPendingList(el: HTMLElement, title: string, onPick: (item: PendingItem) => void) {
+  el.className = "pending-list"
+  el.hidden = true
+  return {
+    update(items: PendingItem[]) {
+      el.hidden = items.length === 0
+      el.replaceChildren()
+      if (items.length === 0) return
+      const heading = document.createElement("p")
+      heading.className = "pending-title"
+      heading.textContent = title
+      el.appendChild(heading)
+      for (const item of items) {
+        const button = document.createElement("button")
+        button.type = "button"
+        button.className = "pending-item"
+        button.innerHTML = `<span class="tray-icon">${partIcon(item.type)}</span><span>${item.id}</span><span class="pending-type">${item.label}</span>`
+        button.setAttribute("aria-label", `Posicionar ${item.id}, ${item.label}`)
+        button.addEventListener("click", () => onPick(item))
+        el.appendChild(button)
+      }
     },
   }
 }
