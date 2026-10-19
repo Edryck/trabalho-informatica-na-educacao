@@ -247,3 +247,11 @@ describe("session log", () => {
     expect(createStore(s, catalog).data.sessionLog.map((a) => a.phaseId)).toEqual(["g0p2"])
   })
 })
+
+describe("export of an open attempt", () => {
+  it("reports the elapsed time of the attempt still in progress", () => {
+    const d = startAttempt(defaultSave(), "g0p2", new Date(0))
+    const out = JSON.parse(exportLog(d, new Date(30_000)))
+    expect(out.sessionLog[0]).toMatchObject({ endedAt: null, durationMs: 30_000, inProgress: true })
+  })
+})

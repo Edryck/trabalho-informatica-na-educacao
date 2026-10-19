@@ -307,5 +307,8 @@ export function trackDivergences(prev: Divergence[], next: Divergence[], counts:
 }
 
 export function exportLog(data: SaveData, now: Date): string {
-  return JSON.stringify({ app: "fio-continuo", version: 1, exportedAt: now.toISOString(), progress: data.progress, sessionLog: data.sessionLog }, null, 2)
+  const sessionLog = data.sessionLog.map((a) =>
+    a.endedAt === null ? { ...a, durationMs: now.getTime() - new Date(a.startedAt).getTime(), inProgress: true } : a,
+  )
+  return JSON.stringify({ app: "fio-continuo", version: 1, exportedAt: now.toISOString(), progress: data.progress, sessionLog }, null, 2)
 }
