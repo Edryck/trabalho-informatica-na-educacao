@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
-import { solve, INITIAL_DISCRETE } from "../src/solver"
+import { solve, INITIAL_DISCRETE, MAX_PASSES } from "../src/solver"
 import type { PartState } from "../src/solver"
 import type { Link, NetPart, Netlist, PartsCatalog } from "../src/netlist"
 
@@ -273,5 +273,133 @@ describe("led", () => {
 
   it("initial discrete state is empty", () => {
     expect(INITIAL_DISCRETE).toEqual({ leds: {}, outputs: {} })
+  })
+})
+
+describe("logic chips", () => {
+  const chip = (id: string, type: string): NetPart => ({ id, type, value: 0 })
+  const probe = (id: string): NetPart => ({ id, type: "logic_probe", value: 0, isTool: true })
+
+  function chipBench(type: string, inputs: Record<string, 0 | 1>, output = "1Y") {
+    const pinAt: Record<string, string> = { "B1.+": "vcc", "B1.-": "gnd", "U1.VCC": "vcc", "U1.GND": "gnd", [`U1.${output}`]: "out", "P1.IN": "out", "P1.GND": "gnd" }
+    for (const [pin, level] of Object.entries(inputs)) pinAt[`U1.${pin}`] = level ? "vcc" : "gnd"
+    return net([bat("B1", 5), chip("U1", type), probe("P1")], pinAt)
+  }
+
+  const tables: Record<string, number[]> = {
+    chip_and: [0, 0, 0, 1],
+    chip_or: [0, 1, 1, 1],
+    chip_nand: [1, 1, 1, 0],
+    chip_nor: [1, 0, 0, 0],
+    chip_xor: [0, 1, 1, 0],
+    chip_xnor: [1, 0, 0, 1],
+  }
+  for (const [type, out] of Object.entries(tables))
+    it(`${type} truth table on real pinout`, () => {
+      ;[[0, 0], [0, 1], [1, 0], [1, 1]].forEach(([a, b], i) => {
+        const s = solve(chipBench(type, { "1A": a as 0 | 1, "1B": b as 0 | 1 }), catalog)
+        expect(s.partState.P1, `${a}${b}`).toEqual({ kind: "probe", level: out[i] })
+      })
+    })
+
+  it("chip_not inverts all six gates", () => {
+    for (let n = 1; n <= 6; n++) {
+      expect(solve(chipBench("chip_not", { [`${n}A`]: 0 }, `${n}Y`), catalog).partState.P1).toEqual({ kind: "probe", level: 1 })
+      expect(solve(chipBench("chip_not", { [`${n}A`]: 1 }, `${n}Y`), catalog).partState.P1).toEqual({ kind: "probe", level: 0 })
+    }
+  })
+
+  it("nor output is pin 1 and gates match the real pinout", () => {
+    expect((parts as unknown as PartsCatalog).chip_nor.pins[0]).toBe("1Y")
+    expect((parts as unknown as PartsCatalog).chip_and.pins.slice(0, 3)).toEqual(["1A", "1B", "1Y"])
+    expect((parts as unknown as PartsCatalog).chip_not.pins[6]).toBe("GND")
+    expect((parts as unknown as PartsCatalog).chip_not.pins[13]).toBe("VCC")
+  })
+
+  it("floating input is undefined and warns", () => {
+    const s = solve(chipBench("chip_and", { "1A": 1 }), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+    expect(s.warnings).toContainEqual({ kind: "floatingInput", partId: "U1", pin: "1B" })
+  })
+
+  it("forbidden zone is undefined and warns", () => {
+    const n = chipBench("chip_and", { "1A": 1 })
+    n.parts.push(r("R1", 1000), r("R2", 390))
+    n.pinAt["R1.a"] = "vcc"
+    n.pinAt["R1.b"] = "mid"
+    n.pinAt["R2.a"] = "mid"
+    n.pinAt["R2.b"] = "gnd"
+    n.pinAt["U1.1B"] = "mid"
+    const s = solve(n, catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
+    expect(s.warnings).toContainEqual({ kind: "undefinedInput", partId: "U1", pin: "1B" })
+  })
+
+  it("unpowered chip outputs hiz and warns", () => {
+    const n = chipBench("chip_and", { "1A": 1, "1B": 1 })
+    n.pinAt["U1.VCC"] = "nowhere"
+    const s = solve(n, catalog)
+    expect(s.partState.U1).toMatchObject({ kind: "logic", powered: false, outputs: { "1Y": "hiz" } })
+    expect(s.warnings).toContainEqual({ kind: "unpoweredChip", partId: "U1" })
+  })
+
+  it("reads levels relative to the chip ground", () => {
+    const pinAt = {
+      "B1.+": "mid",
+      "B1.-": "gnd",
+      "B2.+": "top",
+      "B2.-": "mid",
+      "U1.VCC": "top",
+      "U1.GND": "mid",
+      "U1.1A": "mid",
+      "U1.1B": "top",
+      "U1.1Y": "out",
+      "P1.IN": "out",
+      "P1.GND": "mid",
+    }
+    const s = solve(net([bat("B1", 5), bat("B2", 5), chip("U1", "chip_and"), probe("P1")], pinAt), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: 0 })
+  })
+
+  it("inverter feedback is unstable by cycle", () => {
+    const pinAt = { "B1.+": "vcc", "B1.-": "gnd", "U1.VCC": "vcc", "U1.GND": "gnd", "U1.1A": "loop", "U1.1Y": "loop" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not")], pinAt), catalog)
+    expect(s.status).toBe("unstable")
+    expect(s.passes).toBeLessThan(MAX_PASSES)
+    expect(s.warnings).toContainEqual({ kind: "unstable" })
+  })
+
+  it("returned discrete state matches the solved voltages when unstable", () => {
+    const pinAt = { "B1.+": "vcc", "B1.-": "gnd", "U1.VCC": "vcc", "U1.GND": "gnd", "U1.1A": "loop", "U1.1Y": "loop" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not")], pinAt), catalog)
+    const high = s.voltages.loop > 2.5
+    expect(s.discrete.outputs["U1.1Y"]).toBe(high ? 1 : 0)
+  })
+
+  it("chained gates settle", () => {
+    const pinAt = { "B1.+": "vcc", "B1.-": "gnd", "U1.VCC": "vcc", "U1.GND": "gnd", "U1.1A": "vcc", "U1.1Y": "x", "U1.2A": "x", "U1.2Y": "out", "P1.IN": "out", "P1.GND": "gnd" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_not"), probe("P1")], pinAt), catalog)
+    expect(s.status).toBe("ok")
+    expect(s.partState.P1).toEqual({ kind: "probe", level: 1 })
+  })
+
+  it("chip output drives a lamp", () => {
+    const pinAt = { "B1.+": "vcc", "B1.-": "gnd", "U1.VCC": "vcc", "U1.GND": "gnd", "U1.1A": "vcc", "U1.1B": "vcc", "U1.1Y": "out", "L1.a": "out", "L1.b": "gnd" }
+    const s = solve(net([bat("B1", 5), chip("U1", "chip_and"), lamp("L1")], pinAt), catalog)
+    expect(s.partState.L1).toMatchObject({ kind: "lamp", lit: true })
+    expect(s.partCurrent.L1).toBeCloseTo(5 / (90 + 50 + 0.2), 3)
+  })
+
+  it("logic switch sets the level", () => {
+    const ls = (state: string): NetPart => ({ id: "SW1", type: "logic_switch", value: 0, inputState: state })
+    const pinAt = { "B1.+": "vcc", "B1.-": "gnd", "SW1.VCC": "vcc", "SW1.GND": "gnd", "SW1.OUT": "out", "P1.IN": "out", "P1.GND": "gnd" }
+    expect(solve(net([bat("B1", 5), ls("1"), probe("P1")], pinAt), catalog).partState.P1).toEqual({ kind: "probe", level: 1 })
+    expect(solve(net([bat("B1", 5), ls("0"), probe("P1")], pinAt), catalog).partState.P1).toEqual({ kind: "probe", level: 0 })
+    expect(solve(net([bat("B1", 5), ls("0"), probe("P1")], pinAt), catalog, { overrides: { SW1: "1" } }).partState.P1).toEqual({ kind: "probe", level: 1 })
+  })
+
+  it("probe on nothing shows undefined", () => {
+    const s = solve(net([bat("B1", 5), probe("P1")], { "B1.+": "vcc", "B1.-": "gnd", "P1.IN": "alone", "P1.GND": "gnd" }), catalog)
+    expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
   })
 })

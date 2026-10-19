@@ -1,76 +1,1525 @@
 {
   "battery": {
-    "pins": ["+", "-"],
+    "pins": [
+      "+",
+      "-"
+    ],
     "placement": "offboard",
     "cost": 2,
-    "model": { "kind": "battery" },
-    "thresholds": { "shortCurrent": 3 },
-    "values": [9, 5],
-    "symbolPins": { "+": [0, -2], "-": [0, 2] },
+    "model": {
+      "kind": "battery"
+    },
+    "thresholds": {
+      "shortCurrent": 3
+    },
+    "values": [
+      9,
+      5
+    ],
+    "symbolPins": {
+      "+": [
+        0,
+        -2
+      ],
+      "-": [
+        0,
+        2
+      ]
+    },
     "datasheet": "battery"
   },
   "lamp": {
-    "pins": ["a", "b"],
+    "pins": [
+      "a",
+      "b"
+    ],
     "placement": "offboard",
     "cost": 2,
-    "model": { "kind": "lamp", "resistance": 90, "nominalPower": 0.9 },
-    "thresholds": { "lit": 0.02, "maxCurrent": 0.2 },
-    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "model": {
+      "kind": "lamp",
+      "resistance": 90,
+      "nominalPower": 0.9
+    },
+    "thresholds": {
+      "lit": 0.02,
+      "maxCurrent": 0.2
+    },
+    "symbolPins": {
+      "a": [
+        -2,
+        0
+      ],
+      "b": [
+        2,
+        0
+      ]
+    },
     "datasheet": "lamp"
   },
   "switch": {
-    "pins": ["a", "b"],
+    "pins": [
+      "a",
+      "b"
+    ],
     "placement": "rigid",
     "cost": 1,
-    "model": { "kind": "switch" },
-    "footprint": [[0, 0], [2, 0]],
-    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "model": {
+      "kind": "switch"
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "symbolPins": {
+      "a": [
+        -2,
+        0
+      ],
+      "b": [
+        2,
+        0
+      ]
+    },
     "datasheet": "switch"
   },
   "push_button": {
-    "pins": ["1", "2", "3", "4"],
+    "pins": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
     "placement": "rigid",
     "cost": 1,
-    "model": { "kind": "pushButton" },
-    "footprint": [[0, 0], [0, 1], [2, 0], [2, 1]],
-    "symbolPins": { "1": [-2, -1], "2": [-2, 1], "3": [2, -1], "4": [2, 1] },
+    "model": {
+      "kind": "pushButton"
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        2,
+        1
+      ]
+    ],
+    "symbolPins": {
+      "1": [
+        -2,
+        -1
+      ],
+      "2": [
+        -2,
+        1
+      ],
+      "3": [
+        2,
+        -1
+      ],
+      "4": [
+        2,
+        1
+      ]
+    },
     "datasheet": "push_button"
   },
   "dc_motor": {
-    "pins": ["+", "-"],
+    "pins": [
+      "+",
+      "-"
+    ],
     "placement": "offboard",
     "cost": 4,
-    "model": { "kind": "motor", "resistance": 30 },
-    "thresholds": { "spin": 0.05, "maxCurrent": 0.5 },
-    "symbolPins": { "+": [-2, 0], "-": [2, 0] },
+    "model": {
+      "kind": "motor",
+      "resistance": 30
+    },
+    "thresholds": {
+      "spin": 0.05,
+      "maxCurrent": 0.5
+    },
+    "symbolPins": {
+      "+": [
+        -2,
+        0
+      ],
+      "-": [
+        2,
+        0
+      ]
+    },
     "datasheet": "dc_motor"
   },
   "buzzer": {
-    "pins": ["+", "-"],
+    "pins": [
+      "+",
+      "-"
+    ],
     "placement": "offboard",
     "cost": 3,
-    "model": { "kind": "buzzer", "resistance": 300 },
-    "thresholds": { "sound": 0.005, "maxCurrent": 0.05 },
-    "symbolPins": { "+": [-2, 0], "-": [2, 0] },
+    "model": {
+      "kind": "buzzer",
+      "resistance": 300
+    },
+    "thresholds": {
+      "sound": 0.005,
+      "maxCurrent": 0.05
+    },
+    "symbolPins": {
+      "+": [
+        -2,
+        0
+      ],
+      "-": [
+        2,
+        0
+      ]
+    },
     "datasheet": "buzzer"
   },
   "resistor": {
-    "pins": ["a", "b"],
+    "pins": [
+      "a",
+      "b"
+    ],
     "placement": "flexible",
     "cost": 1,
-    "model": { "kind": "resistor" },
-    "values": [22, 100, 220, 330, 470, 1000, 2200, 4700, 10000],
-    "symbolPins": { "a": [-2, 0], "b": [2, 0] },
+    "model": {
+      "kind": "resistor"
+    },
+    "values": [
+      22,
+      100,
+      220,
+      330,
+      470,
+      1000,
+      2200,
+      4700,
+      10000
+    ],
+    "symbolPins": {
+      "a": [
+        -2,
+        0
+      ],
+      "b": [
+        2,
+        0
+      ]
+    },
     "datasheet": "resistor"
   },
   "led": {
-    "pins": ["a", "k"],
+    "pins": [
+      "a",
+      "k"
+    ],
     "placement": "flexible",
     "cost": 1,
-    "model": { "kind": "led", "vf": 2.0, "rs": 5 },
-    "thresholds": { "lit": 0.001, "nominal": 0.02, "maxCurrent": 0.03 },
-    "variants": ["red", "green", "yellow"],
-    "symbolPins": { "a": [-2, 0], "k": [2, 0] },
+    "model": {
+      "kind": "led",
+      "vf": 2.0,
+      "rs": 5
+    },
+    "thresholds": {
+      "lit": 0.001,
+      "nominal": 0.02,
+      "maxCurrent": 0.03
+    },
+    "variants": [
+      "red",
+      "green",
+      "yellow"
+    ],
+    "symbolPins": {
+      "a": [
+        -2,
+        0
+      ],
+      "k": [
+        2,
+        0
+      ]
+    },
     "datasheet": "led"
+  },
+  "chip_nand": {
+    "pins": [
+      "1A",
+      "1B",
+      "1Y",
+      "2A",
+      "2B",
+      "2Y",
+      "GND",
+      "3Y",
+      "3A",
+      "3B",
+      "4Y",
+      "4A",
+      "4B",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "nand",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1B": [
+        -3,
+        -4
+      ],
+      "1Y": [
+        -3,
+        -2
+      ],
+      "2A": [
+        -3,
+        0
+      ],
+      "2B": [
+        -3,
+        2
+      ],
+      "2Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3Y": [
+        3,
+        6
+      ],
+      "3A": [
+        3,
+        4
+      ],
+      "3B": [
+        3,
+        2
+      ],
+      "4Y": [
+        3,
+        0
+      ],
+      "4A": [
+        3,
+        -2
+      ],
+      "4B": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_nand"
+  },
+  "chip_nor": {
+    "pins": [
+      "1Y",
+      "1A",
+      "1B",
+      "2Y",
+      "2A",
+      "2B",
+      "GND",
+      "3A",
+      "3B",
+      "3Y",
+      "4A",
+      "4B",
+      "4Y",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "nor",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1Y": [
+        -3,
+        -6
+      ],
+      "1A": [
+        -3,
+        -4
+      ],
+      "1B": [
+        -3,
+        -2
+      ],
+      "2Y": [
+        -3,
+        0
+      ],
+      "2A": [
+        -3,
+        2
+      ],
+      "2B": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3A": [
+        3,
+        6
+      ],
+      "3B": [
+        3,
+        4
+      ],
+      "3Y": [
+        3,
+        2
+      ],
+      "4A": [
+        3,
+        0
+      ],
+      "4B": [
+        3,
+        -2
+      ],
+      "4Y": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_nor"
+  },
+  "chip_not": {
+    "pins": [
+      "1A",
+      "1Y",
+      "2A",
+      "2Y",
+      "3A",
+      "3Y",
+      "GND",
+      "4Y",
+      "4A",
+      "5Y",
+      "5A",
+      "6Y",
+      "6A",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "not",
+      "gates": [
+        [
+          "1A",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4Y"
+        ],
+        [
+          "5A",
+          "5Y"
+        ],
+        [
+          "6A",
+          "6Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1Y": [
+        -3,
+        -4
+      ],
+      "2A": [
+        -3,
+        -2
+      ],
+      "2Y": [
+        -3,
+        0
+      ],
+      "3A": [
+        -3,
+        2
+      ],
+      "3Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "4Y": [
+        3,
+        6
+      ],
+      "4A": [
+        3,
+        4
+      ],
+      "5Y": [
+        3,
+        2
+      ],
+      "5A": [
+        3,
+        0
+      ],
+      "6Y": [
+        3,
+        -2
+      ],
+      "6A": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_not"
+  },
+  "chip_and": {
+    "pins": [
+      "1A",
+      "1B",
+      "1Y",
+      "2A",
+      "2B",
+      "2Y",
+      "GND",
+      "3Y",
+      "3A",
+      "3B",
+      "4Y",
+      "4A",
+      "4B",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "and",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1B": [
+        -3,
+        -4
+      ],
+      "1Y": [
+        -3,
+        -2
+      ],
+      "2A": [
+        -3,
+        0
+      ],
+      "2B": [
+        -3,
+        2
+      ],
+      "2Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3Y": [
+        3,
+        6
+      ],
+      "3A": [
+        3,
+        4
+      ],
+      "3B": [
+        3,
+        2
+      ],
+      "4Y": [
+        3,
+        0
+      ],
+      "4A": [
+        3,
+        -2
+      ],
+      "4B": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_and"
+  },
+  "chip_or": {
+    "pins": [
+      "1A",
+      "1B",
+      "1Y",
+      "2A",
+      "2B",
+      "2Y",
+      "GND",
+      "3Y",
+      "3A",
+      "3B",
+      "4Y",
+      "4A",
+      "4B",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "or",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1B": [
+        -3,
+        -4
+      ],
+      "1Y": [
+        -3,
+        -2
+      ],
+      "2A": [
+        -3,
+        0
+      ],
+      "2B": [
+        -3,
+        2
+      ],
+      "2Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3Y": [
+        3,
+        6
+      ],
+      "3A": [
+        3,
+        4
+      ],
+      "3B": [
+        3,
+        2
+      ],
+      "4Y": [
+        3,
+        0
+      ],
+      "4A": [
+        3,
+        -2
+      ],
+      "4B": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_or"
+  },
+  "chip_xor": {
+    "pins": [
+      "1A",
+      "1B",
+      "1Y",
+      "2A",
+      "2B",
+      "2Y",
+      "GND",
+      "3Y",
+      "3A",
+      "3B",
+      "4Y",
+      "4A",
+      "4B",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "xor",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1B": [
+        -3,
+        -4
+      ],
+      "1Y": [
+        -3,
+        -2
+      ],
+      "2A": [
+        -3,
+        0
+      ],
+      "2B": [
+        -3,
+        2
+      ],
+      "2Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3Y": [
+        3,
+        6
+      ],
+      "3A": [
+        3,
+        4
+      ],
+      "3B": [
+        3,
+        2
+      ],
+      "4Y": [
+        3,
+        0
+      ],
+      "4A": [
+        3,
+        -2
+      ],
+      "4B": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_xor"
+  },
+  "chip_xnor": {
+    "pins": [
+      "1A",
+      "1B",
+      "1Y",
+      "2A",
+      "2B",
+      "2Y",
+      "GND",
+      "3Y",
+      "3A",
+      "3B",
+      "4Y",
+      "4A",
+      "4B",
+      "VCC"
+    ],
+    "placement": "rigid",
+    "cost": 3,
+    "model": {
+      "kind": "logic",
+      "fn": "xnor",
+      "gates": [
+        [
+          "1A",
+          "1B",
+          "1Y"
+        ],
+        [
+          "2A",
+          "2B",
+          "2Y"
+        ],
+        [
+          "3A",
+          "3B",
+          "3Y"
+        ],
+        [
+          "4A",
+          "4B",
+          "4Y"
+        ]
+      ]
+    },
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "minSupply": 4.5,
+      "outputResistance": 50,
+      "inputResistance": 1000000
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        3,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        6,
+        -1
+      ],
+      [
+        5,
+        -1
+      ],
+      [
+        4,
+        -1
+      ],
+      [
+        3,
+        -1
+      ],
+      [
+        2,
+        -1
+      ],
+      [
+        1,
+        -1
+      ],
+      [
+        0,
+        -1
+      ]
+    ],
+    "symbolPins": {
+      "1A": [
+        -3,
+        -6
+      ],
+      "1B": [
+        -3,
+        -4
+      ],
+      "1Y": [
+        -3,
+        -2
+      ],
+      "2A": [
+        -3,
+        0
+      ],
+      "2B": [
+        -3,
+        2
+      ],
+      "2Y": [
+        -3,
+        4
+      ],
+      "GND": [
+        -3,
+        6
+      ],
+      "3Y": [
+        3,
+        6
+      ],
+      "3A": [
+        3,
+        4
+      ],
+      "3B": [
+        3,
+        2
+      ],
+      "4Y": [
+        3,
+        0
+      ],
+      "4A": [
+        3,
+        -2
+      ],
+      "4B": [
+        3,
+        -4
+      ],
+      "VCC": [
+        3,
+        -6
+      ]
+    },
+    "datasheet": "chip_xnor"
+  },
+  "logic_switch": {
+    "pins": [
+      "VCC",
+      "GND",
+      "OUT"
+    ],
+    "placement": "rigid",
+    "cost": 1,
+    "model": {
+      "kind": "logicSwitch"
+    },
+    "footprint": [
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "symbolPins": {
+      "VCC": [
+        0,
+        -2
+      ],
+      "GND": [
+        0,
+        2
+      ],
+      "OUT": [
+        2,
+        0
+      ]
+    },
+    "datasheet": "logic_switch"
+  },
+  "logic_probe": {
+    "pins": [
+      "IN",
+      "GND"
+    ],
+    "placement": "offboard",
+    "cost": 0,
+    "model": {
+      "kind": "logicProbe"
+    },
+    "isTool": true,
+    "thresholds": {
+      "vil": 0.8,
+      "vih": 2.0,
+      "inputResistance": 1000000
+    },
+    "symbolPins": {
+      "IN": [
+        -2,
+        0
+      ],
+      "GND": [
+        0,
+        2
+      ]
+    },
+    "datasheet": "logic_probe"
   }
 }

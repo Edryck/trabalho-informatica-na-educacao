@@ -54,5 +54,68 @@
     "values": [],
     "breadboard": "",
     "mistake": ""
+  },
+  "chip_nand": {
+    "title": "CI 7400 (NAND)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_nor": {
+    "title": "CI 7402 (NOR)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_not": {
+    "title": "CI 7404 (NOT)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_and": {
+    "title": "CI 7408 (AND)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_or": {
+    "title": "CI 7432 (OR)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_xor": {
+    "title": "CI 7486 (XOR)",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "chip_xnor": {
+    "title": "CI XNOR",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "logic_switch": {
+    "title": "Chave lógica",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
+  },
+  "logic_probe": {
+    "title": "Ponta lógica",
+    "does": "",
+    "values": [],
+    "breadboard": "",
+    "mistake": ""
   }
 }

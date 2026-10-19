@@ -1,4 +1,4 @@
-import type { Netlist, NetPart, PartDef, PartsCatalog, PinRef, PointId } from "./netlist"
+import { collapse, type Netlist, type NetPart, type PartDef, type PartsCatalog, type PinRef, type PointId } from "./netlist"
 
 export const LINK_RESISTANCE = 0.001
 export const GMIN = 1e-12
@@ -42,7 +42,7 @@ type Branch = { a: PointId; b: PointId; g: number; source: number }
 
 type SolveOptions = { overrides?: Record<string, string>; previous?: DiscreteState }
 
-export const DEFAULT_INPUT_STATE: Record<string, string> = { battery: "on", switch: "off", pushButton: "released" }
+export const DEFAULT_INPUT_STATE: Record<string, string> = { battery: "on", switch: "off", pushButton: "released", logicSwitch: "0" }
 
 function sortedEntries<T>(rec: Record<string, T>): [string, T][] {
   return Object.entries(rec).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
@@ -77,7 +77,7 @@ function gaussianSolve(matrix: number[][], rhs: number[]): number[] {
   return x
 }
 
-function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>, ledOn: boolean): Branch[] {
+function partBranches(part: NetPart, def: PartDef, state: string | undefined, pinAt: Record<PinRef, PointId>, discrete: DiscreteState): Branch[] {
   const pin = (name: string): PointId | undefined => pinAt[`${part.id}.${name}`]
   const branch = (pa: string, pb: string, g: number, source = 0): Branch[] => {
     const a = pin(pa)
@@ -98,11 +98,28 @@ function partBranches(part: NetPart, def: PartDef, state: string | undefined, pi
     case "buzzer":
       return branch(def.pins[0], def.pins[1], 1 / model.resistance)
     case "led":
-      return ledOn ? branch("a", "k", 1 / model.rs, model.vf / model.rs) : branch("a", "k", LED_OFF_CONDUCTANCE)
+      return discrete.leds[part.id] === "on" ? branch("a", "k", 1 / model.rs, model.vf / model.rs) : branch("a", "k", LED_OFF_CONDUCTANCE)
     case "switch":
       return state === "on" ? branch("a", "b", link) : []
     case "pushButton":
       return [...branch("1", "2", link), ...branch("3", "4", link), ...(state === "pressed" ? branch("1", "3", link) : [])]
+    case "logicSwitch":
+      return branch("OUT", state === "1" ? "VCC" : "GND", link)
+    case "logicProbe":
+      return branch("IN", "GND", 1 / (def.thresholds?.inputResistance ?? Infinity))
+    case "logic": {
+      const inputG = 1 / (def.thresholds?.inputResistance ?? Infinity)
+      const outputG = 1 / (def.thresholds?.outputResistance ?? Infinity)
+      const result: Branch[] = []
+      for (const gate of model.gates) {
+        for (const input of gate.slice(0, -1)) result.push(...branch(input, "GND", inputG))
+        const out = gate[gate.length - 1]
+        const level = discrete.outputs[`${part.id}.${out}`]
+        if (level === 1) result.push(...branch(out, "VCC", outputG))
+        if (level === 0) result.push(...branch(out, "GND", outputG))
+      }
+      return result
+    }
     default:
       return []
   }
@@ -136,14 +153,36 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     states.set(part.id, opts.overrides?.[part.id] ?? part.inputState ?? DEFAULT_INPUT_STATE[def.model.kind])
   }
   const ledParts = known.filter((p) => catalog[p.type].model.kind === "led")
+  const chipParts = known.filter((p) => catalog[p.type].model.kind === "logic")
+  const toolIds = new Set(known.filter((p) => p.isTool || catalog[p.type].isTool).map((p) => p.id))
+  const nodes = collapse(net)
+  const membersByNode = new Map<string, PinRef[]>()
+  for (const [ref, node] of nodes) membersByNode.set(node, [...(membersByNode.get(node) ?? []), ref])
+  const ownerOf = (ref: PinRef) => ref.slice(0, ref.indexOf("."))
+  const chipInputs = new Set<PinRef>()
+  for (const part of chipParts) {
+    const model = catalog[part.type].model
+    if (model.kind === "logic") for (const gate of model.gates) for (const pin of gate.slice(0, -1)) chipInputs.add(`${part.id}.${pin}`)
+  }
+  // solto = ninguém no nó que defina tensão: ferramenta, entrada de CI e saída em alta impedância não contam
+  const isFloating = (ref: PinRef, discrete: DiscreteState) => {
+    const node = nodes.get(ref)
+    if (node === undefined) return true
+    return (membersByNode.get(node) ?? []).every(
+      (other) => other === ref || toolIds.has(ownerOf(other)) || chipInputs.has(other) || discrete.outputs[other] === "z",
+    )
+  }
+  const hasCompany = (ref: PinRef) => {
+    const node = nodes.get(ref)
+    return node !== undefined && (membersByNode.get(node) ?? []).some((other) => other !== ref)
+  }
   const stateKey = (d: DiscreteState) =>
     JSON.stringify({ leds: sortedEntries(d.leds), outputs: sortedEntries(d.outputs) })
 
   const runPass = (discrete: DiscreteState) => {
     const partBranchList = new Map<string, Branch[]>()
     for (const part of known) {
-      const ledOn = discrete.leds[part.id] === "on"
-      partBranchList.set(part.id, partBranches(part, catalog[part.type], states.get(part.id), net.pinAt, ledOn))
+      partBranchList.set(part.id, partBranches(part, catalog[part.type], states.get(part.id), net.pinAt, discrete))
     }
     const linkG = 1 / LINK_RESISTANCE
     const all: Branch[] = [...net.links.map((l) => ({ a: l.a, b: l.b, g: linkG, source: 0 }))]
@@ -177,6 +216,25 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
   }
   const current = (br: Branch, voltages: Record<PointId, number>) => br.g * (voltages[br.a] - voltages[br.b]) - br.source
 
+  const levelFrom = (volts: number, vil: number, vih: number): 0 | 1 | "undefined" => (volts < vil ? 0 : volts > vih ? 1 : "undefined")
+
+  const chipReader = (part: NetPart, voltages: Record<PointId, number>, discrete: DiscreteState) => {
+    const def = catalog[part.type]
+    const at = (pin: string) => {
+      const point = net.pinAt[`${part.id}.${pin}`]
+      return point === undefined ? undefined : voltages[point]
+    }
+    const vcc = at("VCC")
+    const gnd = at("GND")
+    const powered = vcc !== undefined && gnd !== undefined && vcc - gnd >= (def.thresholds?.minSupply ?? Infinity)
+    const level = (pin: string): 0 | 1 | "undefined" => {
+      const v = at(pin)
+      if (v === undefined || gnd === undefined || isFloating(`${part.id}.${pin}`, discrete)) return "undefined"
+      return levelFrom(v - gnd, def.thresholds?.vil ?? 0.8, def.thresholds?.vih ?? 2)
+    }
+    return { powered, level }
+  }
+
   const reevaluate = (discrete: DiscreteState, run: ReturnType<typeof runPass>): DiscreteState => {
     const leds: Record<string, "on" | "off"> = {}
     for (const part of ledParts) {
@@ -190,13 +248,34 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
         leds[part.id] = run.voltages[br.a] - run.voltages[br.b] > model.vf ? "on" : "off"
       }
     }
-    return { leds, outputs: discrete.outputs }
+    const outputs: DiscreteState["outputs"] = {}
+    for (const part of chipParts) {
+      const read = chipReader(part, run.voltages, discrete)
+      const model = catalog[part.type].model
+      if (model.kind !== "logic") continue
+      for (const gate of model.gates) {
+        const out = gate[gate.length - 1]
+        const levels = gate.slice(0, -1).map(read.level)
+        outputs[`${part.id}.${out}`] =
+          !read.powered || levels.some((l) => l === "undefined") ? "z" : applyLogic(model.fn, levels as (0 | 1)[])
+      }
+    }
+    return { leds, outputs }
   }
 
   const start = opts.previous ?? INITIAL_DISCRETE
+  const startOutputs: DiscreteState["outputs"] = {}
+  for (const part of chipParts) {
+    const model = catalog[part.type].model
+    if (model.kind !== "logic") continue
+    for (const gate of model.gates) {
+      const ref = `${part.id}.${gate[gate.length - 1]}`
+      startOutputs[ref] = start.outputs[ref] ?? 0
+    }
+  }
   let discrete: DiscreteState = {
     leds: Object.fromEntries(ledParts.map((p) => [p.id, start.leds[p.id] === "on" && p.fault === undefined ? "on" : "off"])),
-    outputs: start.outputs,
+    outputs: startOutputs,
   }
   const visited = new Set<string>([stateKey(discrete)])
   let status: SolveResult["status"] = "unstable"
@@ -212,6 +291,8 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     }
     if (visited.has(key)) break
     visited.add(key)
+    // na última passada não avança: o estado devolvido tem que ser o que foi resolvido
+    if (passes === MAX_PASSES) break
     discrete = next
   }
   passes = Math.min(passes, MAX_PASSES)
@@ -271,6 +352,32 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
         partCurrent[part.id] = i
         partState[part.id] = { kind: "buzzer", sounding: i > (thresholds.sound ?? Infinity) }
         break
+      case "logicProbe": {
+        const inPoint = net.pinAt[`${part.id}.IN`]
+        const gndPoint = net.pinAt[`${part.id}.GND`]
+        const floating = inPoint === undefined || gndPoint === undefined || isFloating(`${part.id}.IN`, discrete)
+        const level = floating ? "undefined" : levelFrom(voltages[inPoint] - voltages[gndPoint], thresholds.vil ?? 0.8, thresholds.vih ?? 2)
+        partState[part.id] = { kind: "probe", level }
+        break
+      }
+      case "logic": {
+        const read = chipReader(part, voltages, discrete)
+        const outputs: Record<string, 0 | 1 | "undefined" | "hiz"> = {}
+        for (const gate of model.gates) {
+          const out = gate[gate.length - 1]
+          const value = discrete.outputs[`${part.id}.${out}`]
+          outputs[out] = !read.powered ? "hiz" : value === "z" || value === undefined ? "undefined" : value
+          const inUse = hasCompany(`${part.id}.${out}`) || gate.slice(0, -1).some((pin) => !isFloating(`${part.id}.${pin}`, discrete))
+          if (!inUse || !read.powered) continue
+          for (const pin of gate.slice(0, -1)) {
+            if (isFloating(`${part.id}.${pin}`, discrete)) warnings.push({ kind: "floatingInput", partId: part.id, pin })
+            else if (read.level(pin) === "undefined") warnings.push({ kind: "undefinedInput", partId: part.id, pin })
+          }
+        }
+        partState[part.id] = { kind: "logic", outputs, powered: read.powered }
+        if (!read.powered && def.pins.some((pin) => hasCompany(`${part.id}.${pin}`))) warnings.push({ kind: "unpoweredChip", partId: part.id })
+        break
+      }
     }
     if (!partState[part.id]) partState[part.id] = { kind: "passive" }
     if (thresholds.maxCurrent !== undefined && Math.abs(i) > thresholds.maxCurrent) {
@@ -289,5 +396,25 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     warnings,
     discrete,
     passes,
+  }
+}
+
+function applyLogic(fn: "and" | "or" | "nand" | "nor" | "xor" | "xnor" | "not", levels: (0 | 1)[]): 0 | 1 {
+  const ones = levels.filter((l) => l === 1).length
+  switch (fn) {
+    case "and":
+      return ones === levels.length ? 1 : 0
+    case "or":
+      return ones > 0 ? 1 : 0
+    case "nand":
+      return ones === levels.length ? 0 : 1
+    case "nor":
+      return ones > 0 ? 0 : 1
+    case "xor":
+      return ones % 2 === 1 ? 1 : 0
+    case "xnor":
+      return ones % 2 === 1 ? 0 : 1
+    case "not":
+      return levels[0] === 1 ? 0 : 1
   }
 }
