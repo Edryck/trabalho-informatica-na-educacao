@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { divergenceLabel, formatValue, particleSpeed, visibleDivergences } from "../src/ui"
+import { divergenceLabel, formatValue, particleSpeed, scenarioLabel, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 
 const T = " "
@@ -65,5 +65,16 @@ describe("divergences", () => {
     expect(divergenceLabel({ kind: "wiring", partId: "L1", pin: "b", power: false, expected: ["R1.a"], actual: ["S1.a"] })).toBe(
       "L1 b: no esquema liga em R1 a, na protoboard liga em S1 a",
     )
+  })
+})
+
+describe("scenarioLabel", () => {
+  it("names inputs and expected states", () => {
+    expect(scenarioLabel({ when: { S1: "on" }, then: { L1: "lit" } })).toEqual({ when: "S1 ligada", then: "L1 acesa" })
+    expect(scenarioLabel({ when: {}, then: { M1: "ccw" } }).then).toBe("M1 girando no sentido anti-horário")
+  })
+
+  it("formats numeric ranges", () => {
+    expect(scenarioLabel({ when: {}, then: { L1: { current: [0.03, 0.07] } } }).then).toBe("L1 com corrente entre 30,0 mA e 70,0 mA")
   })
 })

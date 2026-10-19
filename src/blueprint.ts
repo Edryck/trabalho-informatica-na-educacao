@@ -129,6 +129,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
   let editing: string | null = null
   let particles: Particle[] = []
   let lastHint: string | null = null
+  let lockedIds = new Set<string>()
 
   function applyCamera() {
     const w = container.clientWidth || 1
@@ -433,6 +434,10 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
   }
 
   function startEditing(id: string) {
+    if (lockedIds.has(id)) {
+      cb.onEvent("lockedLabel")
+      return
+    }
     const node = partsLayer.querySelector(`[data-label="${CSS.escape(id)}"]`)
     if (!node) return
     const box = node.getBoundingClientRect()
@@ -452,9 +457,15 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     const from = editing
     const to = labelInput.value.trim()
     const taken = view.doc.instances.some((i) => i.id === to && i.id !== from)
-    if (!LABEL_PATTERN.test(to) || taken) {
+    const locked = lockedIds.has(from) && to !== from
+    if (!LABEL_PATTERN.test(to) || taken || locked) {
       labelInput.classList.add("invalid")
-      labelInput.title = taken ? "Esse nome já está em uso" : "Use letras e números, começando por letra (até 6)"
+      labelInput.title = locked
+        ? "A fase usa esse nome pra conferir o circuito, então ele fica assim"
+        : taken
+          ? "Esse nome já está em uso"
+          : "Use letras e números, começando por letra (até 6)"
+      labelInput.setAttribute("aria-invalid", "true")
       return
     }
     editing = null
@@ -671,6 +682,9 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     setTool,
     handleKey,
     frame,
+    setLockedIds(ids: string[]) {
+      lockedIds = new Set(ids)
+    },
     activate() {
       applyCamera()
       emitHint()
