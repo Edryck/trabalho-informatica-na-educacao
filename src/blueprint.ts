@@ -37,10 +37,17 @@ const CHIP_TITLES: Record<string, string> = {
 const lead = (x1: number, y1: number, x2: number, y2: number) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
 
 export const SYMBOLS: Record<string, (state: PartState | undefined, input: string | undefined, standard: SymbolStandard) => string> = {
-  resistor: () => `${lead(-40, 0, -24, 0)}<rect x="-24" y="-9" width="48" height="18"/>${lead(24, 0, 40, 0)}`,
-  lamp: (state) => {
+  resistor: (_state, _input, standard) =>
+    standard === "ANSI"
+      ? `${lead(-40, 0, -24, 0)}<polyline points="-24,0 -20,-9 -12,9 -4,-9 4,9 12,-9 20,9 24,0"/>${lead(24, 0, 40, 0)}`
+      : `${lead(-40, 0, -24, 0)}<rect x="-24" y="-9" width="48" height="18"/>${lead(24, 0, 40, 0)}`,
+  lamp: (state, _input, standard) => {
     const on = state?.kind === "lamp" && state.lit
-    return `${lead(-40, 0, -18, 0)}${lead(18, 0, 40, 0)}<circle class="${on ? "lit" : ""}" r="18"/><line x1="-12.7" y1="-12.7" x2="12.7" y2="12.7"/><line x1="-12.7" y1="12.7" x2="12.7" y2="-12.7"/>`
+    const inner =
+      standard === "ANSI"
+        ? `<path d="M-18 0h6c0-10 12-10 12 0s12 10 12 0h6"/>`
+        : `<line x1="-12.7" y1="-12.7" x2="12.7" y2="12.7"/><line x1="-12.7" y1="12.7" x2="12.7" y2="-12.7"/>`
+    return `${lead(-40, 0, -18, 0)}${lead(18, 0, 40, 0)}<circle class="${on ? "lit" : ""}" r="18"/>${inner}`
   },
   battery: () =>
     `${lead(0, -40, 0, -6)}${lead(0, 6, 0, 40)}<line class="plate" x1="-22" y1="-6" x2="22" y2="-6"/><line class="plate thick" x1="-11" y1="6" x2="11" y2="6"/><text class="pole" x="18" y="-14">+</text><text class="pole" x="18" y="24">−</text>`,
@@ -723,6 +730,15 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     setTool,
     handleKey,
     frame,
+    symbolMarkup(type: string, standard: SymbolStandard): string {
+      const previous = opts.standard
+      opts = { ...opts, standard }
+      const g = symbolGroup(type, undefined, undefined)
+      opts = { ...opts, standard: previous }
+      const chip = type.startsWith("chip_")
+      const box = chip ? "-80 -150 160 300" : "-50 -50 100 100"
+      return `<svg class="blueprint sheet-svg" viewBox="${box}" width="${chip ? 120 : 140}" height="${chip ? 220 : 140}">${g.outerHTML}</svg>`
+    },
     setLockedIds(ids: string[]) {
       lockedIds = new Set(ids)
     },

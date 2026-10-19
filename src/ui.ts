@@ -1,4 +1,5 @@
 import type { Divergence, PinRef } from "./netlist"
+import type { Warning } from "./solver"
 
 export type Unit = "V" | "A" | "Ω" | "W"
 
@@ -123,7 +124,7 @@ function partIcon(type: string): string {
   return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
 }
 
-export function createTray(el: HTMLElement, onPick: (type: string) => void) {
+export function createTray(el: HTMLElement, onPick: (type: string) => void, onInfo?: (type: string) => void) {
   el.classList.add("tray")
   el.setAttribute("aria-label", "Bandeja de peças")
   return {
@@ -137,6 +138,8 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void) {
         return
       }
       for (const item of items) {
+        const wrap = document.createElement("div")
+        wrap.className = "tray-slot"
         const button = document.createElement("button")
         button.type = "button"
         button.className = "tray-item"
@@ -146,7 +149,19 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void) {
         button.classList.toggle("pending", item.type.startsWith("pending:"))
         button.innerHTML = `<span class="tray-icon">${partIcon(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${item.count}</span>`
         button.addEventListener("click", () => onPick(item.type))
-        el.appendChild(button)
+        wrap.appendChild(button)
+        const infoType = item.icon ?? item.type
+        if (onInfo && !infoType.startsWith("pending:")) {
+          const info = document.createElement("button")
+          info.type = "button"
+          info.className = "tray-info"
+          info.setAttribute("aria-label", `Datasheet: ${item.label}`)
+          info.title = "Datasheet"
+          info.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>'
+          info.addEventListener("click", () => onInfo(infoType))
+          wrap.appendChild(info)
+        }
+        el.appendChild(wrap)
       }
     },
   }
@@ -306,11 +321,19 @@ const STATE_WORDS: Record<string, string> = {
   "0": "em 0",
 }
 
+function offWord(id: string): string {
+  if (/^LED/.test(id)) return "apagado"
+  if (/^M/.test(id)) return "parado"
+  if (/^Z/.test(id)) return "em silêncio"
+  return "apagada"
+}
+
 type ScenarioLike = { when: Record<string, string>; then: Record<string, string | { current?: [number, number]; voltage?: [number, number] }> }
 
 export function scenarioLabel(scenario: ScenarioLike): { when: string; then: string } {
   const when = Object.entries(scenario.when).map(([id, v]) => `${id} ${INPUT_WORDS[v] ?? v}`)
   const then = Object.entries(scenario.then).map(([id, v]) => {
+    if (v === "off") return `${id} ${offWord(id)}`
     if (typeof v === "string") return `${id} ${STATE_WORDS[v] ?? v}`
     const parts: string[] = []
     if (v.current) parts.push(`corrente entre ${formatValue(v.current[0], "A")} e ${formatValue(v.current[1], "A")}`)
@@ -388,36 +411,249 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
   }
 }
 
-export type PhaseListGroup = { id: string; title: string; phases: { id: string; goal: string; type: string; available: boolean; won: boolean }[] }
+export type PhaseMapGroup = {
+  id: string
+  title: string
+  concept: string
+  comingSoon: boolean
+  phases: { id: string; goal: string; type: string; available: boolean; won: boolean; bestCost: number | null; budget: number | null }[]
+}
 
-export function createPhaseList(el: HTMLElement, onPick: (phaseId: string) => void) {
-  el.className = "phase-list"
+const LOCK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
+const OPEN_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>'
+
+export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => void, nav: { onSettings(): void; onHome(): void }) {
+  el.className = "phase-map"
   el.hidden = true
   let backAction: { label: string; run(): void } | null = null
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
     if (target.closest("[data-action=back]")) return backAction?.run()
+    if (target.closest("[data-action=settings]")) return nav.onSettings()
+    if (target.closest("[data-action=home]")) return nav.onHome()
     const button = target.closest<HTMLButtonElement>("[data-phase]")
     if (button && !button.disabled) onPick(button.dataset.phase!)
   })
   return {
-    show(groups: PhaseListGroup[], back: { label: string; run(): void } | null = null) {
+    show(groups: PhaseMapGroup[], back: { label: string; run(): void } | null = null) {
       el.hidden = false
       backAction = back
-      el.innerHTML = `<header class="phase-list-head"><h2 class="phase-list-title">Fases</h2>${back ? `<button type="button" class="phase-back" data-action="back">${back.label}</button>` : ""}</header>${groups
-        .map(
-          (g) => `<section class="phase-group"><h3>${g.title}</h3><ol>${g.phases
+      const columns = groups
+        .map((g) => {
+          if (g.comingSoon)
+            return `<section class="map-group soon" aria-label="${g.title}, em breve"><h3>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-soon">em breve</p></section>`
+          const done = g.phases.filter((p) => p.won).length
+          const nodes = g.phases
             .map((p) => {
+              const state = p.won ? "won" : p.available ? "available" : "locked"
               const status = p.won ? "concluída" : p.available ? "disponível" : "bloqueada"
-              const icon = p.won ? CHECK_ICON : p.available ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>' : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
-              return `<li><button type="button" class="phase-item ${p.won ? "won" : p.available ? "available" : "locked"}" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="${p.id}, ${p.goal}, ${status}"><span class="phase-icon">${icon}</span><span class="mono">${p.id}</span><span class="phase-goal">${p.goal}</span><span class="phase-type">${PHASE_TAGS[p.type] ?? p.type}</span></button></li>`
+              const icon = p.won ? CHECK_ICON : p.available ? OPEN_ICON : LOCK_ICON
+              const cost = p.won && p.budget !== null && p.bestCost !== null ? `<span class="map-cost mono">${p.bestCost}/${p.budget}</span>` : ""
+              return `<li><button type="button" class="map-node ${state}" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="${p.id}, ${p.goal}, ${PHASE_TAGS[p.type] ?? p.type}, ${status}"><span class="map-dot">${icon}</span><span class="map-text"><span class="map-goal">${p.goal}</span><span class="map-meta"><span class="mono">${p.id}</span> \u00b7 ${PHASE_TAGS[p.type] ?? p.type}</span></span>${cost}</button></li>`
             })
-            .join("")}</ol></section>`,
-        )
-        .join("")}`
+            .join("")
+          return `<section class="map-group"><h3>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-progress mono">${done}/${g.phases.length}</p><ol>${nodes}</ol></section>`
+        })
+        .join("")
+      el.innerHTML = `<header class="phase-list-head"><h2 class="phase-list-title">Mapa de fases</h2><button type="button" class="phase-back" data-action="home">Início</button><button type="button" class="phase-back" data-action="settings">Configurações</button>${back ? `<button type="button" class="phase-back primary" data-action="back">${back.label}</button>` : ""}</header><div class="map-columns">${columns}</div>`
     },
     hide() {
       el.hidden = true
+    },
+  }
+}
+
+export type TitleActions = { canContinue: boolean; onContinue(): void; onNew(): void; onSandbox(): void; onSettings(): void; sandboxAvailable: boolean }
+
+export function createTitleScreen(el: HTMLElement) {
+  el.className = "title-screen"
+  el.hidden = true
+  let actions: TitleActions | null = null
+  let confirming = false
+  el.addEventListener("click", (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action
+    if (!action || !actions) return
+    if (action === "continue") actions.onContinue()
+    if (action === "sandbox") actions.onSandbox()
+    if (action === "settings") actions.onSettings()
+    if (action === "new") {
+      if (actions.canContinue && !confirming) {
+        confirming = true
+        render()
+        return
+      }
+      confirming = false
+      actions.onNew()
+    }
+    if (action === "cancel") {
+      confirming = false
+      render()
+    }
+  })
+  function render() {
+    if (!actions) return
+    el.innerHTML = `
+      <div class="title-inner">
+        <h1 class="title-name">Fio Contínuo</h1>
+        <p class="title-tagline">A corrente dá a volta inteira. Desenha, monta, mede e conserta.</p>
+        <div class="title-actions">
+          ${actions.canContinue ? '<button type="button" class="btn-primary" data-action="continue">Continuar</button>' : ""}
+          ${
+            confirming
+              ? '<p class="title-confirm">Começar de novo apaga o progresso salvo neste navegador.</p><button type="button" class="btn-danger" data-action="new">Apagar e começar</button><button type="button" class="btn-secondary" data-action="cancel">Manter progresso</button>'
+              : `<button type="button" class="${actions.canContinue ? "btn-secondary" : "btn-primary"}" data-action="new">Nova partida</button>`
+          }
+          ${actions.sandboxAvailable ? '<button type="button" class="btn-secondary" data-action="sandbox">Sandbox</button>' : ""}
+          <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
+        </div>
+      </div>`
+    el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+  }
+  return {
+    show(next: TitleActions) {
+      actions = next
+      confirming = false
+      el.hidden = false
+      render()
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}
+
+export type CompleteSummary = {
+  phaseId: string
+  goal: string
+  rows: { label: string; ok: boolean }[]
+  parts: { label: string; count: number }[]
+  cost: number
+  budget: number | null
+  referenceCost: number | null
+  bestCost: number | null
+}
+
+export function createCompleteScreen(el: HTMLElement) {
+  el.className = "complete-screen"
+  el.hidden = true
+  let handlers: { onNext: (() => void) | null; onCheaper(): void; onMap(): void } | null = null
+  el.addEventListener("click", (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action
+    if (!handlers) return
+    if (action === "next") handlers.onNext?.()
+    if (action === "cheaper") handlers.onCheaper()
+    if (action === "map") handlers.onMap()
+  })
+  return {
+    show(summary: CompleteSummary, next: { onNext: (() => void) | null; onCheaper(): void; onMap(): void }) {
+      handlers = next
+      el.hidden = false
+      const cheaper = summary.referenceCost !== null && summary.cost > summary.referenceCost
+      const costLine =
+        summary.referenceCost === null
+          ? ""
+          : cheaper
+            ? `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span> \u00b7 dá pra fazer com <span class="mono">${summary.referenceCost}</span>.</p>`
+            : `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span>. Esse é o menor custo que a gente conhece.</p>`
+      el.innerHTML = `
+        <div class="complete-card" role="dialog" aria-label="Fase concluída">
+          <p class="complete-tag mono">${summary.phaseId}</p>
+          <h2>Fase concluída</h2>
+          <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)}</p>
+          ${summary.rows.length ? `<ul class="complete-rows">${summary.rows.map((r) => `<li><span class="check-icon ok">${CHECK_ICON}</span>${r.label}</li>`).join("")}</ul>` : ""}
+          ${summary.parts.length ? `<p class="complete-parts">Peças usadas: ${summary.parts.map((p) => `${p.count}\u00d7 ${p.label}`).join(", ")}</p>` : ""}
+          ${costLine}
+          ${summary.bestCost !== null && summary.budget !== null ? `<p class="complete-best">Melhor versão até agora: <span class="mono">${summary.bestCost} créditos</span></p>` : ""}
+          <div class="complete-actions">
+            ${next.onNext ? '<button type="button" class="btn-primary" data-action="next">Próxima fase</button>' : ""}
+            ${cheaper ? '<button type="button" class="btn-secondary" data-action="cheaper">Tentar versão mais barata</button>' : ""}
+            <button type="button" class="btn-secondary" data-action="map">Mapa de fases</button>
+          </div>
+        </div>`
+      el.querySelector<HTMLButtonElement>(".btn-primary, .btn-secondary")?.focus({ preventScroll: true })
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}
+
+export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; systemReducedMotion: boolean; storageAvailable: boolean }
+export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onReset(): void; onExport(): void; onBack(): void }
+
+export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers) {
+  el.className = "settings-screen"
+  el.hidden = true
+  let confirming = false
+  let state: SettingsView | null = null
+  el.addEventListener("click", (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")
+    const action = target?.dataset.action
+    if (action === "iec") handlers.onStandard("IEC")
+    if (action === "ansi") handlers.onStandard("ANSI")
+    if (action === "export") handlers.onExport()
+    if (action === "back") handlers.onBack()
+    if (action === "reset") {
+      if (!confirming) {
+        confirming = true
+        render()
+        return
+      }
+      confirming = false
+      handlers.onReset()
+    }
+    if (action === "keep") {
+      confirming = false
+      render()
+    }
+  })
+  el.addEventListener("change", (event) => {
+    const input = event.target as HTMLInputElement
+    if (input.name === "motion") handlers.onReducedMotion(input.checked)
+  })
+  function render() {
+    if (!state) return
+    el.innerHTML = `
+      <div class="settings-card">
+        <header class="phase-list-head"><h2 class="phase-list-title">Configurações</h2><button type="button" class="phase-back" data-action="back">Voltar</button></header>
+        <section class="settings-row">
+          <div><h3>Norma dos símbolos</h3><p>Como os componentes aparecem no blueprint e nos datasheets.</p></div>
+          <div class="segmented" role="radiogroup" aria-label="Norma dos símbolos">
+            <button type="button" role="radio" aria-checked="${state.standard === "IEC"}" data-action="iec">IEC</button>
+            <button type="button" role="radio" aria-checked="${state.standard === "ANSI"}" data-action="ansi">ANSI</button>
+          </div>
+        </section>
+        <section class="settings-row">
+          <div><h3>Movimento reduzido</h3><p>Troca as partículas da corrente por setas paradas e corta as transições.${state.systemReducedMotion ? " Seu sistema já pede isso, então fica ligado." : ""}</p></div>
+          <label class="switch-control"><input type="checkbox" name="motion" ${state.reducedMotion || state.systemReducedMotion ? "checked" : ""} ${state.systemReducedMotion ? "disabled" : ""}/><span>Ligado</span></label>
+        </section>
+        <section class="settings-row">
+          <div><h3>Volume</h3><p>Os sons chegam numa versão futura.</p></div>
+          <input type="range" min="0" max="1" step="0.1" value="0.8" disabled aria-label="Volume (indisponível)"/>
+        </section>
+        <section class="settings-row">
+          <div><h3>Dados de uso</h3><p>Baixa um arquivo JSON com o tempo, as alterações, as dicas e as medições de cada fase jogada neste navegador.</p></div>
+          <button type="button" class="btn-secondary" data-action="export">Exportar dados</button>
+        </section>
+        <section class="settings-row">
+          <div><h3>Progresso</h3><p>${state.storageAvailable ? "Fica salvo só neste navegador." : "Este navegador não está deixando salvar."}</p></div>
+          ${
+            confirming
+              ? '<div class="settings-confirm"><button type="button" class="btn-danger" data-action="reset">Apagar tudo</button><button type="button" class="btn-secondary" data-action="keep">Cancelar</button></div>'
+              : '<button type="button" class="btn-secondary" data-action="reset">Zerar progresso</button>'
+          }
+        </section>
+      </div>`
+  }
+  return {
+    show(next: SettingsView) {
+      state = next
+      el.hidden = false
+      render()
+    },
+    hide() {
+      el.hidden = true
+      confirming = false
     },
   }
 }
@@ -561,5 +797,82 @@ export function createValuePicker(el: HTMLElement) {
       })
     },
     close: () => close(null),
+  }
+}
+
+export function warningText(w: Warning): string | null {
+  const part = w.partId ?? "uma peça"
+  switch (w.kind) {
+    case "overcurrent":
+      return `${part} está com mais corrente do que aguenta. Aqui nada estraga, mas numa bancada de verdade ela não ia durar. Falta resistência no caminho?`
+    case "shortCircuit":
+      return `${part} está em curto: o + chega no − quase sem nada no meio. Procura o fio ou a coluna que fecha esse atalho.`
+    case "ammeterParallel":
+      return "Amperímetro em paralelo vira um curto. Abre o circuito e põe o medidor no caminho da corrente."
+    case "ohmmeterPowered":
+      return "Desliga a fonte antes de medir resistência. Com a bateria ligada, a leitura não quer dizer nada."
+    case "floatingInput":
+      return `A entrada ${w.pin ?? ""} de ${part} está solta. Entrada sem ligação não é 0 nem 1: liga ela num nível definido.`
+    case "undefinedInput":
+      return `A entrada ${w.pin ?? ""} de ${part} está numa tensão no meio do caminho, nem 0 nem 1. Confere o que chega nela.`
+    case "unpoweredChip":
+      return `${part} está sem alimentação. Confere o VCC (pino 14) no + e o GND (pino 7) no −.`
+    case "unstable":
+      return "O circuito não se decide: a saída fica trocando de estado. Vê se alguma saída volta pra própria entrada."
+    default:
+      return null
+  }
+}
+
+export type Datasheet = { title: string; does: string; values: [string, string][]; breadboard: string; mistake: string }
+
+export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => void) {
+  el.className = "datasheet-card"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-modal", "false")
+  let current: string | null = null
+  const close = () => {
+    if (!current) return
+    const key = current
+    current = null
+    el.hidden = true
+    onClose(key)
+  }
+  el.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("[data-action=close]")) close()
+  })
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation()
+      close()
+    }
+  })
+  return {
+    isOpen: () => current !== null,
+    close,
+    open(key: string, sheet: Datasheet, symbolSvg: string, isNew: boolean) {
+      current = key
+      el.hidden = false
+      el.setAttribute("aria-label", `Datasheet: ${sheet.title}`)
+      el.innerHTML = `
+        <header class="sheet-head">
+          ${isNew ? '<span class="sheet-new">peça nova</span>' : ""}
+          <h2>${sheet.title}</h2>
+          <button type="button" class="sheet-close" data-action="close" aria-label="Fechar datasheet">${CROSS_ICON}</button>
+        </header>
+        <div class="sheet-body">
+          <div class="sheet-symbol" aria-hidden="true">${symbolSvg}</div>
+          <p class="sheet-does">${sheet.does}</p>
+          <dl class="sheet-values">${sheet.values.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+          <h3>Na protoboard</h3>
+          <p>${sheet.breadboard}</p>
+          <h3>Erro comum</h3>
+          <p>${sheet.mistake}</p>
+        </div>
+        <button type="button" class="sheet-ok" data-action="close">Entendi</button>`
+      el.scrollTop = 0
+      el.querySelector<HTMLButtonElement>(".sheet-ok")?.focus({ preventScroll: true })
+    },
   }
 }

@@ -93,3 +93,22 @@ describe("resistorBands", () => {
     expect(resistorBands(2.2)).toEqual(["red", "red", "gold", "gold"])
   })
 })
+
+import { warningText } from "../src/ui"
+
+describe("warningText", () => {
+  it("has text for every warning kind and never says burned", () => {
+    const kinds = ["overcurrent", "shortCircuit", "ammeterParallel", "ohmmeterPowered", "floatingInput", "undefinedInput", "unpoweredChip", "unstable"] as const
+    for (const kind of kinds) {
+      const text = warningText({ kind, partId: "L1", pin: "1A" })
+      expect(text, kind).toBeTruthy()
+      expect(text!, kind).not.toMatch(/queim/i)
+    }
+  })
+})
+
+describe("scenarioLabel off words", () => {
+  it("uses a word that fits each part", () => {
+    expect(scenarioLabel({ when: {}, then: { M1: "off", Z1: "off", LED1: "off", L1: "off" } }).then).toBe("M1 parado, Z1 em silêncio, LED1 apagado, L1 apagada")
+  })
+})

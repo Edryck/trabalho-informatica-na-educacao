@@ -6,6 +6,7 @@ import "@fontsource/ibm-plex-mono/500.css"
 import "./style.css"
 import partsJson from "../data/parts.json"
 import phasesJson from "../data/phases.json"
+import datasheetsJson from "../data/datasheets.json"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -13,6 +14,7 @@ import {
   evaluate,
   evaluateScenarios,
   findPhase,
+  referenceCost,
   isPhaseAvailable,
   loadPhases,
   phaseOrder,
@@ -28,22 +30,32 @@ import {
   current,
   emptyDoc,
   isValidDoc,
+  exportLog,
+  finishAttempt,
   pushSnapshot,
   redo,
+  startAttempt,
+  trackDivergences,
+  updateAttempt,
   undo,
   type AppView,
   type CircuitDoc,
   type History,
 } from "./state"
 import {
+  createDatasheetCard,
   createDivergenceBar,
   createHint,
   createMeterHud,
   createValuePicker,
   formatValue,
+  warningText,
   createPendingList,
   createPhaseBrief,
-  createPhaseList,
+  createCompleteScreen,
+  createPhaseMap,
+  createSettingsScreen,
+  createTitleScreen,
   createPreviewBanner,
   createToastHost,
   createToolbar,
@@ -51,6 +63,7 @@ import {
   createViewToggle,
   createWirePalette,
   scenarioLabel,
+  type Datasheet,
   type PendingItem,
   type ToolId,
   type TrayItem,
@@ -107,10 +120,10 @@ const stageEl = app.querySelector<HTMLElement>(".stage")!
 const blueprintLayer = app.querySelector<HTMLElement>(".layer-blueprint")!
 const benchLayer = app.querySelector<HTMLElement>(".layer-bench")!
 const trayEl = app.querySelector<HTMLElement>(".tray-host")!
-const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl] = Array.from({ length: 11 }, () =>
+const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl, sheetEl] = Array.from({ length: 12 }, () =>
   document.createElement("div"),
 )
-stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl)
+stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl, sheetEl)
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -131,14 +144,23 @@ let history: History = createHistory(emptyDoc())
 let view: AppView
 let evaluation: Evaluation | null = null
 let session: Session | null = null
-let choosing = false
+type Overlay = "title" | "map" | "settings" | "complete" | null
+let overlay: Overlay = null
+let overlayReturn: Overlay = null
+let lastDivergences: import("./netlist").Divergence[] = []
 let benchDiscrete: DiscreteState | undefined
 let blueprintDiscrete: DiscreteState | undefined
 let currentView = false
 let activePart: string | null = null
 let activeView: ViewName = "bench"
 const hints: Record<ViewName, string | null> = { bench: null, blueprint: null }
-const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+const systemReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+let reducedMotion = systemReducedMotion || store.data.settings.reducedMotion
+document.body.classList.toggle("reduce-motion", reducedMotion)
+
+function overlayOpen(): boolean {
+  return overlay !== null
+}
 
 const hint = createHint(hintEl)
 const bar = createDivergenceBar(barEl)
@@ -150,7 +172,53 @@ const brief = createPhaseBrief(briefEl, {
   onHint: openHint,
   onPhases: showPhaseList,
 })
-const phaseList = createPhaseList(listEl, startPhase)
+const titleEl = document.createElement("div")
+const completeEl = document.createElement("div")
+const settingsEl = document.createElement("div")
+app.append(titleEl, completeEl, settingsEl)
+const phaseMap = createPhaseMap(listEl, startPhase, { onSettings: () => showSettings("map"), onHome: showTitle })
+const titleScreen = createTitleScreen(titleEl)
+const completeScreen = createCompleteScreen(completeEl)
+const settingsScreen = createSettingsScreen(settingsEl, {
+  onStandard: (standard) => {
+    store.data.settings.standard = standard
+    store.save()
+    showSettings(overlayReturn)
+    render()
+  },
+  onReducedMotion: (on) => {
+    store.data.settings.reducedMotion = on
+    store.save()
+    reducedMotion = systemReducedMotion || on
+    document.body.classList.toggle("reduce-motion", reducedMotion)
+    showSettings(overlayReturn)
+    render()
+  },
+  onReset: () => {
+    store.data.progress = {}
+    store.data.draft = null
+    store.data.seenDatasheets = []
+    store.flush()
+    session = null
+    toasts.show("info", "Progresso apagado. Os dados de uso continuam guardados pra exportar.")
+    showTitle()
+  },
+  onExport: () => {
+    const blob = new Blob([exportLog(store.data, new Date())], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `fio-continuo-dados-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  },
+  onBack: () => {
+    settingsScreen.hide()
+    if (overlayReturn === "map") showPhaseList()
+    else if (overlayReturn === "title" || !session) showTitle()
+    else closeOverlay()
+  },
+})
 
 const callbacks = (name: ViewName) => ({
   onChange: (doc: CircuitDoc, commit: boolean) => {
@@ -173,10 +241,35 @@ const bench = createBench(benchLayer, catalog, { ...callbacks("bench"), onSelect
 const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
 
 const toolbar = createToolbar(toolbarEl, onToolbar)
-const tray = createTray(trayEl, (type) => void pickFromTray(type))
+const tray = createTray(trayEl, (type) => void pickFromTray(type), (type) => openDatasheet(type, false))
+const datasheets = datasheetsJson as unknown as Record<string, Datasheet>
+let sheetQueue: string[] = []
+const sheetCard = createDatasheetCard(sheetEl, (key) => {
+  if (!store.data.seenDatasheets.includes(key)) {
+    store.data.seenDatasheets.push(key)
+    store.save()
+  }
+  const next = sheetQueue.shift()
+  if (next) openDatasheet(next, true)
+})
+
+function openDatasheet(type: string, isNew: boolean) {
+  const key = catalog[type]?.datasheet ?? type
+  const sheet = datasheets[key]
+  if (!sheet) return
+  sheetCard.open(key, sheet, blueprint.symbolMarkup(type, store.data.settings.standard), isNew)
+  record("datasheetOpened")
+}
+
+function queueNewDatasheets(phase: Phase) {
+  const group = phases.groups.find((g) => g.phases.some((p) => p.id === phase.id))
+  const fresh = (group?.unlocks ?? []).filter((key) => key in catalog && key in datasheets && !store.data.seenDatasheets.includes(key))
+  sheetQueue = fresh.slice(1)
+  if (fresh[0]) openDatasheet(fresh[0], true)
+}
 
 async function pickFromTray(type: string) {
-  if (!session || choosing || session.previewIndex !== null) return
+  if (!session || overlayOpen() || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
   const partType = item?.type ?? type
   const values = activeView === "bench" ? session.phase.trayValues?.[partType] : undefined
@@ -234,6 +327,7 @@ async function editValue(id: string) {
 const valuePicker = createValuePicker(pickerEl)
 const meterHud = createMeterHud(meterEl, (mode) => setMeterMode(mode))
 let lastMeterMode: "V" | "A" | "ohm" = "V"
+let meterWasPlaced = false
 let shownWarnings = new Set<string>()
 const palette = createWirePalette(paletteEl, WIRE_PALETTE, (color) => bench.setWireColor(color))
 palette.show(false)
@@ -300,7 +394,7 @@ function render() {
   toolbar.setCurrentView(currentView)
   stageEl.classList.toggle("previewing", previewResult !== undefined)
   preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
-  if (phase && ev && session) {
+  if (phase && ev && session && phase.id !== "sandbox") {
     brief.render(phase, {
       rows: ev.scenarios.map((s) => ({ ok: s.ok, isCurrent: s.isCurrent })),
       cost: ev.cost,
@@ -316,12 +410,15 @@ function render() {
 function update(doc: CircuitDoc, opts: { commit: boolean }) {
   if (opts.commit) {
     history = pushSnapshot(history, doc)
-    if (session) {
-      session.changes++
-      if (!session.won) store.saveDraftSoon(session.phase.id, doc)
-    }
+    if (session) session.changes++
   }
   view = compute(doc)
+  if (opts.commit && session) {
+    const divergences = evaluation?.divergences ?? []
+    store.data = updateAttempt(store.data, (a) => ({ ...a, changes: a.changes + 1, divergences: trackDivergences(lastDivergences, divergences, a.divergences) }))
+    lastDivergences = divergences
+    if (!session.won) store.saveDraftSoon(session.phase.id, doc)
+  }
   noticeMeterAndWarnings()
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
   if (opts.commit) {
@@ -372,26 +469,20 @@ function toggleMeter() {
   }
 }
 
-function warningText(kind: string, partId?: string): string | null {
-  switch (kind) {
-    case "ammeterParallel":
-      return "Amperímetro em paralelo vira um curto. Abre o circuito e põe o medidor no caminho da corrente."
-    case "ohmmeterPowered":
-      return "Desliga a fonte antes de medir resistência."
-    case "overcurrent":
-      return `${partId} está com corrente acima do que aguenta. Aqui nada queima, mas numa bancada de verdade ela não ia durar.`
-    case "unstable":
-      return "O circuito não se decide: a saída fica trocando de estado. Confere se alguma saída volta pra própria entrada."
-    default:
-      return null
-  }
-}
+const QUIET_WARNINGS = new Set(["floatingInput", "undefinedInput", "unpoweredChip"])
 
 function noticeMeterAndWarnings() {
   const result = view.benchResult
   const reading = result.meter
   const meter = view.doc.bench.meter
-  if (meter.mode !== "off" && meter.red && meter.black) record("meterPlaced")
+  const placed = meter.mode !== "off" && !!meter.red && !!meter.black
+  if (placed) {
+    record("meterPlaced")
+    const mode = meter.mode as "V" | "A" | "ohm"
+    if (!meterWasPlaced) store.data = updateAttempt(store.data, (a) => ({ ...a, meterPlacements: a.meterPlacements + 1 }))
+    store.data = updateAttempt(store.data, (a) => (a.meterModes.includes(mode) ? a : { ...a, meterModes: [...a.meterModes, mode] }))
+  }
+  meterWasPlaced = placed
   if (reading?.display === "value" && reading.value !== null) {
     if (reading.mode === "V" && Math.abs(reading.value) > 0.1) record("meterReadVoltage")
     if (reading.mode === "A" && Math.abs(reading.value) > 1e-4) record("meterReadCurrent")
@@ -399,8 +490,9 @@ function noticeMeterAndWarnings() {
   const now = new Set(result.warnings.map((w) => `${w.kind}|${w.partId ?? ""}`))
   for (const w of result.warnings) {
     const key = `${w.kind}|${w.partId ?? ""}`
-    if (shownWarnings.has(key)) continue
-    const text = warningText(w.kind, w.partId)
+    // aviso de CI aparece o tempo todo enquanto a pessoa monta; a ponta lógica com ? já conta essa história
+    if (shownWarnings.has(key) || QUIET_WARNINGS.has(w.kind)) continue
+    const text = warningText(w)
     if (text) toasts.show("warning", text)
   }
   shownWarnings = now
@@ -464,7 +556,7 @@ function advanceSteps(): boolean {
 }
 
 function checkVictory() {
-  if (!session || session.won || !evaluation) return
+  if (!session || session.won || !evaluation || session.phase.id === "sandbox") return
   const steps = session.phase.steps
   const stepsDone = steps !== null && session.stepIndex !== null && session.stepIndex >= steps.length
   const expectOk = session.phase.expect.length === 0 || evaluation.won
@@ -476,32 +568,33 @@ function checkVictory() {
   const cost = evaluation.cost
   store.data.progress[id] = { won: true, bestCost: previous?.bestCost === null || previous?.bestCost === undefined ? cost : Math.min(previous.bestCost, cost) }
   store.data.draft = null
+  store.data = finishAttempt(store.data, true, new Date())
   store.flush()
-  const order = phaseOrder(phases)
-  const nextId = order[order.indexOf(id) + 1]
-  toasts.show("success", "Fase concluída.", nextId ? { label: "Próxima fase", run: () => startPhase(nextId) } : { label: "Ver fases", run: showPhaseList }, 0)
+  showComplete()
 }
 
 function openHint() {
   if (!session || session.hintsOpened >= session.phase.hints.length) return
   session.hintsOpened++
   session.hintOffered = Math.max(session.hintOffered, session.hintsOpened)
+  store.data = updateAttempt(store.data, (a) => ({ ...a, hintsOpened: a.hintsOpened + 1 }))
   render()
 }
 
 function maybeOfferHint() {
-  if (!session || session.won || choosing) return
+  if (!session || session.won || overlayOpen()) return
   const total = session.phase.hints.length
   if (session.hintOffered > session.hintsOpened) return
   if (!shouldOfferHint(session.changes, performance.now() - session.offeredAt, session.hintsOpened, total)) return
   session.hintOffered = session.hintsOpened + 1
   session.changes = 0
   session.offeredAt = performance.now()
+  store.data = updateAttempt(store.data, (a) => ({ ...a, hintsOffered: a.hintsOffered + 1 }))
   toasts.show("info", "Quer uma dica?", { label: "Ver dica", run: openHint })
 }
 
-function startPhase(phaseId: string) {
-  const phase = findPhase(phases, phaseId)
+function startPhase(phaseId: string, synthetic?: Phase) {
+  const phase = synthetic ?? findPhase(phases, phaseId)
   if (!phase) return
   const draft = store.data.draft
   let resumed = draft && draft.phaseId === phaseId && isValidDoc(draft.doc, catalog) ? draft.doc : null
@@ -528,13 +621,13 @@ function startPhase(phaseId: string) {
     previewIndex: null,
     won: false,
   }
-  phaseList.hide()
+  hideOverlays()
   toasts.clear()
-  choosing = false
-  stageEl.classList.remove("choosing")
   blueprint.setLockedIds(phase.keyParts.map((k) => k.id))
   shownWarnings = new Set()
   valuePicker.close()
+  sheetQueue = []
+  sheetCard.close()
   history = createHistory(doc)
   benchDiscrete = undefined
   blueprintDiscrete = undefined
@@ -542,36 +635,175 @@ function startPhase(phaseId: string) {
   setTool("select")
   bench.frame()
   if (resumed) toasts.show("info", "Continuando de onde você parou.")
+  lastDivergences = evaluation?.divergences ?? []
+  if (!synthetic) {
+    store.data = startAttempt(store.data, phase.id, new Date())
+    store.save()
+  }
+  render()
+  if (!synthetic) queueNewDatasheets(phase)
+}
+
+function hideOverlays() {
+  phaseMap.hide()
+  titleScreen.hide()
+  completeScreen.hide()
+  settingsScreen.hide()
+  overlay = null
+  stageEl.classList.remove("choosing")
+}
+
+function openOverlay(kind: Exclude<Overlay, null>) {
+  hideOverlays()
+  overlay = kind
+  setTool("select")
+  stageEl.classList.add("choosing")
+}
+
+function closeOverlay() {
+  if (!session) return showTitle()
+  hideOverlays()
   render()
 }
 
+function progressWon(): Set<string> {
+  return new Set(Object.entries(store.data.progress).filter(([, p]) => p.won).map(([id]) => id))
+}
+
+function nextAvailablePhase(): string | undefined {
+  const won = progressWon()
+  return phaseOrder(phases).find((id) => !won.has(id) && isPhaseAvailable(phases, won, id)) ?? phaseOrder(phases)[0]
+}
+
 function showPhaseList() {
-  const won = new Set(Object.entries(store.data.progress).filter(([, p]) => p.won).map(([id]) => id))
-  choosing = true
-  setTool("select")
-  stageEl.classList.add("choosing")
-  phaseList.show(
-    phases.groups
-      .filter((g) => g.demo)
-      .map((g) => ({
-        id: g.id,
-        title: g.title,
-        phases: g.phases.map((p) => ({ id: p.id, goal: p.goal, type: p.type, won: won.has(p.id), available: isPhaseAvailable(phases, won, p.id) })),
+  const won = progressWon()
+  openOverlay("map")
+  phaseMap.show(
+    phases.groups.map((g) => ({
+      id: g.id,
+      title: g.title,
+      concept: g.concept,
+      comingSoon: !g.demo,
+      phases: g.phases.map((p) => ({
+        id: p.id,
+        goal: p.goal,
+        type: p.type,
+        won: won.has(p.id),
+        available: isPhaseAvailable(phases, won, p.id),
+        bestCost: store.data.progress[p.id]?.bestCost ?? null,
+        budget: p.budget,
       })),
-    session ? { label: `Voltar pra ${session.phase.id}`, run: hidePhaseList } : null,
+    })),
+    session && session.phase.id !== "sandbox" ? { label: `Voltar pra ${session.phase.id}`, run: closeOverlay } : session ? { label: "Voltar pro sandbox", run: closeOverlay } : null,
   )
 }
 
 function hidePhaseList() {
-  if (!session) return
-  choosing = false
-  stageEl.classList.remove("choosing")
-  phaseList.hide()
-  render()
+  closeOverlay()
+}
+
+function showTitle() {
+  openOverlay("title")
+  const hasProgress = Object.keys(store.data.progress).length > 0 || store.data.draft !== null
+  titleScreen.show({
+    canContinue: hasProgress,
+    sandboxAvailable: progressWon().size > 0,
+    onContinue: () => {
+      const draft = store.data.draft?.phaseId
+      if (draft === "sandbox") startSandbox()
+      else startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
+    },
+    onNew: () => {
+      store.data.progress = {}
+      store.data.draft = null
+      store.data.seenDatasheets = []
+      store.flush()
+      session = null
+      startPhase(phaseOrder(phases)[0])
+    },
+    onSandbox: startSandbox,
+    onSettings: () => showSettings("title"),
+  })
+}
+
+function showSettings(from: Overlay) {
+  overlayReturn = from
+  openOverlay("settings")
+  settingsScreen.show({
+    standard: store.data.settings.standard,
+    reducedMotion: store.data.settings.reducedMotion,
+    systemReducedMotion,
+    storageAvailable: store.available,
+  })
+}
+
+function partsUsed(doc: CircuitDoc, side: "bench" | "blueprint"): { label: string; count: number }[] {
+  const placed = new Set((side === "bench" ? doc.bench.placements : doc.blueprint.placements).map((p) => p.id))
+  const counts = new Map<string, number>()
+  for (const i of doc.instances) if (placed.has(i.id) && !catalog[i.type]?.isTool) counts.set(i.type, (counts.get(i.type) ?? 0) + 1)
+  return [...counts].map(([type, count]) => ({ label: PART_LABELS[type] ?? type, count }))
+}
+
+function showComplete() {
+  if (!session || !evaluation) return
+  const phase = session.phase
+  const order = phaseOrder(phases)
+  const nextId = order[order.indexOf(phase.id) + 1]
+  openOverlay("complete")
+  completeScreen.show(
+    {
+      phaseId: phase.id,
+      goal: phase.goal,
+      rows: phase.expect.map((s) => {
+        const label = scenarioLabel(s)
+        return { label: label.when ? `${label.when} \u2192 ${label.then}` : label.then, ok: true }
+      }),
+      parts: partsUsed(view.doc, phase.evaluateOn),
+      cost: evaluation.cost,
+      budget: phase.budget,
+      referenceCost: referenceCost(phase, catalog),
+      bestCost: store.data.progress[phase.id]?.bestCost ?? null,
+    },
+    {
+      onNext: nextId ? () => startPhase(nextId) : null,
+      onCheaper: () => {
+        if (!session) return
+        session.won = false
+        store.data = startAttempt(store.data, session.phase.id, new Date())
+        closeOverlay()
+      },
+      onMap: showPhaseList,
+    },
+  )
+}
+
+function startSandbox() {
+  const won = progressWon()
+  const unlocked = phases.groups.filter((g) => g.demo && g.phases[0] && (isPhaseAvailable(phases, won, g.phases[0].id) || won.has(g.phases[0].id)))
+  const tray: Record<string, number> = {}
+  for (const g of unlocked) for (const key of g.unlocks) if (key in catalog) tray[key] = 99
+  const sandbox: Phase = {
+    id: "sandbox",
+    type: "build",
+    goal: "sandbox",
+    brief: "Monta o que quiser com as peças que você já liberou.",
+    tray,
+    keyParts: [],
+    expect: [],
+    evaluateOn: "bench",
+    requireMatch: false,
+    showDivergence: true,
+    budget: null,
+    initial: null,
+    steps: null,
+    hints: [],
+    referenceSolution: null,
+  }
+  startPhase("sandbox", sandbox)
 }
 
 function onToolbar(id: ToolId) {
-  if (choosing || !session) return
+  if (overlayOpen() || !session) return
   if (session?.previewIndex !== null && session?.previewIndex !== undefined && id !== "currentView") return
   if (id === "select" || id === "wire") setTool(id)
   else if (id === "meter") toggleMeter()
@@ -594,10 +826,10 @@ window.addEventListener("keydown", (event) => {
     )
     return
   }
-  if (choosing) {
-    if (event.key === "Escape" && session) {
+  if (overlayOpen()) {
+    if (event.key === "Escape" && session && overlay === "map") {
       event.preventDefault()
-      hidePhaseList()
+      closeOverlay()
     }
     return
   }
@@ -655,10 +887,8 @@ toggle.set(activeView)
 setTool("select")
 render()
 
-const draftPhase = store.data.draft?.phaseId
-if (draftPhase && findPhase(phases, draftPhase)) startPhase(draftPhase)
-else showPhaseList()
+showTitle()
 
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)
 
-if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, bench, blueprint, switchView, startPhase } })
+if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox } })
