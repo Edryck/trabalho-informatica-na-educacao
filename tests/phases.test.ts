@@ -240,3 +240,38 @@ describe("divergence defaults", () => {
     expect(phase({ requireMatch: true, showDivergence: false }).showDivergence).toBe(false)
   })
 })
+
+describe("game copy", () => {
+  const data = loadPhases(phasesRaw)
+  const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
+  const sheets = datasheets as unknown as Record<string, { title: string; does: string; values: [string, string][]; breadboard: string; mistake: string }>
+  const allCopy = () => [
+    ...demo.flatMap((p) => [p.brief, ...p.hints, ...(p.steps ?? []).map((s) => s.text)]),
+    ...Object.values(sheets).flatMap((d) => [d.title, d.does, d.breadboard, d.mistake, ...d.values.flat()]),
+  ]
+  const banned = [/queimad/i, /ótima pergunta/i, /vamos mergulhar/i, /\p{Extended_Pictographic}/u, /parabéns!/i]
+
+  it("avoids banned patterns", () => {
+    for (const text of allCopy()) {
+      for (const re of banned) expect(text, text).not.toMatch(re)
+      expect((text.match(/—/g) ?? []).length, text).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it("every demo build, repair and order phase has at least two hints", () => {
+    for (const p of demo.filter((p) => p.type !== "tutorial")) expect(p.hints.length, p.id).toBeGreaterThanOrEqual(2)
+  })
+
+  it("every datasheet section is filled", () => {
+    for (const key of Object.keys(catalog)) {
+      const d = sheets[catalog[key].datasheet ?? key]
+      expect(d, key).toBeDefined()
+      for (const field of ["title", "does", "breadboard", "mistake"] as const) expect(d[field], `${key}.${field}`).not.toBe("")
+      expect(d.values.length, `${key}.values`).toBeGreaterThan(0)
+    }
+  })
+
+  it("every demo brief is filled and different from the goal", () => {
+    for (const p of demo) expect(p.brief, p.id).not.toBe(p.goal)
+  })
+})

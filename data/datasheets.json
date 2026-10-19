@@ -1,128 +1,370 @@
 {
   "battery": {
     "title": "Bateria",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "É a fonte do circuito: empurra a corrente pra fora pelo + e recebe ela de volta pelo −. Sem um caminho fechado entre os dois polos, nada acontece.",
+    "values": [
+      [
+        "Tensão",
+        "9 V ou 5 V"
+      ],
+      [
+        "Resistência interna",
+        "0,2 Ω"
+      ]
+    ],
+    "breadboard": "Fica na mesa, fora da placa. Espeta o cabinho vermelho no trilho + e o preto no trilho −, e daí leva a energia pras colunas com fios.",
+    "mistake": "Ligar o + direto no − sem nada no meio. A corrente dispara e a bateria esquenta; o jogo avisa com um marcador amarelo."
   },
   "lamp": {
     "title": "Lâmpada",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Acende quando passa corrente pelo filamento. Quanto mais corrente, mais brilho. Ela não gasta a corrente: o que entra por uma perna sai pela outra.",
+    "values": [
+      [
+        "Resistência",
+        "90 Ω"
+      ],
+      [
+        "Acende a partir de",
+        "20 mA"
+      ],
+      [
+        "Corrente máxima",
+        "200 mA"
+      ]
+    ],
+    "breadboard": "Fica na mesa, com dois cabinhos. Cada cabinho vai numa coluna diferente da protoboard.",
+    "mistake": "Pôr os dois cabinhos na mesma coluna. Os furos de uma coluna são ligados por dentro, então a corrente passa reto e a lâmpada não acende."
   },
   "switch": {
     "title": "Chave",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Abre ou fecha o caminho da corrente. Ligada, funciona como um pedaço de fio; desligada, corta o circuito.",
+    "values": [
+      [
+        "Ligada",
+        "praticamente 0 Ω"
+      ],
+      [
+        "Desligada",
+        "circuito aberto"
+      ]
+    ],
+    "breadboard": "Encaixa direto na placa, com as duas pernas em colunas diferentes. Clica nela pra ligar e desligar.",
+    "mistake": "Montar a chave num lugar por onde a corrente não passa. Ela liga e desliga, mas não muda nada no circuito."
   },
   "push_button": {
     "title": "Botão de pressão",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Fecha o circuito só enquanto está apertado. Soltou, abriu de novo.",
+    "values": [
+      [
+        "Pernas",
+        "4"
+      ],
+      [
+        "Pares ligados por dentro",
+        "1–2 e 3–4"
+      ],
+      [
+        "Apertado",
+        "liga o par 1–2 no par 3–4"
+      ]
+    ],
+    "breadboard": "Encaixa atravessando o canal do meio. As pernas 1 e 2 já são ligadas por dentro, assim como a 3 e a 4. Apertar o botão junta os dois pares.",
+    "mistake": "Montar o botão girado 90°. Aí a corrente passa por um par que já está sempre ligado e o botão parece não fazer nada, como se estivesse sempre apertado."
   },
   "dc_motor": {
     "title": "Motor DC",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Gira quando passa corrente. O sentido do giro depende de por qual perna a corrente entra: inverteu os fios, inverteu o giro.",
+    "values": [
+      [
+        "Resistência da bobina",
+        "30 Ω"
+      ],
+      [
+        "Gira a partir de",
+        "50 mA"
+      ],
+      [
+        "Corrente máxima",
+        "500 mA"
+      ]
+    ],
+    "breadboard": "Fica na mesa, com um cabinho + (vermelho) e um − (preto). Cada um vai numa coluna.",
+    "mistake": "Achar que o motor está com defeito quando ele gira pro lado errado. É só a polaridade."
   },
   "buzzer": {
     "title": "Buzzer",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Faz barulho quando passa corrente. Ele tem lado: só toca com a corrente entrando pelo +.",
+    "values": [
+      [
+        "Resistência",
+        "300 Ω"
+      ],
+      [
+        "Toca a partir de",
+        "5 mA"
+      ],
+      [
+        "Corrente máxima",
+        "50 mA"
+      ]
+    ],
+    "breadboard": "Fica na mesa, com um cabinho + e um −. O + vai pro lado que vem do + da bateria.",
+    "mistake": "Ligar invertido. O circuito está fechado, mas o buzzer fica em silêncio."
   },
   "resistor": {
     "title": "Resistor",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Segura a corrente. Quanto maior a resistência, menos corrente passa pra mesma tensão: I = V / R.",
+    "values": [
+      [
+        "Faixas",
+        "1º dígito, 2º dígito, multiplicador, tolerância"
+      ],
+      [
+        "Cores",
+        "preto 0, marrom 1, vermelho 2, laranja 3, amarelo 4, verde 5, azul 6, violeta 7, cinza 8, branco 9"
+      ],
+      [
+        "Exemplo",
+        "vermelho, vermelho, marrom = 220 Ω"
+      ],
+      [
+        "Dourado no fim",
+        "tolerância de 5%"
+      ]
+    ],
+    "breadboard": "Cada perna vai numa coluna diferente. Pode ficar deitado ou atravessar o canal do meio, tanto faz o lado: resistor não tem polaridade.",
+    "mistake": "Ler as faixas de trás pra frente. A faixa dourada fica sempre no fim, então começa a leitura pelo outro lado."
   },
   "led": {
     "title": "LED",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
-  },
-  "chip_nand": {
-    "title": "CI 7400 (NAND)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
-  },
-  "chip_nor": {
-    "title": "CI 7402 (NOR)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Acende quando a corrente passa do ânodo pro cátodo. No outro sentido, bloqueia. Sempre pede um resistor em série pra limitar a corrente.",
+    "values": [
+      [
+        "Queda de tensão",
+        "2,0 V"
+      ],
+      [
+        "Corrente típica",
+        "20 mA"
+      ],
+      [
+        "Corrente máxima",
+        "30 mA"
+      ],
+      [
+        "Resistor",
+        "R = (V da fonte − 2) / 0,02"
+      ]
+    ],
+    "breadboard": "A perna comprida é o ânodo (+) e o lado chato da cabeça marca o cátodo (−). Cada perna numa coluna, com o resistor ligado numa delas.",
+    "mistake": "Ligar o LED sem resistor. Ele acende forte demais e o jogo avisa que a corrente passou do limite. Na vida real ele não aguentaria."
   },
   "chip_not": {
     "title": "CI 7404 (NOT)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Seis inversores num chip. Cada saída mostra o contrário da sua entrada: entrou 0, sai 1.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Portas",
+        "6 (1A→1Y até 6A→6Y)"
+      ],
+      [
+        "Nível 0",
+        "abaixo de 0,8 V"
+      ],
+      [
+        "Nível 1",
+        "acima de 2,0 V"
+      ],
+      [
+        "Tabela",
+        "A = 0 → Y = 1 · A = 1 → Y = 0"
+      ]
+    ],
+    "breadboard": "Encaixa atravessando o canal do meio. O pino 1 fica do lado do chanfro, embaixo à esquerda, e a contagem segue no sentido anti-horário.",
+    "mistake": "Esquecer de alimentar o CI. Sem VCC e GND as saídas ficam indefinidas e a ponta lógica mostra ?."
   },
   "chip_and": {
     "title": "CI 7408 (AND)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Quatro portas AND. A saída só vai pra 1 quando as duas entradas estão em 1.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "entradas 1 e 2, saída 3"
+      ],
+      [
+        "Tabela",
+        "00→0 · 01→0 · 10→0 · 11→1"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Deixar uma entrada solta. Entrada sem ligação não é 0 nem 1, e a saída fica indefinida."
   },
   "chip_or": {
     "title": "CI 7432 (OR)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Quatro portas OR. A saída vai pra 1 se pelo menos uma entrada estiver em 1.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "entradas 1 e 2, saída 3"
+      ],
+      [
+        "Tabela",
+        "00→0 · 01→1 · 10→1 · 11→1"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Confundir com o AND: a pinagem é a mesma, só a função muda. Confere o número impresso no chip."
+  },
+  "chip_nand": {
+    "title": "CI 7400 (NAND)",
+    "does": "Quatro portas NAND: um AND com a saída invertida. Só dá 0 quando as duas entradas estão em 1.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "entradas 1 e 2, saída 3"
+      ],
+      [
+        "Tabela",
+        "00→1 · 01→1 · 10→1 · 11→0"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Achar que dá pouca coisa pra fazer só com NAND. Juntando as duas entradas de uma porta, ela vira um inversor."
+  },
+  "chip_nor": {
+    "title": "CI 7402 (NOR)",
+    "does": "Quatro portas NOR: um OR com a saída invertida. Só dá 1 quando as duas entradas estão em 0.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "saída 1, entradas 2 e 3"
+      ],
+      [
+        "Tabela",
+        "00→1 · 01→0 · 10→0 · 11→0"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Usar a pinagem do AND. No 7402 a saída vem antes das entradas, então o pino 1 é saída."
   },
   "chip_xor": {
     "title": "CI 7486 (XOR)",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Quatro portas XOR. A saída vai pra 1 quando as entradas são diferentes entre si.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "entradas 1 e 2, saída 3"
+      ],
+      [
+        "Tabela",
+        "00→0 · 01→1 · 10→1 · 11→0"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Esperar que ele se comporte como OR quando as duas entradas estão em 1. No XOR, 1 com 1 dá 0."
   },
   "chip_xnor": {
     "title": "CI XNOR",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Quatro portas XNOR. A saída vai pra 1 quando as entradas são iguais.",
+    "values": [
+      [
+        "Alimentação",
+        "VCC no pino 14, GND no pino 7"
+      ],
+      [
+        "Porta 1",
+        "entradas 1 e 2, saída 3"
+      ],
+      [
+        "Tabela",
+        "00→1 · 01→0 · 10→0 · 11→1"
+      ]
+    ],
+    "breadboard": "Atravessa o canal do meio, com o chanfro marcando o lado do pino 1.",
+    "mistake": "Usar ele igual ao 74266 de verdade. O chip real tem saída de coletor aberto e pede um resistor de pull-up; aqui no jogo a saída foi simplificada e funciona direto."
   },
   "logic_switch": {
     "title": "Chave lógica",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Gera um nível lógico: em 1 a saída fica ligada no VCC, em 0 fica ligada no GND.",
+    "values": [
+      [
+        "Pinos",
+        "VCC, GND, OUT"
+      ],
+      [
+        "Nível 1",
+        "OUT no VCC"
+      ],
+      [
+        "Nível 0",
+        "OUT no GND"
+      ]
+    ],
+    "breadboard": "Encaixa com as três pernas em colunas vizinhas. Alimenta o VCC e o GND dela e leva o OUT até a entrada do CI. Clica nela pra trocar.",
+    "mistake": "Esquecer de alimentar a chave. Sem VCC e GND, o OUT fica solto e a entrada do CI não recebe nível nenhum."
   },
   "logic_probe": {
     "title": "Ponta lógica",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Mostra o nível lógico de um ponto: 1, 0 ou ? quando a tensão está indefinida ou a linha está solta.",
+    "values": [
+      [
+        "Mostra 0",
+        "abaixo de 0,8 V"
+      ],
+      [
+        "Mostra 1",
+        "acima de 2,0 V"
+      ],
+      [
+        "Mostra ?",
+        "entre os dois, ou ponto sem ligação"
+      ]
+    ],
+    "breadboard": "Fica na mesa. O cabinho vermelho encosta no ponto que você quer ler e o preto vai no GND do circuito.",
+    "mistake": "Deixar o cabinho preto solto. Sem a referência do GND, a leitura não faz sentido."
   },
   "multimeter": {
     "title": "Multímetro",
-    "does": "",
-    "values": [],
-    "breadboard": "",
-    "mistake": ""
+    "does": "Mede tensão (V), corrente (A) e resistência (Ω). A leitura sai do mesmo cálculo que move o resto do circuito.",
+    "values": [
+      [
+        "V",
+        "em paralelo, encostando nos dois lados da peça"
+      ],
+      [
+        "A",
+        "em série, com a corrente passando por dentro dele"
+      ],
+      [
+        "Ω",
+        "com a fonte desligada, até 3 kΩ"
+      ]
+    ],
+    "breadboard": "Aperta M e encosta as pontas em qualquer furo, mesmo ocupado. A vermelha é o +, a preta é o −.",
+    "mistake": "Medir corrente com as pontas em paralelo com a fonte. O amperímetro vira um curto e o mostrador fica em OL."
   }
 }
