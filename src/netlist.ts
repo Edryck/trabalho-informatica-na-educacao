@@ -266,3 +266,66 @@ export function collapse(net: Netlist): Map<PinRef, string> {
   for (const [pin, point] of Object.entries(net.pinAt)) result.set(pin, find(point))
   return result
 }
+
+function neighborMap(net: Netlist, tools: Set<string>): Map<PinRef, PinRef[]> {
+  const nodes = collapse(net)
+  const byNode = new Map<string, PinRef[]>()
+  for (const [pin, node] of nodes) {
+    if (tools.has(pin.slice(0, pin.indexOf(".")))) continue
+    byNode.set(node, [...(byNode.get(node) ?? []), pin])
+  }
+  const result = new Map<PinRef, PinRef[]>()
+  for (const pins of byNode.values()) {
+    for (const pin of pins) result.set(pin, pins.filter((p) => p !== pin).sort())
+  }
+  return result
+}
+
+const DIVERGENCE_ORDER: Record<Divergence["kind"], number> = { wiring: 0, value: 1, pending: 2 }
+
+export function compare(blueprint: Netlist, bench: Netlist, catalog: PartsCatalog): Divergence[] {
+  const tools = new Set([...blueprint.parts, ...bench.parts].filter((p) => p.isTool || catalog[p.type]?.isTool).map((p) => p.id))
+  const bpParts = new Map(blueprint.parts.filter((p) => !tools.has(p.id)).map((p) => [p.id, p]))
+  const benchParts = new Map(bench.parts.filter((p) => !tools.has(p.id)).map((p) => [p.id, p]))
+  const typeOf = (id: string) => (bpParts.get(id) ?? benchParts.get(id))?.type
+  const isPowerPin = (ref: PinRef) => {
+    const dot = ref.indexOf(".")
+    const pin = ref.slice(dot + 1)
+    return catalog[typeOf(ref.slice(0, dot)) ?? ""]?.model.kind === "battery" || pin === "VCC" || pin === "GND"
+  }
+
+  const result: Divergence[] = []
+  for (const [id, part] of bpParts) {
+    if (!benchParts.has(id)) result.push({ kind: "pending", partId: id, power: catalog[part.type]?.model.kind === "battery", side: "bench" })
+  }
+  for (const [id, part] of benchParts) {
+    if (!bpParts.has(id)) result.push({ kind: "pending", partId: id, power: catalog[part.type]?.model.kind === "battery", side: "blueprint" })
+  }
+
+  const expectedMap = neighborMap(blueprint, tools)
+  const actualMap = neighborMap(bench, tools)
+  const shared = [...bpParts.keys()].filter((id) => benchParts.has(id))
+  const sharedSet = new Set(shared)
+  const keep = (list: PinRef[]) => list.filter((ref) => sharedSet.has(ref.slice(0, ref.indexOf("."))))
+  for (const id of shared) {
+    for (const pin of catalog[bpParts.get(id)!.type]?.pins ?? []) {
+      const ref = `${id}.${pin}`
+      const expected = keep(expectedMap.get(ref) ?? [])
+      const actual = keep(actualMap.get(ref) ?? [])
+      if (expected.join("|") === actual.join("|")) continue
+      const power = isPowerPin(ref) || [...expected, ...actual].some(isPowerPin)
+      result.push({ kind: "wiring", partId: id, pin, power, expected, actual })
+    }
+    const spec = bpParts.get(id)!.value
+    const real = benchParts.get(id)!.value
+    if (spec !== real) result.push({ kind: "value", partId: id, power: false, specValue: spec, actualValue: real })
+  }
+
+  return result.sort(
+    (a, b) =>
+      Number(b.power) - Number(a.power) ||
+      DIVERGENCE_ORDER[a.kind] - DIVERGENCE_ORDER[b.kind] ||
+      a.partId.localeCompare(b.partId) ||
+      (a.pin ?? "").localeCompare(b.pin ?? ""),
+  )
+}

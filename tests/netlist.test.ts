@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
-import { stripOf, benchToNetlist, blueprintToNetlist, collapse } from "../src/netlist"
-import type { PartsCatalog } from "../src/netlist"
+import { stripOf, benchToNetlist, blueprintToNetlist, collapse, compare } from "../src/netlist"
+import type { Link, NetPart, Netlist, PartsCatalog } from "../src/netlist"
 import { emptyDoc } from "../src/state"
 import type { CircuitDoc, Instance } from "../src/state"
 
@@ -214,5 +214,72 @@ describe("blueprintToNetlist", () => {
       blueprint: { placements: [{ id: "R1", x: 0, y: 0, rotation: 0 }], segments: [] },
     })
     expect(blueprintToNetlist(doc, catalog).parts[0].value).toBe(220)
+  })
+})
+
+describe("compare", () => {
+  const part = (id: string, type: string, value = 0, extra: Partial<NetPart> = {}): NetPart => ({ id, type, value, ...extra })
+  const wire = (a: string, b: string): Link => ({ id: `${a}-${b}`, a, b, kind: "wire" })
+  const loop = (overrides: { lampB?: string; r1Value?: number; extraParts?: NetPart[]; extraPins?: Record<string, string> } = {}): Netlist => ({
+    parts: [part("B1", "battery", 9), part("L1", "lamp"), part("R1", "resistor", overrides.r1Value ?? 220), ...(overrides.extraParts ?? [])],
+    links: [wire("p", "q")],
+    pinAt: {
+      "B1.+": "p",
+      "L1.a": "q",
+      "L1.b": overrides.lampB ?? "m",
+      "R1.a": "m",
+      "R1.b": "n",
+      "B1.-": "n",
+      ...(overrides.extraPins ?? {}),
+    },
+  })
+
+  it("identical circuits have no divergence", () => {
+    expect(compare(loop(), loop(), catalog)).toEqual([])
+  })
+
+  it("reports wiring with expected and actual neighbors", () => {
+    const d = compare(loop(), loop({ lampB: "x" }), catalog)
+    const lamp = d.find((x) => x.partId === "L1" && x.pin === "b")
+    expect(lamp).toMatchObject({ kind: "wiring", partId: "L1", pin: "b", expected: ["R1.a"], actual: [] })
+  })
+
+  it("reports value mismatch", () => {
+    const d = compare(loop(), loop({ r1Value: 2200 }), catalog)
+    expect(d).toEqual([{ kind: "value", partId: "R1", power: false, specValue: 220, actualValue: 2200 }])
+  })
+
+  it("reports pending on the missing side", () => {
+    const blueprint = loop({ extraParts: [part("L2", "lamp")], extraPins: { "L2.a": "y1", "L2.b": "y2" } })
+    const d = compare(blueprint, loop(), catalog)
+    expect(d).toContainEqual({ kind: "pending", partId: "L2", power: false, side: "bench" })
+  })
+
+  it("power divergences come first", () => {
+    const bench = loop({ lampB: "x" })
+    bench.pinAt["B1.-"] = "z"
+    bench.pinAt["R1.b"] = "n"
+    const d = compare(loop(), bench, catalog)
+    expect(d[0].power).toBe(true)
+    expect(d.some((x) => !x.power)).toBe(true)
+  })
+
+  it("ignores tools", () => {
+    const bench = loop({ extraParts: [part("METER", "multimeter", 0, { isTool: true, inputState: "V" })], extraPins: { "METER.red": "m", "METER.black": "n" } })
+    expect(compare(loop(), bench, catalog)).toEqual([])
+  })
+
+  it("unplugged lead counts as wiring", () => {
+    const bench = loop({ lampB: "p:L1.b" })
+    const d = compare(loop(), bench, catalog)
+    expect(d).toContainEqual(expect.objectContaining({ kind: "wiring", partId: "L1", pin: "b", actual: [] }))
+  })
+
+  it("value divergence comes after wiring and before pending", () => {
+    const blueprint = loop({ extraParts: [part("L2", "lamp")], extraPins: { "L2.a": "y1", "L2.b": "y2" } })
+    const bench = loop({ lampB: "x", r1Value: 2200 })
+    const kinds = compare(blueprint, bench, catalog).filter((x) => !x.power).map((x) => x.kind)
+    expect(kinds.indexOf("wiring")).toBeLessThan(kinds.indexOf("value"))
+    expect(kinds.indexOf("value")).toBeLessThan(kinds.indexOf("pending"))
   })
 })
