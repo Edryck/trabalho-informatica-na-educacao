@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "npm run build && playwright test"
   },
   "repository": {
     "type": "git",
@@ -22,6 +23,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "@types/node": "^18.19.130",
     "@types/three": "^0.186.0",
     "typescript": "^5.9.3",
