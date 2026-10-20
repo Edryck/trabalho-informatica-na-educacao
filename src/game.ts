@@ -1,8 +1,8 @@
 import type { PartsCatalog } from "./netlist"
 import { evaluate, isPhaseAvailable, type Evaluation, type Phase, type PhaseData, type Star } from "./phases"
-import type { CircuitDoc, Daily, SaveData } from "./state"
+import type { CircuitDoc, Cosmetics, Daily, SaveData } from "./state"
 
-export type RewardItem = { level: number; id: string; kind: "decor" | "board" | "wires" | "mat"; name: string; model?: string; value?: string }
+export type RewardItem = { level: number; id: string; kind: "decor" | "board" | "wires" | "mat"; name: string; value?: string }
 export type Rewards = { xpPerStar: number; dailyXp: number; levels: number[]; items: RewardItem[] }
 export type MeterMode = "V" | "A" | "ohm"
 export type StarContext = { won: boolean; evaluation: Evaluation; doc: CircuitDoc; side: "bench" | "blueprint"; meterModesUsed: MeterMode[] }
@@ -234,4 +234,18 @@ export function applyDailyReward(save: SaveData, date: string, rewards: Rewards)
     levelAfter,
     unlocked: rewards.items.filter((item) => item.level > levelBefore && item.level <= levelAfter),
   }
+}
+
+export type CosmeticColors = { boardColor: string | null; wireColors: string[] | null; matColor: string | null }
+
+export function equipCosmetic(save: SaveData, item: RewardItem, rewards: Rewards): SaveData {
+  if (item.kind === "decor") return save
+  if (item.id !== "default" && item.level > levelFor(save.xp, rewards).level) return save
+  return { ...save, cosmetics: { ...save.cosmetics, [item.kind]: item.id } }
+}
+
+export function cosmeticColors(cosmetics: Cosmetics, rewards: Rewards): CosmeticColors {
+  const value = (id: string) => rewards.items.find((i) => i.id === id && i.kind !== "decor")?.value ?? null
+  const wires = value(cosmetics.wires)
+  return { boardColor: value(cosmetics.board), wireColors: wires ? wires.split(",") : null, matColor: value(cosmetics.mat) }
 }

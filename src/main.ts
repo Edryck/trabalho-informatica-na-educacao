@@ -1,4 +1,4 @@
-import { createCompleteScreen, createTour, TOUR_STEPS, type CompleteSummary } from "./screens"
+import { createCompleteScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -13,7 +13,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { applyDailyReward, applyPhaseReward, dailyRepair, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type StarContext } from "./game"
+import { applyDailyReward, applyPhaseReward, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -166,7 +166,7 @@ let history: History = createHistory(emptyDoc())
 let view: AppView
 let evaluation: Evaluation | null = null
 let session: Session | null = null
-type Overlay = "title" | "map" | "settings" | "complete" | null
+type Overlay = "title" | "map" | "settings" | "complete" | "workshop" | null
 let overlay: Overlay = null
 let overlayReturn: Overlay = null
 let lastDivergences: import("./netlist").Divergence[] = []
@@ -243,7 +243,8 @@ function openRewind() {
 const titleEl = document.createElement("div")
 const completeEl = document.createElement("div")
 const settingsEl = document.createElement("div")
-app.append(titleEl, completeEl, settingsEl)
+const workshopEl = document.createElement("div")
+app.append(titleEl, completeEl, settingsEl, workshopEl)
 const phaseMap = createPhaseMap(listEl, startPhase, {
   onSettings: () => showSettings("map"),
   onHome: showTitle,
@@ -285,7 +286,9 @@ setReducedMotion(reducedMotion)
     store.data.xp = 0
     store.data.seenGroups = []
     store.data.tutorialSeen = false
+    store.data.cosmetics = { board: "default", wires: "default", mat: "default" }
     store.flush()
+    applyWorkshop()
     session = null
     toasts.show("info", "Progresso apagado. Os dados de uso continuam guardados pra exportar.")
     showTitle()
@@ -734,6 +737,7 @@ function checkVictory() {
     const reward = applyDailyReward(store.data, phase.id.slice("daily-".length), rewards)
     store.data = reward.save
     store.flush()
+    applyWorkshop()
     return showComplete({
       stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] })),
       xpGained: reward.xpGained,
@@ -747,6 +751,7 @@ function checkVictory() {
   store.data.draft = null
   store.data = finishAttempt(store.data, true, new Date())
   store.flush()
+  applyWorkshop()
   const owned = new Set(store.data.progress[phase.id]?.stars ?? [])
   showComplete({
     stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: owned.has(i), isNew: reward.newStars.includes(i) })),
@@ -847,6 +852,7 @@ function hideOverlays() {
   titleScreen.hide()
   completeScreen.hide()
   settingsScreen.hide()
+  workshopScreen.hide()
   overlay = null
   stageEl.classList.remove("choosing")
 }
@@ -914,6 +920,37 @@ function showPhaseList() {
   if (result.unlockedGroups.length > 0) audio.play("unlock")
 }
 
+const NEON_NAMES = ["Ciano", "Verde-limão", "Rosa", "Amarelo"]
+
+function applyWorkshop() {
+  const colors = cosmeticColors(store.data.cosmetics, rewards)
+  bench.setCosmetics(colors)
+  bench.setDecor(itemsUpTo(levelFor(store.data.xp, rewards).level, rewards).flatMap((i) => (i.kind === "decor" ? [i.id] : [])))
+  // vermelho e preto ficam sempre: são as cores de + e − da bancada
+  const base = WIRE_PALETTE.filter((c) => c.name === "Vermelho" || c.name === "Preto")
+  palette.setColors(colors.wireColors ? [...base, ...colors.wireColors.map((value, i) => ({ value, name: NEON_NAMES[i] ?? value }))] : WIRE_PALETTE)
+}
+
+const workshopScreen = createWorkshopScreen(workshopEl, {
+  onEquip: (item) => {
+    store.data = equipCosmetic(store.data, item, rewards)
+    store.save()
+    audio.play("click")
+    applyWorkshop()
+    showWorkshop()
+  },
+  onBack: () => showTitle(),
+})
+
+function showWorkshop() {
+  if (overlay !== "workshop") {
+    openOverlay("workshop")
+    document.body.classList.add("showcase")
+    bench.setShowcase(true, reducedMotion)
+  }
+  workshopScreen.show({ badge: badgeData(), level: levelFor(store.data.xp, rewards), levels: rewards.levels, items: rewards.items, equipped: store.data.cosmetics })
+}
+
 function badgeData() {
   return { ...levelFor(store.data.xp, rewards), stars: starsTotal(store.data.progress, phases) }
 }
@@ -953,10 +990,10 @@ function showTitle() {
   titleScreen.show({
     canContinue: hasProgress,
     sandboxAvailable: progressWon().size > 0,
-    workshopAvailable: false,
+    workshopAvailable: true,
     badge: badgeData(),
     daily: dailyCard(),
-    onWorkshop: () => undefined,
+    onWorkshop: showWorkshop,
     onDaily: () => {
       const phase = dailyRepair(today(), phases, progressWon(), catalog)
       if (phase) startPhase(phase.id, phase)
@@ -971,7 +1008,9 @@ function showTitle() {
       store.data.seenDatasheets = []
       store.data.xp = 0
       store.data.seenGroups = []
+      store.data.cosmetics = { board: "default", wires: "default", mat: "default" }
       store.flush()
+      applyWorkshop()
       session = null
       startPhase(phaseOrder(phases)[0])
     },
@@ -1097,6 +1136,10 @@ window.addEventListener("keydown", (event) => {
       event.preventDefault()
       closeOverlay()
     }
+    if (event.key === "Escape" && overlay === "workshop") {
+      event.preventDefault()
+      showTitle()
+    }
     return
   }
   if (session?.previewIndex !== null && session?.previewIndex !== undefined) {
@@ -1164,6 +1207,7 @@ toggle.set(activeView)
 setTool("select")
 render()
 
+applyWorkshop()
 showTitle()
 
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)

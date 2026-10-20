@@ -200,20 +200,25 @@ export function createWirePalette(el: HTMLElement, colors: { value: string; name
   title.className = "palette-title"
   title.textContent = "Cor do fio"
   el.appendChild(title)
-  for (const { value: color, name } of colors) {
-    const button = document.createElement("button")
-    button.type = "button"
-    button.className = "swatch"
-    button.style.background = color
-    button.title = name
-    button.setAttribute("aria-label", name)
-    button.addEventListener("click", () => onPick(color))
-    el.appendChild(button)
+  function fill(list: { value: string; name: string }[]) {
+    for (const old of el.querySelectorAll(".swatch")) old.remove()
+    for (const { value: color, name } of list) {
+      const button = document.createElement("button")
+      button.type = "button"
+      button.className = "swatch"
+      button.style.background = color
+      button.title = name
+      button.setAttribute("aria-label", name)
+      button.addEventListener("click", () => onPick(color))
+      el.appendChild(button)
+    }
   }
+  fill(colors)
   return {
     show(visible: boolean) {
       el.hidden = !visible
     },
+    setColors: fill,
   }
 }
 
@@ -368,7 +373,7 @@ export function scenarioLabel(scenario: ScenarioLike): { when: string; then: str
   return { when: when.join(", "), then: then.join(", ") }
 }
 
-const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'
+export const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'
 const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 
 export function phaseLabel(id: string): string {
@@ -690,7 +695,7 @@ export type TitleActions = {
 
 const FLAME_ICON =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 3.2 4.5 4.8 4.5 9.3A4.5 4.5 0 0112 17a4.5 4.5 0 01-4.5-4.7c0-2 1-3.3 2-4.3.2 1.6 1 2.5 2 2.5 0-2.6-.4-5 .5-7.5z"/><path d="M12 21a6.5 6.5 0 006.5-6.5"/></svg>'
-const LOCK_SMALL =
+export const LOCK_SMALL =
   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
 const WRENCH_ICON =
   '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 00-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 005.2-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/></svg>'

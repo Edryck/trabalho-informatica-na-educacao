@@ -3,14 +3,14 @@
   "dailyXp": 150,
   "levels": [0, 300, 700, 1200, 1800, 2500, 3300, 4200, 5200, 6300],
   "items": [
-    { "level": 2, "id": "lamp-desk", "kind": "decor", "name": "Luminária de mesa", "model": "models/lamp-desk.glb" },
+    { "level": 2, "id": "lamp-desk", "kind": "decor", "name": "Luminária de mesa" },
     { "level": 3, "id": "wires-neon", "kind": "wires", "name": "Fios neon", "value": "#22D3EE,#A3E635,#F472B6,#FACC15" },
-    { "level": 4, "id": "shelf", "kind": "decor", "name": "Estante com caixas de peças", "model": "models/shelf.glb" },
+    { "level": 4, "id": "shelf", "kind": "decor", "name": "Estante com caixas de peças" },
     { "level": 5, "id": "board-blue", "kind": "board", "name": "Protoboard azul", "value": "#3B82F6" },
-    { "level": 6, "id": "poster", "kind": "decor", "name": "Pôster de circuito", "model": "models/poster.glb" },
+    { "level": 6, "id": "poster", "kind": "decor", "name": "Pôster de circuito" },
     { "level": 7, "id": "mat-orange", "kind": "mat", "name": "Tapete de corte laranja", "value": "#F97316" },
-    { "level": 8, "id": "tools", "kind": "decor", "name": "Ferramentas", "model": "models/tools.glb" },
+    { "level": 8, "id": "tools", "kind": "decor", "name": "Ferramentas" },
     { "level": 9, "id": "board-black", "kind": "board", "name": "Protoboard preta", "value": "#1F2937" },
-    { "level": 10, "id": "trophy", "kind": "decor", "name": "Troféu", "model": "models/trophy.glb" }
+    { "level": 10, "id": "trophy", "kind": "decor", "name": "Troféu" }
   ]
 }

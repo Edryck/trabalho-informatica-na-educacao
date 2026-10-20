@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
 import parts from "../data/parts.json"
 import phasesJson from "../data/phases.json"
-import { applyDailyReward, applyPhaseReward, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type StarContext } from "../src/game"
+import { applyDailyReward, applyPhaseReward, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type StarContext } from "../src/game"
 import type { PartsCatalog } from "../src/netlist"
 import { evaluate, type Evaluation, type PhaseData, type Star } from "../src/phases"
 import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
@@ -179,5 +179,36 @@ describe("daily repair", () => {
     const levelUp = applyDailyReward({ ...defaultSave(), xp: 250 }, "2026-11-02", rewards)
     expect([levelUp.levelBefore, levelUp.levelAfter]).toEqual([1, 2])
     expect(levelUp.unlocked.map((i) => i.id)).toEqual(["lamp-desk"])
+  })
+})
+
+describe("cosmetics", () => {
+  const item = (id: string) => rewards.items.find((i) => i.id === id)!
+
+  it("equips only unlocked cosmetics", () => {
+    const low = { ...defaultSave(), xp: 1800 }
+    expect(equipCosmetic(low, item("board-blue"), rewards).cosmetics.board).toBe("board-blue")
+    expect(equipCosmetic(low, item("board-black"), rewards).cosmetics.board).toBe("default")
+    expect(equipCosmetic(low, item("wires-neon"), rewards).cosmetics.wires).toBe("wires-neon")
+  })
+
+  it("default resets the slot", () => {
+    const save = equipCosmetic({ ...defaultSave(), xp: 3300 }, item("mat-orange"), rewards)
+    expect(save.cosmetics.mat).toBe("mat-orange")
+    expect(equipCosmetic(save, { level: 1, id: "default", kind: "mat", name: "Sem tapete" }, rewards).cosmetics.mat).toBe("default")
+  })
+
+  it("decor items cannot be equipped", () => {
+    const save = { ...defaultSave(), xp: 9000 }
+    expect(equipCosmetic(save, item("shelf"), rewards)).toEqual(save)
+  })
+
+  it("resolves equipped ids to colors", () => {
+    expect(cosmeticColors(defaultSave().cosmetics, rewards)).toEqual({ boardColor: null, wireColors: null, matColor: null })
+    expect(cosmeticColors({ board: "board-blue", wires: "wires-neon", mat: "mat-orange" }, rewards)).toEqual({
+      boardColor: "#3B82F6",
+      wireColors: ["#22D3EE", "#A3E635", "#F472B6", "#FACC15"],
+      matColor: "#F97316",
+    })
   })
 })

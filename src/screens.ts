@@ -1,6 +1,7 @@
 import type { LevelInfo, RewardItem } from "./game"
+import type { Cosmetics } from "./state"
 import type { SfxName } from "./audio"
-import { bloom, phaseLabel, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
+import { bloom, CHECK_ICON, createPlayerBadge, LOCK_SMALL, phaseLabel, pop, stagger, type BadgeData, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
 
 export type CompleteSummary = {
   phaseId: string
@@ -345,3 +346,100 @@ export function createTour(el: HTMLElement) {
     isOpen: () => !el.hidden,
   }
 }
+
+export type WorkshopState = { badge: BadgeData; level: LevelInfo; levels: number[]; items: RewardItem[]; equipped: Cosmetics }
+export type WorkshopHandlers = { onEquip(item: RewardItem): void; onBack(): void }
+
+const SLOTS: { kind: "board" | "wires" | "mat"; title: string; fallback: { name: string; swatch: string } }[] = [
+  { kind: "board", title: "Protoboard", fallback: { name: "Branca", swatch: "#FBFBF8" } },
+  { kind: "wires", title: "Fios", fallback: { name: "Clássicos", swatch: "#3D8BD9,#C62828,#202020" } },
+  { kind: "mat", title: "Tapete", fallback: { name: "Sem tapete", swatch: "" } },
+]
+
+const KIND_WORDS: Record<RewardItem["kind"], string> = { board: "protoboard", wires: "fios", mat: "tapete", decor: "decoração" }
+
+function swatchHtml(value: string): string {
+  if (!value) return '<span class="ws-swatch ws-swatch-empty" aria-hidden="true"></span>'
+  const colors = value.split(",")
+  const fill = colors.length === 1 ? colors[0] : `linear-gradient(90deg, ${colors.map((c, i) => `${c} ${(i / colors.length) * 100}% ${((i + 1) / colors.length) * 100}%`).join(", ")})`
+  return `<span class="ws-swatch" style="background:${fill}" aria-hidden="true"></span>`
+}
+
+export function createWorkshopScreen(el: HTMLElement, handlers: WorkshopHandlers) {
+  el.className = "workshop-screen"
+  el.hidden = true
+  let state: WorkshopState | null = null
+  let popId: string | null = null
+  el.addEventListener("click", (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")
+    if (!target || !state) return
+    if (target.dataset.action === "back") return handlers.onBack()
+    if (target.dataset.action !== "equip") return
+    const kind = target.dataset.kind as RewardItem["kind"]
+    const id = target.dataset.id!
+    const item = id === "default" ? { level: 1, id, kind, name: "" } : state.items.find((i) => i.id === id)
+    if (!item) return
+    popId = `${kind}:${id}`
+    handlers.onEquip(item)
+  })
+
+  function render(entering: boolean) {
+    if (!state) return
+    const s = state
+    const unlocked = (item: RewardItem) => item.level <= s.level.level
+    const next = s.items.filter((i) => !unlocked(i)).sort((a, b) => a.level - b.level)[0]
+    const nextXp = next ? (s.levels[next.level - 1] ?? 0) : 0
+    const slots = SLOTS.map((slot) => {
+      const options = [{ level: 1, id: "default", kind: slot.kind, name: slot.fallback.name, value: slot.fallback.swatch } as RewardItem, ...s.items.filter((i) => i.kind === slot.kind)]
+      const cards = options
+        .map((item) => {
+          const open = unlocked(item)
+          const on = s.equipped[slot.kind] === item.id
+          const status = on ? `${CHECK_ICON} Equipado` : open ? "Equipar" : `${LOCK_SMALL} Nível ${item.level}`
+          return `<button type="button" class="ws-card ${on ? "on" : ""}" data-action="equip" data-kind="${slot.kind}" data-id="${item.id}" aria-pressed="${on}" ${open ? "" : "disabled"}>${swatchHtml(item.value ?? "")}<span class="ws-name">${item.name}</span><span class="ws-status">${status}</span></button>`
+        })
+        .join("")
+      return `<section class="ws-section"><h3>${slot.title}</h3><div class="ws-cards">${cards}</div></section>`
+    }).join("")
+    const decor = s.items
+      .filter((i) => i.kind === "decor")
+      .map((i) => `<li class="${unlocked(i) ? "on" : ""}"><span>${i.name}</span><span class="ws-status">${unlocked(i) ? `${CHECK_ICON} Na bancada` : `${LOCK_SMALL} Nível ${i.level}`}</span></li>`)
+      .join("")
+    el.innerHTML = `
+      <div class="workshop-panel">
+        <header class="ws-head"><h2>Oficina</h2><button type="button" class="btn-secondary" data-action="back">Voltar</button></header>
+        <div class="ws-badge"></div>
+        <div class="ws-next">${
+          next
+            ? `<span class="ws-next-label">Próximo prêmio</span><strong>${next.name}</strong><span>${KIND_WORDS[next.kind]} · nível ${next.level} · faltam ${Math.max(0, nextXp - s.level.xp)} XP</span>`
+            : `<span class="ws-next-label">Próximo prêmio</span><strong>Você liberou tudo</strong><span>A oficina está completa.</span>`
+        }</div>
+        ${slots}
+        <section class="ws-section"><h3>Decoração</h3><ul class="ws-decor">${decor}</ul></section>
+      </div>`
+    void createPlayerBadge(el.querySelector<HTMLElement>(".ws-badge")!).render(s.badge)
+    if (entering) void stagger([...el.querySelectorAll<HTMLElement>(".workshop-panel > *")], (block, delay) => fadeSlide(block, { delay, duration: 600 }), 50)
+    if (popId) {
+      const [kind, id] = popId.split(":")
+      const card = el.querySelector<HTMLElement>(`.ws-card[data-kind="${kind}"][data-id="${id}"]`)
+      popId = null
+      if (card) {
+        card.focus({ preventScroll: true })
+        void pop(card)
+      }
+    } else el.querySelector<HTMLButtonElement>("[data-action=back]")?.focus({ preventScroll: true })
+  }
+
+  return {
+    show(next: WorkshopState) {
+      const entering = el.hidden
+      state = next
+      el.hidden = false
+      render(entering)
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}
+

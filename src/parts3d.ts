@@ -4,9 +4,11 @@ import {
   CanvasTexture,
   CatmullRomCurve3,
   CircleGeometry,
+  Color,
   CubicBezierCurve3,
   CylinderGeometry,
   DirectionalLight,
+  DoubleSide,
   Fog,
   Group,
   HemisphereLight,
@@ -711,4 +713,242 @@ export function createFpsWatch(opts: FpsWatchOpts = { warmupMs: 3000, windowMs: 
       return "degrade"
     },
   }
+}
+
+export function makeCuttingMat(w: number, d: number, color: string): Group {
+  const g = new Group()
+  const base = new Mesh(new RoundedBoxGeometry(w, 0.8, d, 2, 0.4), satin(new Color(color).getHex(), { roughness: 0.85 }))
+  base.position.y = 0.4
+  base.receiveShadow = true
+  g.add(base)
+  const scale = 8
+  const tex = decal(`mat|${w}|${d}`, Math.round(w * scale), Math.round(d * scale), (ctx) => {
+    ctx.strokeStyle = "rgba(255,255,255,0.35)"
+    ctx.lineWidth = 1.5
+    for (let x = 10; x < w; x += 10) {
+      ctx.beginPath()
+      ctx.moveTo(x * scale, 0)
+      ctx.lineTo(x * scale, d * scale)
+      ctx.stroke()
+    }
+    for (let z = 10; z < d; z += 10) {
+      ctx.beginPath()
+      ctx.moveTo(0, z * scale)
+      ctx.lineTo(w * scale, z * scale)
+      ctx.stroke()
+    }
+  })
+  const grid = printed(tex, w - 2, d - 2)
+  grid.position.y = 0.82
+  g.add(grid)
+  return g
+}
+
+function deskLamp(): Group {
+  const g = new Group()
+  const shell = satin(PART_COLORS.yellow, { roughness: 0.4 })
+  const base = new Mesh(lathe([[0, 0], [11, 0], [11, 2.2], [9, 3.4], [0, 3.4]], 40), shell)
+  g.add(base)
+  const joint = (y: number) => {
+    const ball = new Mesh(new CylinderGeometry(1.8, 1.8, 3.4, 20), metal())
+    ball.rotation.z = Math.PI / 2
+    ball.position.y = y
+    return ball
+  }
+  const lower = new Group()
+  lower.position.y = 3.4
+  lower.rotation.z = -0.35
+  const arm1 = new Mesh(new CylinderGeometry(1.1, 1.1, 34, 14), shell)
+  arm1.position.y = 17
+  lower.add(joint(0), arm1)
+  const upper = new Group()
+  upper.position.y = 34
+  upper.rotation.z = 1.5
+  const arm2 = new Mesh(new CylinderGeometry(1.1, 1.1, 28, 14), shell)
+  arm2.position.y = 14
+  upper.add(joint(0), arm2)
+  const head = new Group()
+  head.position.y = 28
+  head.rotation.z = 0.9
+  const shade = new Mesh(lathe([[2.2, 0], [3.4, 1.5], [7.5, 9], [7.9, 10]], 32), satin(PART_COLORS.yellow, { roughness: 0.4 }))
+  shade.material.side = DoubleSide
+  shade.rotation.x = Math.PI
+  head.add(joint(0), shade)
+  const bulb = new Mesh(new CylinderGeometry(2.6, 2.6, 0.4, 20), satin(0xfff7e0, { emissive: 0xffe2a8, emissiveIntensity: 1.4 }))
+  bulb.position.y = -8.6
+  head.add(bulb)
+  upper.add(head)
+  lower.add(upper)
+  g.add(lower)
+  return g
+}
+
+function shelf(): Group {
+  const g = new Group()
+  const wood = satin(0xd9b48a, { roughness: 0.7 })
+  const w = 56
+  const h = 64
+  const d = 22
+  for (const x of [-w / 2, w / 2]) {
+    const side = rounded(2.4, h, d, 0.6, wood)
+    side.position.set(x, h / 2, 0)
+    g.add(side)
+  }
+  for (const y of [1.2, h / 3, (2 * h) / 3, h - 1.2]) {
+    const board = rounded(w, 2.4, d, 0.6, wood)
+    board.position.y = y
+    g.add(board)
+  }
+  const back = new Mesh(new BoxGeometry(w, h, 0.8), satin(0xc9a37a, { roughness: 0.8 }))
+  back.position.set(0, h / 2, -d / 2 + 0.4)
+  g.add(back)
+  const colors = [PART_COLORS.blue, PART_COLORS.coral, PART_COLORS.green, PART_COLORS.purple, PART_COLORS.orange, PART_COLORS.pink]
+  let n = 0
+  for (const y of [2.4, h / 3 + 1.2, (2 * h) / 3 + 1.2]) {
+    for (let i = 0; i < 3; i++) {
+      const box = rounded(14, 12, 16, 1.2, satin(colors[n++ % colors.length], { roughness: 0.45 }))
+      box.position.set(-17 + i * 17, y + 6, 1)
+      g.add(box)
+      const label = new Mesh(new BoxGeometry(7, 3, 0.3), satin(0xffffff))
+      label.position.set(-17 + i * 17, y + 7, 9.1)
+      g.add(label)
+    }
+  }
+  return g
+}
+
+function poster(): Group {
+  const g = new Group()
+  const wood = satin(0x8b5e3c, { roughness: 0.7 })
+  for (const [x, z, r] of [[-14, 4, 0.12], [14, 4, -0.12], [0, -10, 0]] as const) {
+    const leg = new Mesh(new CylinderGeometry(0.9, 0.9, 72, 10), wood)
+    leg.position.set(x, 35, z)
+    leg.rotation.z = r
+    if (z < 0) leg.rotation.x = -0.28
+    else leg.rotation.x = 0.1
+    g.add(leg)
+  }
+  const tex = decal("poster", 400, 520, (ctx) => {
+    ctx.fillStyle = "#0B2540"
+    ctx.fillRect(0, 0, 400, 520)
+    ctx.strokeStyle = "rgba(159,211,255,0.18)"
+    ctx.lineWidth = 1
+    for (let i = 0; i < 400; i += 20) {
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i, 520)
+      ctx.stroke()
+    }
+    for (let i = 0; i < 520; i += 20) {
+      ctx.beginPath()
+      ctx.moveTo(0, i)
+      ctx.lineTo(400, i)
+      ctx.stroke()
+    }
+    ctx.strokeStyle = "#9FD3FF"
+    ctx.lineWidth = 5
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.beginPath()
+    ctx.moveTo(100, 140)
+    ctx.lineTo(300, 140)
+    ctx.lineTo(300, 200)
+    for (let i = 0; i < 4; i++) ctx.lineTo(i % 2 ? 280 : 320, 215 + i * 15)
+    ctx.lineTo(300, 275)
+    ctx.lineTo(300, 340)
+    ctx.lineTo(100, 340)
+    ctx.lineTo(100, 270)
+    ctx.moveTo(100, 210)
+    ctx.lineTo(100, 140)
+    ctx.moveTo(70, 210)
+    ctx.lineTo(130, 210)
+    ctx.moveTo(85, 270)
+    ctx.lineTo(115, 270)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.arc(200, 340, 22, 0, Math.PI * 2)
+    ctx.fillStyle = "#0B2540"
+    ctx.fill()
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(185, 325)
+    ctx.lineTo(215, 355)
+    ctx.moveTo(215, 325)
+    ctx.lineTo(185, 355)
+    ctx.stroke()
+    ctx.fillStyle = "#9FD3FF"
+    ctx.font = "700 34px Rubik, sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText("Fio Contínuo", 200, 440)
+    ctx.font = "500 18px 'IBM Plex Mono', monospace"
+    ctx.fillText("9 V · 2 × 220 Ω · L1", 200, 475)
+  })
+  const board = new Group()
+  board.position.set(0, 46, 2.5)
+  board.rotation.x = -0.1
+  const frame = rounded(42, 54, 1.6, 0.6, satin(0xf8fafc))
+  board.add(frame)
+  const art = new Mesh(new PlaneGeometry(38, 49.4), new MeshBasicMaterial({ map: tex, toneMapped: false }))
+  art.position.z = 0.82
+  board.add(art)
+  g.add(board)
+  return g
+}
+
+function tools(): Group {
+  const g = new Group()
+  const handle = new Mesh(lathe([[0, 0], [2.4, 0.3], [2.8, 3], [2.6, 14], [2, 16], [0, 16.4]], 20), satin(PART_COLORS.coral, { roughness: 0.4 }))
+  handle.rotation.z = Math.PI / 2
+  handle.position.set(-6, 2.8, 0)
+  g.add(handle)
+  const shaft = new Mesh(new CylinderGeometry(0.7, 0.7, 22, 10), metal())
+  shaft.rotation.z = Math.PI / 2
+  shaft.position.set(-33, 2.8, 0)
+  g.add(shaft)
+  const pliers = new Group()
+  pliers.position.set(-10, 1.1, 18)
+  pliers.rotation.y = 0.5
+  for (const side of [-1, 1]) {
+    const grip = rounded(26, 2.2, 3.6, 1, satin(PART_COLORS.blue, { roughness: 0.4 }))
+    grip.position.set(-6, 0, side * 4)
+    grip.rotation.y = side * -0.18
+    pliers.add(grip)
+    const jaw = rounded(14, 2, 2.6, 0.6, metal())
+    jaw.position.set(-25, 0, side * 1.2)
+    jaw.rotation.y = side * 0.05
+    pliers.add(jaw)
+  }
+  g.add(pliers)
+  return g
+}
+
+function trophy(): Group {
+  const g = new Group()
+  const gold = new MeshStandardMaterial({ color: 0xffc21a, metalness: 0.85, roughness: 0.25 })
+  const base = rounded(18, 6, 18, 1.2, satin(0x1f2937, { roughness: 0.5 }))
+  base.position.y = 3
+  g.add(base)
+  const cup = new Mesh(lathe([[0, 0], [4, 0], [4, 1.2], [1.4, 2.4], [1.2, 9], [3, 11], [7.5, 15], [9, 24], [8.4, 24.4], [0, 16]], 40), gold)
+  cup.position.y = 6
+  g.add(cup)
+  for (const side of [-1, 1]) {
+    const ear = new Mesh(new TorusGeometry(3.6, 0.8, 10, 24, Math.PI * 1.2), gold)
+    ear.position.set(side * 8.6, 25, 0)
+    ear.rotation.z = side > 0 ? -Math.PI * 0.6 : Math.PI * 1.6
+    g.add(ear)
+  }
+  return g
+}
+
+export function makeDecor(id: string, color = 0xb87333): Group {
+  if (id === "lamp-desk") return deskLamp()
+  if (id === "shelf") return shelf()
+  if (id === "poster") return poster()
+  if (id === "tools") return tools()
+  if (id === "trophy") return trophy()
+  const g = new Group()
+  const box = rounded(16, 16, 16, 2, satin(color))
+  box.position.y = 8
+  g.add(box)
+  return g
 }

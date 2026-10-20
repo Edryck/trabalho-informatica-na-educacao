@@ -45,6 +45,8 @@ import {
   makeBuzzer,
   makeButton,
   makeChip,
+  makeCuttingMat,
+  makeDecor,
   makeLampBody,
   makeLedHead,
   makeMotor,
@@ -171,11 +173,22 @@ function rotateOffset([dc, dr]: [number, number], rotation: number): [number, nu
   }
 }
 
-export function suggestedWireColor(start: HoleId): string {
+export function suggestedWireColor(start: HoleId, neutral: string = WIRE_COLORS.neutral): string {
   const strip = stripOf(start)
   if (strip === "rail-T+" || strip === "rail-B+") return WIRE_COLORS.positive
   if (strip === "rail-T-" || strip === "rail-B-") return WIRE_COLORS.negative
-  return WIRE_COLORS.neutral
+  return neutral
+}
+
+export type BenchCosmetics = { boardColor: string | null; wireColors: string[] | null; matColor: string | null }
+
+// cada enfeite tem lugar fixo fora da placa, longe de onde a câmera padrão olha
+const DECOR_SLOTS: Record<string, { x: number; z: number; rotY: number; scale: number }> = {
+  "lamp-desk": { x: -122, z: -78, rotY: 0.6, scale: 1 },
+  shelf: { x: 118, z: -92, rotY: -0.35, scale: 1 },
+  poster: { x: 22, z: -118, rotY: 0, scale: 1 },
+  tools: { x: 88, z: -52, rotY: -0.3, scale: 0.85 },
+  trophy: { x: -52, z: -104, rotY: 0.3, scale: 1 },
 }
 
 const FLEX_MIN = PITCH * 0.99
@@ -214,6 +227,12 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   const breadboard = makeBreadboard({ halfX: BOARD_HALF_X, halfZ: BOARD_HALF_Z, height: BOARD_HEIGHT, pitch: PITCH, columns: COLUMNS, rowZ: ROW_Z, railZ: RAIL_Z })
   shade(breadboard, true)
   scene.add(breadboard)
+  const boardBody = breadboard.getObjectByName("body")
+  const decorGroup = new Group()
+  const matGroup = new Group()
+  scene.add(decorGroup, matGroup)
+  let neutralWires: string[] | null = null
+  let holeColor = COLOR.hole
 
   const holes = allHoles()
   const holeMesh = new InstancedMesh(new BoxGeometry(1.1, 0.06, 1.1), new MeshBasicMaterial({ color: 0xffffff }), holes.length)
@@ -223,7 +242,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     dummy.position.set(p.x, 0.04, p.z)
     dummy.updateMatrix()
     holeMesh.setMatrixAt(i, dummy.matrix)
-    holeMesh.setColorAt(i, new Color(COLOR.hole))
+    holeMesh.setColorAt(i, new Color(holeColor))
   })
   scene.add(holeMesh)
 
@@ -417,6 +436,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         o.material.emissiveIntensity = sel
       }
     })
+  }
+
+  function nextWireColor(start: HoleId, d: CircuitDoc): string {
+    const palette = neutralWires
+    return suggestedWireColor(start, palette ? palette[d.bench.wires.length % palette.length] : undefined)
   }
 
   function popPart(id: string) {
@@ -848,7 +872,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const strip = hoverHole ? stripOf(hoverHole) : null
     holes.forEach((h, i) => {
       const lit = strip !== null && stripOf(h) === strip
-      holeMesh.setColorAt(i, new Color(lit ? COLOR.holeStrip : COLOR.hole))
+      holeMesh.setColorAt(i, new Color(lit ? COLOR.holeStrip : holeColor))
     })
     if (holeMesh.instanceColor) holeMesh.instanceColor.needsUpdate = true
     const p = hoverHole ? holePosition(hoverHole) : null
@@ -931,7 +955,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const pa = holePosition(mode.start)!
       const pb = holePosition(hoverHole)!
       const curve = wireCurve(new Vector3(pa.x, 0.6, pa.z), new Vector3(pb.x, 0.6, pb.z))
-      const ghost = new Mesh(new TubeGeometry(curve, 32, WIRE_RADIUS, 8), std(suggestedWireColor(mode.start), { transparent: true, opacity: 0.55 }))
+      const ghost = new Mesh(new TubeGeometry(curve, 32, WIRE_RADIUS, 8), std(nextWireColor(mode.start, view.doc), { transparent: true, opacity: 0.55 }))
       ghostGroup.add(ghost)
     }
     if (mode.kind === "rigid" && hoverHole) {
@@ -1107,7 +1131,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const ids = new Set(d.bench.wires.map((w) => w.id))
     let n = 1
     while (ids.has(`W${n}`)) n++
-    d.bench.wires.push({ id: `W${n}`, a: mode.start, b: hole, color: suggestedWireColor(mode.start) })
+    d.bench.wires.push({ id: `W${n}`, a: mode.start, b: hole, color: nextWireColor(mode.start, d) })
     popPart(`W${n}`)
     mode = { kind: "wire", start: null }
     cb.onChange(d, true)
@@ -1434,6 +1458,32 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     frame,
     handleKey,
     setWireColor,
+    setCosmetics(c: BenchCosmetics) {
+      if (boardBody instanceof Mesh && boardBody.material instanceof MeshStandardMaterial) boardBody.material.color.set(c.boardColor ?? "#FBFBF8")
+      // placa escura apaga os furos escuros, então eles clareiam
+      holeColor = c.boardColor && new Color(c.boardColor).getHSL({ h: 0, s: 0, l: 0 }).l < 0.3 ? 0x9ca3af : COLOR.hole
+      paintHoles()
+      neutralWires = c.wireColors
+      clearGroup(matGroup)
+      if (c.matColor) {
+        const mat = makeCuttingMat(BOARD_HALF_X * 2 + 18, BOARD_HALF_Z * 2 + 16, c.matColor)
+        mat.position.set(0, MAT_Y, 0)
+        matGroup.add(mat)
+      }
+    },
+    setDecor(ids: string[]) {
+      clearGroup(decorGroup)
+      for (const id of ids) {
+        const slot = DECOR_SLOTS[id]
+        if (!slot) continue
+        const item = makeDecor(id)
+        item.position.set(slot.x, MAT_Y, slot.z)
+        item.rotation.y = slot.rotY
+        item.scale.setScalar(slot.scale)
+        shade(item)
+        decorGroup.add(item)
+      }
+    },
     setLight(on: boolean) {
       lightOn = on
       studio.setLight(on)
