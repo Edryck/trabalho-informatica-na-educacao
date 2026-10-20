@@ -289,3 +289,45 @@ describe("logic references need their ground wires", () => {
       }
     })
 })
+
+import { evaluateStars } from "../src/game"
+
+describe("phase stars", () => {
+  const data = loadPhases(phasesRaw)
+  const base = (extra: Record<string, unknown>) => ({
+    groups: [
+      { id: "ga", title: "a", demo: true, concept: "", unlocks: ["lamp"], phases: [{ id: "a1", type: "build", goal: "x", expect: [{ when: {}, then: { L1: "lit" } }], tray: { lamp: 1 }, keyParts: [{ id: "L1", part: "lamp" }], referenceSolution: { version: 1, instances: [], blueprint: { placements: [], segments: [] }, bench: { placements: [], wires: [], meter: { mode: "off", red: null, black: null } } }, ...extra }] },
+    ],
+    future: [],
+  })
+  const errorsFor = (extra: Record<string, unknown>) => validatePhases(loadPhases(base(extra)), catalog, datasheets).join("\n")
+
+  it("rejects usedMeter before the multimeter is unlocked", () => {
+    expect(errorsFor({ stars: [{ kind: "solved" }, { kind: "usedMeter", mode: "V" }, { kind: "maxWires", value: 9 }] })).toMatch(/multímetro/)
+  })
+
+  it("rejects noDivergence when the phase already requires a match", () => {
+    expect(errorsFor({ stars: [{ kind: "solved" }, { kind: "noDivergence" }, { kind: "maxWires", value: 9 }] })).toMatch(/noDivergence/)
+  })
+
+  it("rejects a missing solved first star and wrong count", () => {
+    expect(errorsFor({ stars: [{ kind: "maxWires", value: 9 }, { kind: "maxCost", value: 9 }, { kind: "maxCost", value: 9 }] })).toMatch(/solved/)
+    expect(errorsFor({ stars: [{ kind: "solved" }] })).toMatch(/3 estrelas/)
+  })
+
+  it("every demo phase has three stars and references earn their circuit stars", () => {
+    for (const p of data.groups.filter((g) => g.demo).flatMap((g) => g.phases)) {
+      expect(p.stars, p.id).toHaveLength(3)
+      const doc = p.referenceSolution ?? p.initial
+      if (!doc) continue
+      const e = evaluate(p, doc, catalog)
+      const earned = evaluateStars(p.stars, { won: true, evaluation: e, doc, side: p.evaluateOn, meterModesUsed: ["V", "A", "ohm"] })
+      expect(earned, p.id).toEqual([true, true, true])
+    }
+  })
+
+  it("tutorials do not reward an action their steps already require", () => {
+    const g3p3 = findPhase(data, "g3p3")!
+    expect(g3p3.stars.some((s) => s.kind === "usedMeter")).toBe(false)
+  })
+})

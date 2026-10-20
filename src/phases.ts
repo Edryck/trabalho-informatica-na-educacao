@@ -1,6 +1,7 @@
 import { benchToNetlist, blueprintToNetlist, compare, type Divergence, type Netlist, type PartsCatalog } from "./netlist"
 import { DEFAULT_INPUT_STATE, solve, type PartState, type SolveResult } from "./solver"
 import type { CircuitDoc } from "./state"
+import { evaluateStars } from "./game"
 
 export type ThenValue = string | { current?: [number, number]; voltage?: [number, number] }
 export type Scenario = { when: Record<string, string>; then: Record<string, ThenValue> }
@@ -17,6 +18,12 @@ export type TutorialEvent =
   | "datasheetOpened"
 export type Step = { text: string; until: { event: TutorialEvent } | { expect: Scenario[] } }
 export type PhaseType = "tutorial" | "build" | "repair" | "order"
+export type Star =
+  | { kind: "solved" }
+  | { kind: "noDivergence" }
+  | { kind: "usedMeter"; mode: "V" | "A" | "ohm" }
+  | { kind: "maxCost"; value: number }
+  | { kind: "maxWires"; value: number }
 export type Phase = {
   id: string
   type: PhaseType
@@ -32,6 +39,7 @@ export type Phase = {
   budget: number | null
   initial: CircuitDoc | null
   steps: Step[] | null
+  stars: Star[]
   hints: string[]
   referenceSolution: CircuitDoc | null
 }
@@ -71,6 +79,7 @@ function fillPhase(raw: RawPhase): Phase {
     steps: null,
     hints: [],
     referenceSolution: null,
+    stars: [{ kind: "solved" }],
     ...raw,
   }
 }
@@ -223,7 +232,32 @@ export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheet
       if (!group.demo) continue
       if (phase.expect.length === 0 && (phase.steps?.length ?? 0) === 0) errors.push(`${where}: sem estado esperado nem passos`)
       if (phase.type !== "tutorial" && !phase.referenceSolution) errors.push(`${where}: sem solução de referência`)
+      errors.push(...validateStars(phase, data, group.id, catalog))
     }
+  }
+  return errors
+}
+
+function validateStars(phase: Phase, data: PhaseData, groupId: string, catalog: PartsCatalog): string[] {
+  const where = `fase ${phase.id}`
+  const errors: string[] = []
+  if (phase.stars.length !== 3) errors.push(`${where}: precisa de 3 estrelas`)
+  if (phase.stars[0]?.kind !== "solved") errors.push(`${where}: a primeira estrela tem que ser solved`)
+  const groupIndex = data.groups.findIndex((g) => g.id === groupId)
+  const meterIndex = data.groups.findIndex((g) => g.unlocks.includes("multimeter"))
+  const meterSteps = (phase.steps ?? []).some((s) => "event" in s.until && s.until.event.startsWith("meterRead"))
+  for (const star of phase.stars) {
+    if (star.kind === "usedMeter" && (meterIndex < 0 || groupIndex < meterIndex)) errors.push(`${where}: usedMeter antes de liberar o multímetro`)
+    if (star.kind === "usedMeter" && meterSteps) errors.push(`${where}: usedMeter repete um passo obrigatório do tutorial`)
+    if (star.kind === "noDivergence" && phase.requireMatch) errors.push(`${where}: noDivergence em fase que já exige esquema igual`)
+  }
+  const doc = phase.referenceSolution ?? phase.initial
+  if (doc && errors.length === 0) {
+    const e = evaluate(phase, doc, catalog)
+    const earned = evaluateStars(phase.stars, { won: true, evaluation: e, doc, side: phase.evaluateOn, meterModesUsed: ["V", "A", "ohm"] })
+    phase.stars.forEach((star, i) => {
+      if (!earned[i]) errors.push(`${where}: a solução de referência não cumpre a estrela ${star.kind}`)
+    })
   }
   return errors
 }

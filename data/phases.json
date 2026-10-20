@@ -161,6 +161,18 @@
                 "event": "holeHovered"
               }
             }
+          ],
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "noDivergence"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
           ]
         },
         {
@@ -269,15 +281,65 @@
               ]
             },
             "bench": {
-              "placements": [],
-              "wires": [],
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A10",
+                    "b": "A14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B14",
+                  "b": "T-14",
+                  "color": "#202020"
+                }
+              ],
               "meter": {
                 "mode": "off",
                 "red": null,
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            },
+            {
+              "kind": "noDivergence"
+            }
+          ]
         },
         {
           "id": "g0p3",
@@ -459,7 +521,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ]
         },
         {
           "id": "g0p4",
@@ -693,7 +768,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ]
         },
         {
           "id": "g0p5",
@@ -966,7 +1054,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ]
         }
       ]
     },
@@ -1175,7 +1276,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 5
+            }
+          ]
         },
         {
           "id": "g1p2",
@@ -1371,7 +1485,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 6
+            }
+          ]
         },
         {
           "id": "g1p3",
@@ -1549,7 +1676,7 @@
                   "id": "M1",
                   "x": 6,
                   "y": 0,
-                  "rotation": 90
+                  "rotation": 270
                 }
               ],
               "segments": [
@@ -1644,7 +1771,19 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "noDivergence"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
         },
         {
           "id": "g1p4",
@@ -1842,7 +1981,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 6
+            }
+          ]
         },
         {
           "id": "g1p5",
@@ -2183,7 +2335,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 5
+            }
+          ]
         },
         {
           "id": "g1p6",
@@ -2438,7 +2603,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxCost",
+              "value": 10
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
         }
       ]
     },
@@ -2734,7 +2912,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 5
+            },
+            {
+              "kind": "maxCost",
+              "value": 6
+            }
+          ]
         },
         {
           "id": "g2p2",
@@ -2912,7 +3103,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 5
+            },
+            {
+              "kind": "maxCost",
+              "value": 8
+            }
+          ]
         },
         {
           "id": "g2p3",
@@ -3225,7 +3429,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 12
+            },
+            {
+              "kind": "maxCost",
+              "value": 10
+            }
+          ]
         },
         {
           "id": "g2p4",
@@ -3461,7 +3678,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 8
+            },
+            {
+              "kind": "maxCost",
+              "value": 9
+            }
+          ]
         },
         {
           "id": "g2p5",
@@ -3709,7 +3939,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 10
+            },
+            {
+              "kind": "maxCost",
+              "value": 7
+            }
+          ]
         },
         {
           "id": "g2p6",
@@ -4096,7 +4339,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 8
+            },
+            {
+              "kind": "maxCost",
+              "value": 7
+            }
+          ]
         },
         {
           "id": "g2p7",
@@ -4334,7 +4590,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxCost",
+              "value": 10
+            },
+            {
+              "kind": "maxWires",
+              "value": 8
+            }
+          ]
         }
       ]
     },
@@ -4668,7 +4937,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "ohm"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
         },
         {
           "id": "g3p2",
@@ -4849,7 +5131,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "V"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
         },
         {
           "id": "g3p3",
@@ -5027,6 +5322,19 @@
           "hints": [
             "Pra medir tensão o circuito continua igual: só encosta as pontas nos dois lados da peça.",
             "Pra medir corrente a corrente tem que passar pelo multímetro. Abre o circuito e liga as pontas onde estava o fio."
+          ],
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
           ]
         },
         {
@@ -5216,7 +5524,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "A"
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ]
         },
         {
           "id": "g3p5",
@@ -5550,7 +5871,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "A"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
         },
         {
           "id": "g3p6",
@@ -5809,7 +6143,20 @@
                 "black": null
               }
             }
-          }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "V"
+            },
+            {
+              "kind": "maxCost",
+              "value": 9
+            }
+          ]
         }
       ]
     },
