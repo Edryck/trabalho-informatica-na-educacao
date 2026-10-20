@@ -1,8 +1,7 @@
 import type { Divergence, PinRef } from "./netlist"
 import type { Warning } from "./solver"
 import type { Star } from "./phases"
-import type { GoalState, LevelInfo, RewardItem } from "./game"
-import type { SfxName } from "./audio"
+import type { GoalState, LevelInfo } from "./game"
 
 export type Unit = "V" | "A" | "Ω" | "W"
 
@@ -79,6 +78,7 @@ export function createToolbar(el: HTMLElement, onTool: (tool: ToolId) => void) {
     button.type = "button"
     button.className = "tool"
     button.innerHTML = icon(id)
+    button.dataset.tool = id
     button.title = TOOL_LABELS[id]
     button.setAttribute("aria-label", TOOL_LABELS[id])
     button.addEventListener("click", () => onTool(id))
@@ -767,200 +767,8 @@ export function createTitleScreen(el: HTMLElement) {
   }
 }
 
-export type CompleteSummary = {
-  phaseId: string
-  goal: string
-  parts: { label: string; count: number }[]
-  cost: number
-  budget: number | null
-  referenceCost: number | null
-  bestCost: number | null
-  stars: { label: string; earned: boolean; isNew: boolean }[]
-  xpGained: number
-  levelBefore: LevelInfo
-  levelAfter: LevelInfo
-  unlocked: RewardItem[]
-}
-
-export type CompleteHandlers = {
-  onNext: (() => void) | null
-  onCheaper(): void
-  onRetry(): void
-  onMap(): void
-  play(name: SfxName, pitch?: number): void
-}
-
-const STAR_PITCH = [1, 1.12, 1.26]
-
-function wait(ms: number): Promise<void> {
-  if (motionReduced() || skipRequested) return Promise.resolve()
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function xpLine(info: LevelInfo, xp: number): string {
-  return info.next === null ? `${Math.round(xp)} XP · nível máximo` : `${Math.round(xp)} / ${info.next} XP`
-}
-
-export function createCompleteScreen(el: HTMLElement) {
-  el.className = "complete-screen"
-  el.hidden = true
-  let handlers: CompleteHandlers | null = null
-  let animating = false
-  let skipped = false
-  let seq = 0
-  const skip = () => {
-    if (!animating || skipped) return
-    skipped = true
-    requestSkip(true)
-  }
-  const onKey = (event: KeyboardEvent) => {
-    if (event.key === "Escape" && animating) {
-      event.preventDefault()
-      skip()
-    }
-  }
-  el.addEventListener("click", (event) => {
-    const action = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action
-    if (!action) return skip()
-    if (!handlers) return
-    if (action === "next") handlers.onNext?.()
-    if (action === "cheaper") handlers.onCheaper()
-    if (action === "retry") handlers.onRetry()
-    if (action === "map") handlers.onMap()
-  })
-  return {
-    async show(summary: CompleteSummary, next: CompleteHandlers): Promise<void> {
-      handlers = next
-      el.hidden = false
-      const before = summary.levelBefore
-      const after = summary.levelAfter
-      const levelUp = after.level > before.level
-      const cheaper = summary.referenceCost !== null && summary.cost > summary.referenceCost
-      const costLine =
-        summary.referenceCost === null
-          ? ""
-          : cheaper
-            ? `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span> \u00b7 dá pra fazer com <span class="mono">${summary.referenceCost}</span>.</p>`
-            : `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span>. Esse é o menor custo que a gente conhece.</p>`
-      const stars = summary.stars
-        .map(
-          (s) =>
-            `<li class="complete-star ${s.earned ? "earned" : "missed"}" aria-label="${s.label}: ${s.earned ? "conquistada" : "ainda não"}${s.isNew ? ", nova" : ""}"><span class="complete-star-icon">${starIcon(s.earned ? "met" : "unmet", 60)}</span><span class="complete-star-label">${s.label}</span>${s.isNew ? '<span class="complete-star-new">nova</span>' : ""}</li>`,
-        )
-        .join("")
-      const item = summary.unlocked[0]
-      el.innerHTML = `
-        <div class="complete-card animating" role="dialog" aria-modal="true" aria-labelledby="complete-title" tabindex="-1">
-          <header class="complete-head">
-            <h2 id="complete-title">Fase concluída</h2>
-            <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)} <span class="mono">${summary.phaseId}</span></p>
-          </header>
-          <ol class="complete-stars">${stars}</ol>
-          <section class="complete-xp" aria-label="Experiência">
-            <div class="complete-xp-row">
-              <span class="badge-level complete-level-badge" aria-hidden="true"><span class="badge-level-number">${before.level}</span></span>
-              <span class="complete-level">Nível ${before.level}</span>
-              <span class="complete-xp-gain">${summary.xpGained > 0 ? "+0 XP" : "Sem estrela nova"}</span>
-            </div>
-            <div class="xp-track"><div class="xp-fill" style="width:${Math.round(before.progress * 100)}%"></div></div>
-            <span class="complete-xp-total">${xpLine(before, before.xp)}</span>
-          </section>
-          ${
-            levelUp
-              ? `<section class="complete-unlock" aria-live="polite"><p class="complete-unlock-level">Nível ${after.level}</p>${item ? `<p class="complete-unlock-item"><strong>${item.name}</strong><span>Novo item da oficina</span></p>` : ""}</section>`
-              : ""
-          }
-          <div class="complete-details">
-            ${summary.parts.length ? `<p class="complete-parts">Peças usadas: ${summary.parts.map((p) => `${p.count}\u00d7 ${p.label}`).join(", ")}</p>` : ""}
-            ${costLine}
-            ${summary.bestCost !== null && summary.budget !== null ? `<p class="complete-best">Melhor versão até agora: <span class="mono">${summary.bestCost} créditos</span></p>` : ""}
-          </div>
-          <div class="complete-actions">
-            ${next.onNext ? '<button type="button" class="btn-primary" data-action="next">Próxima fase</button>' : ""}
-            <button type="button" class="btn-secondary" data-action="retry">Tentar de novo</button>
-            ${cheaper ? '<button type="button" class="btn-secondary" data-action="cheaper">Tentar versão mais barata</button>' : ""}
-            <button type="button" class="btn-secondary" data-action="map">Mapa de fases</button>
-          </div>
-          <p class="complete-skip" aria-hidden="true">Clique ou Esc pra pular</p>
-        </div>`
-      const card = el.querySelector<HTMLElement>(".complete-card")!
-      const levelBadge = card.querySelector<HTMLElement>(".badge-level-number")!
-      const levelText = card.querySelector<HTMLElement>(".complete-level")!
-      const gain = card.querySelector<HTMLElement>(".complete-xp-gain")!
-      const fill = card.querySelector<HTMLElement>(".xp-fill")!
-      const total = card.querySelector<HTMLElement>(".complete-xp-total")!
-      const unlock = card.querySelector<HTMLElement>(".complete-unlock")
-      const runId = ++seq
-      const stale = () => runId !== seq
-      const quiet = () => skipped || stale() || motionReduced()
-      animating = true
-      skipped = false
-      window.addEventListener("keydown", onKey)
-      card.focus({ preventScroll: true })
-      next.play("win")
-      await fadeSlide(card, { duration: 300 })
-      // cada estrela cai um pouco depois da anterior, sem esperar a outra quicar até o fim
-      let earnedIndex = 0
-      const drops: Promise<void>[] = []
-      for (const li of card.querySelectorAll<HTMLElement>(".complete-star")) {
-        const icon = li.querySelector(".complete-star-icon")!
-        if (li.classList.contains("earned")) {
-          if (!quiet()) next.play("star", STAR_PITCH[Math.min(earnedIndex, STAR_PITCH.length - 1)])
-          earnedIndex++
-          drops.push(bounceLand(icon, -56))
-        } else drops.push(fadeSlide(icon, { y: 8, duration: 300 }))
-        await wait(320)
-      }
-      await Promise.all(drops)
-      const firstTarget = levelUp ? 100 : Math.round(after.progress * 100)
-      await Promise.all([
-        summary.xpGained > 0 ? countUp(gain, 0, summary.xpGained, 1200, (n) => `+${Math.round(n)} XP`) : Promise.resolve(),
-        countUp(total, before.xp, levelUp ? (before.next ?? after.xp) : after.xp, 1200, (n) => xpLine(before, n)),
-        springTo(fill, "width", `${Math.round(before.progress * 100)}%`, `${firstTarget}%`),
-      ])
-      if (stale()) return
-      if (levelUp) {
-        if (!skipped) next.play("levelup")
-        levelBadge.textContent = String(after.level)
-        levelText.textContent = `Nível ${after.level}`
-        const badgeBox = levelBadge.parentElement!.getBoundingClientRect()
-        const cardBox = card.getBoundingClientRect()
-        void burst(card, badgeBox.left - cardBox.left + badgeBox.width / 2, badgeBox.top - cardBox.top + badgeBox.height / 2)
-        await springTo(fill, "width", "0%", `${Math.round(after.progress * 100)}%`)
-        if (unlock) {
-          unlock.classList.add("shown")
-          if (!quiet() && item) next.play("unlock")
-          await bloom(unlock)
-        }
-      }
-      if (stale()) return
-      for (const animation of card.getAnimations({ subtree: true })) animation.cancel()
-      card.classList.remove("animating")
-      unlock?.classList.add("shown")
-      levelBadge.textContent = String(after.level)
-      levelText.textContent = `Nível ${after.level}`
-      if (summary.xpGained > 0) gain.textContent = `+${summary.xpGained} XP`
-      fill.style.width = `${Math.round(after.progress * 100)}%`
-      total.textContent = xpLine(after, after.xp)
-      animating = false
-      requestSkip(false)
-      window.removeEventListener("keydown", onKey)
-      card.querySelector<HTMLButtonElement>(".btn-primary, .btn-secondary")?.focus({ preventScroll: true })
-    },
-    hide() {
-      el.hidden = true
-      seq++
-      if (animating) {
-        animating = false
-        requestSkip(false)
-        window.removeEventListener("keydown", onKey)
-      }
-    },
-  }
-}
-
 export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number; systemReducedMotion: boolean; storageAvailable: boolean }
-export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onVolume(v: number, done: boolean): void; onReset(): void; onExport(): void; onBack(): void }
+export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onVolume(v: number, done: boolean): void; onReset(): void; onExport(): void; onBack(): void; onTour(): void }
 
 export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers) {
   el.className = "settings-screen"
@@ -973,6 +781,7 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
     if (action === "iec") handlers.onStandard("IEC")
     if (action === "ansi") handlers.onStandard("ANSI")
     if (action === "export") handlers.onExport()
+    if (action === "tour") handlers.onTour()
     if (action === "back") handlers.onBack()
     if (action === "reset") {
       if (!confirming) {
@@ -1025,6 +834,10 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
               <dt>Delete</dt><dd>remover</dd><dt>Esc</dt><dd>cancelar</dd><dt>Ctrl+Z / Ctrl+Y</dt><dd>desfazer / refazer</dd><dt>T</dt><dd>linha do tempo</dd>
             </dl>
           </div>
+        </section>
+        <section class="settings-row">
+          <div><h3>Tour da interface</h3><p>Mostra de novo onde fica cada parte da tela, área por área.</p></div>
+          <button type="button" class="btn-secondary" data-action="tour">Rever tour</button>
         </section>
         <section class="settings-row">
           <div><h3>Dados de uso</h3><p>Baixa um arquivo JSON com o tempo, as alterações, as dicas e as medições de cada fase jogada neste navegador.</p></div>
@@ -1468,6 +1281,10 @@ export function countUp(el: HTMLElement, from: number, to: number, duration = 12
 
 let skipRequested = false
 
+export function skipRequestedNow(): boolean {
+  return skipRequested
+}
+
 export function requestSkip(on: boolean): void {
   skipRequested = on
   if (on) skipAnimations()
@@ -1514,6 +1331,13 @@ export function maskWipe(el: Element): Promise<void> {
 
 export function iris(el: Element, x: number, y: number, r: number, fromR = 0): Promise<void> {
   return run(el, [{ clipPath: `circle(${fromR}px at ${x}px ${y}px)` }, { clipPath: `circle(${r}px at ${x}px ${y}px)` }], { duration: 760, easing: EASING.easeOutQuart })
+}
+
+export type Box = { x: number; y: number; w: number; h: number; r: number }
+
+export function spotlight(el: Element, from: Box, to: Box): Promise<void> {
+  const frame = (b: Box): Keyframe => ({ left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px`, borderRadius: `${b.r}px` })
+  return run(el, [frame(from), frame(to)], { duration: 760, easing: EASING.easeOutQuart })
 }
 
 export function softRise(el: Element, delay = 0): Promise<void> {

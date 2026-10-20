@@ -205,3 +205,17 @@ describe("createFpsWatch reset", () => {
     expect(out).not.toContain("degrade")
   })
 })
+
+import { TOUR_STEPS } from "../src/screens"
+
+describe("tour", () => {
+  it("tour steps have six existing selectors and short copy", () => {
+    expect(TOUR_STEPS).toHaveLength(6)
+    expect(TOUR_STEPS.map((s) => s.target.split(",")[0])).toEqual([".phase-brief", ".tray-host", ".toolbar-host", ".view-toggle", ".topbar-host", "[data-tool=undo]"])
+    for (const step of TOUR_STEPS) {
+      expect(step.text.length).toBeLessThanOrEqual(140)
+      expect(step.text).not.toMatch(/queimad/i)
+      expect(step.title.length).toBeGreaterThan(0)
+    }
+  })
+})

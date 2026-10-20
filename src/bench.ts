@@ -1315,6 +1315,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (lightOn && fpsWatch.sample(now) === "degrade") {
       lightOn = false
       studio.setLight(false)
+      resize()
+      rebuild()
       cb.onEvent("lightMode")
     }
     renderer.render(scene, camera)
@@ -1435,6 +1437,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     setLight(on: boolean) {
       lightOn = on
       studio.setLight(on)
+      resize()
+      rebuild()
     },
     dispose() {
       renderer.setAnimationLoop(null)

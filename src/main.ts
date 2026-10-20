@@ -1,3 +1,4 @@
+import { createCompleteScreen, createTour, TOUR_STEPS, type CompleteSummary } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -61,7 +62,6 @@ import {
   warningText,
   createPendingList,
   createPhaseBrief,
-  createCompleteScreen,
   createPhaseMap,
   createSettingsScreen,
   createTitleScreen,
@@ -75,7 +75,6 @@ import {
   createViewToggle,
   createWirePalette,
   scenarioLabel,
-  type CompleteSummary,
   type Datasheet,
   type Goal,
   type PendingItem,
@@ -284,6 +283,7 @@ setReducedMotion(reducedMotion)
     store.data.seenDatasheets = []
     store.data.xp = 0
     store.data.seenGroups = []
+    store.data.tutorialSeen = false
     store.flush()
     session = null
     toasts.show("info", "Progresso apagado. Os dados de uso continuam guardados pra exportar.")
@@ -298,6 +298,16 @@ setReducedMotion(reducedMotion)
     link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   },
+  onTour: () => {
+    settingsScreen.hide()
+    tourPending = true
+    if (session) {
+      closeOverlay()
+      return maybeStartTour()
+    }
+    const last = store.data.sessionLog.at(-1)?.phaseId
+    startPhase(last && findPhase(phases, last) ? last : phaseOrder(phases)[0])
+  },
   onBack: () => {
     settingsScreen.hide()
     if (overlayReturn === "map") showPhaseList()
@@ -308,7 +318,7 @@ setReducedMotion(reducedMotion)
 
 const callbacks = (name: ViewName) => ({
   onChange: (doc: CircuitDoc, commit: boolean) => {
-    if (rewinding) return
+    if (rewinding || tour.isOpen()) return
     if (session?.previewIndex !== null && session?.previewIndex !== undefined) return
     update(doc, { commit })
   },
@@ -342,7 +352,26 @@ const sheetCard = createDatasheetCard(sheetEl, (key) => {
   }
   const next = sheetQueue.shift()
   if (next) openDatasheet(next, true)
+  else maybeStartTour()
 })
+
+const tourEl = document.createElement("div")
+document.body.appendChild(tourEl)
+const tour = createTour(tourEl)
+let tourPending = false
+
+function maybeStartTour() {
+  if (!session || overlayOpen() || tour.isOpen() || sheetCard.isOpen() || sheetQueue.length > 0) return
+  const firstTime = session.phase.id === phaseOrder(phases)[0] && !store.data.tutorialSeen
+  if (!firstTime && !tourPending) return
+  tourPending = false
+  setTool("select")
+  // o tour não entra no log da tentativa: nada de record() aqui
+  tour.start(TOUR_STEPS, () => {
+    store.data.tutorialSeen = true
+    store.save()
+  })
+}
 
 function openDatasheet(type: string, isNew: boolean) {
   const key = catalog[type]?.datasheet ?? type
@@ -360,7 +389,7 @@ function queueNewDatasheets(phase: Phase) {
 }
 
 async function pickFromTray(type: string) {
-  if (!session || overlayOpen() || rewinding || session.previewIndex !== null) return
+  if (!session || overlayOpen() || rewinding || tour.isOpen() || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
   const partType = item?.type ?? type
   const values = activeView === "bench" ? session.phase.trayValues?.[partType] : undefined
@@ -792,9 +821,11 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   render()
   renderSettled = false
   if (!synthetic) queueNewDatasheets(phase)
+  maybeStartTour()
 }
 
 function hideOverlays() {
+  tour.stop()
   document.body.classList.remove("showcase", "overlay")
   bench.setShowcase(false)
   phaseMap.hide()

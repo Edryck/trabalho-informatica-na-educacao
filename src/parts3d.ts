@@ -266,6 +266,8 @@ export function std(color: number | string, extra: Partial<{ emissive: number; e
 export const PART_COLORS = { green: 0x22c55e, yellow: 0xffc21a, blue: 0x3b82f6, pink: 0xec4899, coral: 0xef4444, purple: 0x8b5cf6, orange: 0xf97316 }
 const METAL = { color: 0xc9ced4, metalness: 0.9, roughness: 0.28 }
 const FLOOR = 0xe7e1d6
+// vidro com transmissão renderiza a cena de novo; no modo leve vira transparência simples
+let lite = false
 const BACKDROP = 0xf6f1e8
 
 export function createStudio(renderer: WebGLRenderer, scene: Scene, floorY: number) {
@@ -307,6 +309,8 @@ export function createStudio(renderer: WebGLRenderer, scene: Scene, floorY: numb
 
   function setLight(on: boolean) {
     // modo leve: sem sombra e sem ambiente, a hemisférica segura a cena sozinha
+    lite = !on
+    renderer.setPixelRatio(on ? Math.min(window.devicePixelRatio, 2) : 1)
     renderer.shadowMap.enabled = on
     key.castShadow = on
     catcher.visible = on
@@ -438,7 +442,7 @@ export function makeBulb(): Group {
     profile.push([Math.max(r, 2.7 * (1 - i / 16)), 7 + 5.2 * Math.sin(a)])
   }
   const glass = named(
-    new Mesh(lathe(profile, 36), new MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.05, thickness: 0.6, ior: 1.45, transparent: true, emissive: 0xffd27a, emissiveIntensity: 0 })),
+    new Mesh(lathe(profile, 36), new MeshPhysicalMaterial({ color: 0xffffff, transmission: lite ? 0 : 0.6, opacity: lite ? 0.45 : 1, roughness: 0.05, thickness: 0.6, ior: 1.45, transparent: true, emissive: 0xffd27a, emissiveIntensity: 0 })),
     "glass",
   )
   g.add(glass)
@@ -592,7 +596,7 @@ export function makeBuzzer(): Group {
 
 export function makeLedHead(color: number, glowLevel: number): Group {
   const g = new Group()
-  const material = new MeshPhysicalMaterial({ color, roughness: 0.18, transmission: 0.25, thickness: 1, transparent: true, opacity: 0.88, emissive: color, emissiveIntensity: glowLevel })
+  const material = new MeshPhysicalMaterial({ color, roughness: 0.18, transmission: lite ? 0 : 0.25, thickness: 1, transparent: true, opacity: 0.88, emissive: color, emissiveIntensity: glowLevel })
   const profile: [number, number][] = [[0, 0], [1.85, 0], [1.9, 0.15], [1.9, 0.5], [1.55, 0.65], [1.5, 0.75], [1.5, 2.9]]
   for (let i = 1; i <= 10; i++) {
     const a = (i / 10) * (Math.PI / 2)
@@ -688,7 +692,7 @@ export function createFpsWatch(opts: FpsWatchOpts = { warmupMs: 3000, windowMs: 
       if (fired) return "ok"
       if (start === null) start = nowMs
       // aba escondida ou montagem pesada de fase travam um quadro; isso não é fps baixo de verdade
-      if (nowMs - last > 250) windowStart = null
+      if (nowMs - last > 1000) windowStart = null
       last = nowMs
       if (nowMs - start < opts.warmupMs) return "ok"
       if (windowStart === null) {
