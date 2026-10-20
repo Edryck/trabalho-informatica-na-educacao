@@ -209,9 +209,13 @@ function restartPhase(quiet = false) {
   if (!session) return
   const id = session.phase.id
   if (id === "sandbox") return startSandbox()
-  store.data.draft = null
-  store.flush()
-  startPhase(id, findPhase(phases, id) ? undefined : session.phase)
+  const real = findPhase(phases, id) !== undefined
+  // fase gerada não tem rascunho; apagar aqui levaria embora o da fase que ficou pela metade
+  if (real) {
+    store.data.draft = null
+    store.flush()
+  }
+  startPhase(id, real ? undefined : session.phase)
   if (!quiet) toasts.show("info", "Fase recomeçada do zero.")
 }
 let rewinding = false
@@ -695,7 +699,7 @@ function setPreview(index: number | null) {
 }
 
 function record(event: TutorialEvent) {
-  if (!session) return
+  if (!session || bestView) return
   session.events.add(event)
   if (advanceSteps()) {
     checkVictory()
@@ -741,7 +745,7 @@ function checkVictory() {
     store.flush()
     applyWorkshop()
     return showComplete({
-      stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] })),
+      stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] && reward.xpGained > 0 })),
       xpGained: reward.xpGained,
       levelBefore: levelFor(xpBefore, rewards),
       levelAfter: levelFor(store.data.xp, rewards),
@@ -836,10 +840,9 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   bench.frame()
   if (resumed) toasts.show("info", "Continuando de onde você parou.")
   lastDivergences = evaluation?.divergences ?? []
-  if (!synthetic) {
-    store.data = startAttempt(store.data, phase.id, new Date())
-    store.save()
-  }
+  // fase gerada não entra no log, mas fecha a tentativa anterior pra não herdar os números dela
+  store.data = synthetic ? finishAttempt(store.data, false, new Date()) : startAttempt(store.data, phase.id, new Date())
+  store.save()
   renderSettled = true
   render()
   renderSettled = false
@@ -1098,7 +1101,7 @@ function showComplete(reward: CompleteReward, instant = false) {
         session.won = false
         session.everAllPassed = false
         session.meterModes = new Set()
-        store.data = startAttempt(store.data, session.phase.id, new Date())
+        if (findPhase(phases, session.phase.id)) store.data = startAttempt(store.data, session.phase.id, new Date())
         closeOverlay()
       },
       onBest: phase.referenceSolution && !isDaily(phase.id) ? showBestVersion : null,
@@ -1254,5 +1257,8 @@ applyWorkshop()
 showTitle()
 
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)
+
+// gancho mínimo pro e2e; só existe no build com --mode e2e, o de produção nem carrega isso
+if (import.meta.env.MODE === "e2e") Object.assign(window, { __fioTest: { startPhase, update, reference: (id: string) => findPhase(phases, id)?.referenceSolution } })
 
 if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox, dailyRef: () => session?.phase.referenceSolution } })

@@ -48,3 +48,47 @@ test("runs without storage and says so", async ({ browser, browserName }) => {
   await expect(page.getByRole("button", { name: "Nova partida" })).toBeVisible()
   await context.close()
 })
+
+type TestHook = { startPhase(id: string): void; update(doc: unknown, opts: { commit: boolean }): void; reference(id: string): unknown }
+
+test("new game shows the tour and it can be skipped", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Nova partida" }).click()
+  while (await page.locator(".datasheet-card:not([hidden])").count()) await page.getByRole("button", { name: "Entendi" }).click()
+  await expect(page.locator(".tour")).toBeVisible()
+  await expect(page.locator(".tour-count")).toHaveText("1/6")
+  await page.getByRole("button", { name: "Pular" }).click()
+  await expect(page.locator(".tour")).toBeHidden()
+  await page.reload()
+  await page.getByRole("button", { name: "Nova partida" }).click()
+  while (await page.locator(".datasheet-card:not([hidden])").count()) await page.getByRole("button", { name: "Entendi" }).click()
+  await expect(page.locator(".phase-brief")).toContainText("Navegar na bancada")
+  await expect(page.locator(".tour")).toBeHidden()
+})
+
+test("winning a phase shows stars and xp", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const hook = (window as unknown as { __fioTest: TestHook }).__fioTest
+    hook.startPhase("g1p1")
+  })
+  while (await page.locator(".datasheet-card:not([hidden])").count()) await page.getByRole("button", { name: "Entendi" }).click()
+  await page.evaluate(() => {
+    const hook = (window as unknown as { __fioTest: TestHook }).__fioTest
+    hook.update(structuredClone(hook.reference("g1p1")), { commit: true })
+  })
+  await expect(page.locator(".complete-card")).toBeVisible()
+  await expect(page.locator(".complete-star")).toHaveCount(3)
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".complete-xp-gain")).toHaveText(/\+\d+ XP/)
+  await expect(page.getByRole("button", { name: "Próxima fase" })).toBeVisible()
+})
+
+test("workshop opens", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Oficina" }).click()
+  await expect(page.getByRole("heading", { name: "Oficina" })).toBeVisible()
+  await expect(page.locator(".ws-card")).toHaveCount(7)
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("button", { name: "Nova partida" })).toBeVisible()
+})

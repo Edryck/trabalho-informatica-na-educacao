@@ -4,6 +4,10 @@ import type { PartsCatalog } from "../src/netlist"
 import { docCost, evaluate, evaluateScenarios, isPhaseAvailable, loadPhases, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
 import { benchToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
+import rewardsJson from "../data/rewards.json"
+import { dailyRepair } from "../src/game"
+import { TOUR_STEPS } from "../src/screens"
+import { starLabel } from "../src/ui"
 
 const catalog = parts as unknown as PartsCatalog
 
@@ -245,10 +249,20 @@ describe("game copy", () => {
   const data = loadPhases(phasesRaw)
   const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
   const sheets = datasheets as unknown as Record<string, { title: string; does: string; values: [string, string][]; breadboard: string; mistake: string }>
+  const daily = dailyRepair("2026-11-03", data, new Set(demo.map((p) => p.id)), catalog)
   const allCopy = () => [
     ...demo.flatMap((p) => [p.brief, ...p.hints, ...(p.steps ?? []).map((s) => s.text)]),
     ...Object.values(sheets).flatMap((d) => [d.title, d.does, d.breadboard, d.mistake, ...d.values.flat()]),
+    ...TOUR_STEPS.flatMap((step) => [step.title, step.text]),
+    ...demo.flatMap((p) => p.stars.map(starLabel)),
+    ...(daily ? [daily.brief, ...daily.hints] : []),
+    ...rewardsJson.items.map((item) => item.name),
   ]
+
+  it("covers the new game copy", () => {
+    expect(daily).not.toBeNull()
+    expect(allCopy().length).toBeGreaterThan(demo.length * 3)
+  })
   const banned = [/queimad/i, /ótima pergunta/i, /vamos mergulhar/i, /\p{Extended_Pictographic}/u, /parabéns!/i]
 
   it("avoids banned patterns", () => {
