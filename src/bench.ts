@@ -1114,6 +1114,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (!placement || !pin) return finishPlacement()
     placement.holes[pin] = hole
     cb.onChange(d, true)
+    cb.onEvent("partSnapped")
     if (leads.index + 1 >= leads.pins.length) finishPlacement()
     else mode = { ...leads, index: leads.index + 1 }
   }
@@ -1146,16 +1147,19 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "on" ? "off" : "on"
       cb.onChange(d, true)
+      cb.onEvent("inputToggled")
     } else if (instance.type === "logic_switch") {
       const d = doc()
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "1" ? "0" : "1"
       cb.onChange(d, true)
+      cb.onEvent("inputToggled")
     } else if (instance.type === "battery") {
       const d = doc()
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "off" ? "on" : "off"
       cb.onChange(d, true)
+      cb.onEvent("inputToggled")
     }
   }
 
@@ -1170,6 +1174,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     instance.inputState = id ? "pressed" : "released"
     // botão é momentâneo: não entra no histórico
     cb.onChange(d, false)
+    if (id) cb.onEvent("inputToggled")
   }
 
   function applyDrag(hole: HoleId | null) {
@@ -1240,6 +1245,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       drag = null
       if (moved && view) {
         cb.onChange(doc(), true)
+        cb.onEvent("partSnapped")
         const m = view.doc.bench.meter
         if (m.mode !== "off" && m.red && m.black) cb.onEvent("meterPlaced")
       }
@@ -1382,9 +1388,9 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     },
     setTool,
     currentTool: () => tool,
-    setShowcase(on: boolean) {
+    setShowcase(on: boolean, still = false) {
       // vitrine do título: câmera gira sozinha e o jogador não mexe
-      controls.autoRotate = on
+      controls.autoRotate = on && !still
       controls.autoRotateSpeed = 0.6
       controls.enabled = !on
       showcase = on

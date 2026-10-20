@@ -1,5 +1,8 @@
 import type { Divergence, PinRef } from "./netlist"
 import type { Warning } from "./solver"
+import type { Star } from "./phases"
+import type { GoalState, LevelInfo, RewardItem } from "./game"
+import type { SfxName } from "./audio"
 
 export type Unit = "V" | "A" | "Ω" | "W"
 
@@ -110,38 +113,49 @@ export function createToolbar(el: HTMLElement, onTool: (tool: ToolId) => void) {
 
 export type TrayItem = { type: string; label: string; count: number; icon?: string }
 
-const PART_ICONS: Record<string, string> = {
-  battery: '<rect x="5" y="7" width="14" height="13" rx="1.5"/><path d="M9 4v3M15 4v3M8.5 12h3M10 10.5v3M13 12h2.5"/>',
-  lamp: '<path d="M9 17h6M10 20h4"/><path d="M12 3a6 6 0 00-3.5 10.9V17h7v-3.1A6 6 0 0012 3z"/>',
-  switch: '<circle cx="5" cy="15" r="1.5"/><circle cx="19" cy="15" r="1.5"/><path d="M6.4 14.3L17 8"/>',
-  push_button: '<rect x="4" y="11" width="16" height="7" rx="1.5"/><path d="M9 11V8h6v3"/>',
-  dc_motor: '<circle cx="12" cy="12" r="7"/><path d="M9 15V9l3 4 3-4v6"/>',
-  buzzer: '<circle cx="9" cy="13" r="5"/><path d="M16 9a5 5 0 010 8M18.5 6.5a8.5 8.5 0 010 13"/>',
-  resistor: '<path d="M2 12h4l1.5-3 3 6 3-6 3 6 1.5-3h4"/>',
-  led: '<path d="M7 7l7 5-7 5z"/><path d="M14 7v10M3 12h4M14 12h7M16 5l2-2M18 7l2-2"/>',
-  chip: '<rect x="7" y="4" width="10" height="16" rx="1"/><path d="M10.5 4a1.5 1.5 0 003 0M4 7h3M4 10.5h3M4 14h3M4 17.5h3M17 7h3M17 10.5h3M17 14h3M17 17.5h3"/>',
-  logic_switch: '<rect x="4" y="9" width="16" height="7" rx="3.5"/><circle cx="16" cy="12.5" r="2"/><path d="M7 5h2M8 4v2M15 5h2"/>',
-  logic_probe: '<path d="M14 3l7 7-9 9-4 1 1-4z"/><path d="M8 16l-5 5"/><path d="M12 7l5 5"/>',
+const PART_ART: Record<string, string> = {
+  battery:
+    '<rect x="9" y="7" width="28" height="18" rx="3.5" fill="#2B2118"/><path d="M9 10.5a3.5 3.5 0 013.5-3.5H19v18h-6.5A3.5 3.5 0 019 21.5z" fill="#F97316"/><rect x="37" y="12.5" width="3" height="7" rx="1" fill="#A8A29E"/><path d="M26 13v6M23 16h6" stroke="#FBF7F0" stroke-width="1.6" stroke-linecap="round"/>',
+  lamp: '<rect x="19.5" y="21" width="9" height="8" rx="1.5" fill="#A8A29E"/><path d="M19.5 24h9M19.5 26.5h9" stroke="#78716C" stroke-width="0.8"/><circle cx="24" cy="12.5" r="9" fill="#FFE7A0" stroke="#E0A800" stroke-width="1.4"/><path d="M20.5 13.5l1.8-3 1.7 3 1.7-3 1.8 3" fill="none" stroke="#C2410C" stroke-width="1.2" stroke-linejoin="round"/>',
+  switch:
+    '<rect x="9" y="15" width="30" height="11" rx="3" fill="#374151"/><rect x="21.5" y="4" width="5" height="14" rx="2.5" fill="#E7E5E4" stroke="#78716C" transform="rotate(22 24 17)"/><circle cx="14" cy="20.5" r="1.6" fill="#A8A29E"/><circle cx="34" cy="20.5" r="1.6" fill="#A8A29E"/>',
+  push_button: '<rect x="11" y="15" width="26" height="11" rx="2.5" fill="#1F2937"/><circle cx="24" cy="13.5" r="7.5" fill="#22C55E" stroke="#15803D" stroke-width="1.4"/><circle cx="21.5" cy="11" r="2" fill="#86EFAC"/>',
+  dc_motor:
+    '<rect x="8" y="9" width="23" height="15" rx="7" fill="#A8A29E" stroke="#78716C" stroke-width="1.2"/><rect x="12" y="9" width="3" height="15" fill="#78716C" opacity=".5"/><rect x="31" y="14.5" width="5" height="4" fill="#78716C"/><ellipse cx="39" cy="16.5" rx="2.4" ry="10" fill="#3B82F6"/>',
+  buzzer:
+    '<circle cx="21" cy="16" r="10" fill="#1F2937"/><circle cx="21" cy="16" r="2.6" fill="#4B5563"/><path d="M34 10.5a8 8 0 010 11M38 7.5a12.5 12.5 0 010 17" fill="none" stroke="#EC4899" stroke-width="1.8" stroke-linecap="round"/>',
+  resistor:
+    '<path d="M3 16h42" stroke="#A8A29E" stroke-width="2" stroke-linecap="round"/><rect x="12" y="10" width="24" height="12" rx="5" fill="#E8D3A9" stroke="#C4A574"/><rect x="16" y="10" width="2.6" height="12" fill="#7C4A1E"/><rect x="21" y="10" width="2.6" height="12" fill="#1F2937"/><rect x="26" y="10" width="2.6" height="12" fill="#DC2626"/><rect x="31" y="10" width="2" height="12" fill="#C9A227"/>',
+  led: '<path d="M21 26v5M27 26v5" stroke="#A8A29E" stroke-width="1.6" stroke-linecap="round"/><rect x="16" y="23" width="16" height="3.5" rx="1" fill="#DC2626"/><path d="M18 23V12a6 6 0 0112 0v11z" fill="#EF4444" stroke="#B91C1C" stroke-width="1.2"/><path d="M21 12a3 3 0 013-3" stroke="#FECACA" stroke-width="1.6" fill="none" stroke-linecap="round"/>',
+  chip: '<path d="M15 7V3M20 7V3M25 7V3M30 7V3M15 25v4M20 25v4M25 25v4M30 25v4" stroke="#D6D3D1" stroke-width="2" stroke-linecap="round"/><rect x="10" y="7" width="26" height="18" rx="2" fill="#1F2937"/><circle cx="14" cy="16" r="1.6" fill="#4B5563"/>',
+  logic_switch:
+    '<rect x="8" y="10" width="32" height="14" rx="7" fill="#E7E5E4" stroke="#78716C" stroke-width="1.2"/><circle cx="31" cy="17" r="5" fill="#22C55E" stroke="#15803D" stroke-width="1.2"/><path d="M14 14.5v5" stroke="#78716C" stroke-width="1.6" stroke-linecap="round"/>',
+  logic_probe: '<path d="M7 26l4-1 21-15-3-4-21 15z" fill="#8B5CF6" stroke="#6D28D9" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 26l-3 3" stroke="#A8A29E" stroke-width="1.6" stroke-linecap="round"/><circle cx="35" cy="8" r="3.6" fill="#FFC21A" stroke="#B45309" stroke-width="1"/>',
+  multimeter:
+    '<rect x="14" y="2.5" width="20" height="27" rx="3.5" fill="#FFC21A" stroke="#B45309" stroke-width="1.2"/><rect x="17.5" y="6" width="13" height="7" rx="1" fill="#DCFCE7"/><circle cx="24" cy="21" r="4.5" fill="#1F2937"/><path d="M24 21l2-2.4" stroke="#FFC21A" stroke-width="1.4" stroke-linecap="round"/>',
 }
 
-function partIcon(type: string): string {
-  const body = PART_ICONS[type.startsWith("chip_") ? "chip" : type] ?? '<rect x="5" y="5" width="14" height="14" rx="2"/>'
-  return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`
+function partArt(type: string, width = 48): string {
+  const body = PART_ART[type.startsWith("chip_") ? "chip" : type] ?? '<rect x="12" y="6" width="24" height="20" rx="4" fill="#E9DFCE" stroke="#B87333"/>'
+  return `<svg viewBox="0 0 48 32" width="${width}" height="${(width * 2) / 3}" aria-hidden="true">${body}</svg>`
 }
 
 export function createTray(el: HTMLElement, onPick: (type: string) => void, onInfo?: (type: string) => void) {
   el.classList.add("tray")
   el.setAttribute("aria-label", "Bandeja de peças")
+  let lastKey = ""
   return {
     update(items: TrayItem[], active: string | null, emptyText = "Nenhuma peça extra nesta fase.") {
       el.replaceChildren()
       if (items.length === 0) {
+        lastKey = ""
         const empty = document.createElement("p")
         empty.className = "tray-empty"
         empty.textContent = emptyText
         el.appendChild(empty)
         return
       }
+      const slots: HTMLElement[] = []
       for (const item of items) {
         const wrap = document.createElement("div")
         wrap.className = "tray-slot"
@@ -151,8 +165,9 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
         button.disabled = item.count <= 0
         button.classList.toggle("active", item.type === active)
         button.setAttribute("aria-label", `${item.label}, ${item.count} disponível`)
+        button.title = item.label
         button.classList.toggle("pending", item.type.startsWith("pending:"))
-        button.innerHTML = `<span class="tray-icon">${partIcon(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${item.count}</span>`
+        button.innerHTML = `<span class="tray-art">${partArt(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${item.count}</span>`
         button.addEventListener("click", () => onPick(item.type))
         wrap.appendChild(button)
         const infoType = item.icon ?? item.type
@@ -167,7 +182,12 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
           wrap.appendChild(info)
         }
         el.appendChild(wrap)
+        slots.push(wrap)
       }
+      // a bandeja redesenha a cada mudança; só anima quando o conjunto de peças muda
+      const key = items.filter((i) => !i.type.startsWith("pending:")).map((i) => i.type).join("|")
+      if (key !== lastKey) void stagger(slots, (slot, delay) => fadeSlide(slot, { y: 10, duration: 760, delay }))
+      lastKey = key
     },
   }
 }
@@ -295,7 +315,7 @@ export function createPendingList(el: HTMLElement, title: string, onPick: (item:
         const button = document.createElement("button")
         button.type = "button"
         button.className = "pending-item"
-        button.innerHTML = `<span class="tray-icon">${partIcon(item.type)}</span><span>${item.id}</span><span class="pending-type">${item.label}</span>`
+        button.innerHTML = `<span class="tray-icon">${partArt(item.type, 30)}</span><span>${item.id}</span><span class="pending-type">${item.label}</span>`
         button.setAttribute("aria-label", `Posicionar ${item.id}, ${item.label}`)
         button.addEventListener("click", () => onPick(item))
         el.appendChild(button)
@@ -352,7 +372,33 @@ const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" 
 const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 
 export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[] }
+const METER_UNITS: Record<"V" | "A" | "ohm", string> = { V: "V", A: "A", ohm: "Ω" }
+
+export function starLabel(star: Star): string {
+  switch (star.kind) {
+    case "solved":
+      return "Resolver"
+    case "noDivergence":
+      return "Esquema igual à montagem"
+    case "usedMeter":
+      return `Medir com o multímetro (${METER_UNITS[star.mode]})`
+    case "maxCost":
+      return `Custo até ${star.value} créditos`
+    case "maxWires":
+      return `Até ${star.value} fios`
+  }
+}
+
+export type Goal = { label: string; state: GoalState }
+
+const GOAL_WORDS: Record<GoalState, string> = { met: "conquistada", unmet: "ainda não", neutral: "conta quando o circuito funcionar" }
+
+function goalPops(prev: GoalState[], next: Goal[]): number[] {
+  return next.flatMap((g, i) => (g.state === "met" && prev[i] !== undefined && prev[i] !== "met" ? [i] : []))
+}
+
 export type BriefState = {
+  goals: Goal[]
   rows: { ok: boolean; isCurrent: boolean }[]
   cost: number
   budgetOk: boolean
@@ -367,6 +413,8 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
   el.setAttribute("aria-label", "Objetivo da fase")
   el.hidden = true
   let confirmingRestart = false
+  let lastPhase: string | null = null
+  let lastGoals: GoalState[] = []
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
     const row = target.closest<HTMLElement>("[data-row]")
@@ -388,8 +436,17 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
     hide() {
       el.hidden = true
     },
+    reset() {
+      lastPhase = null
+      lastGoals = []
+    },
+    nudgeHint() {
+      const button = el.querySelector(".brief-hint")
+      if (button) void nudge(button)
+    },
     render(phase: BriefPhase, state: BriefState) {
       el.hidden = false
+      const fresh = lastPhase !== phase.id
       const step = state.stepIndex !== null && phase.steps ? phase.steps[state.stepIndex] : null
       const rows = phase.expect
         .map((s, i) => {
@@ -410,6 +467,12 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
         .map((h, i) => `<li><span class="mono">${i + 1}</span>${h}</li>`)
         .join("")
       const moreHints = state.hintsOpened < phase.hints.length
+      const goals = state.goals
+        .map(
+          (g, i) =>
+            `<li class="goal goal-${g.state}" data-goal="${i}" aria-label="${g.label}: ${GOAL_WORDS[g.state]}"${g.state === "neutral" ? ' title="Essa estrela conta depois que todos os cenários passarem uma vez."' : ""}>${starIcon(g.state, 20)}<span>${g.label}</span></li>`,
+        )
+        .join("")
       el.innerHTML = `
         <header class="brief-head">
           <span class="brief-tag">${PHASE_TAGS[phase.type] ?? phase.type}</span>
@@ -422,8 +485,16 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
         ${step ? `<p class="brief-step"><span class="mono">${(state.stepIndex ?? 0) + 1}/${phase.steps!.length}</span>${step.text}</p>` : ""}
         ${rows ? `<ul class="checklist">${rows}</ul>` : ""}
         ${budget}
+        ${goals ? `<section class="brief-goals" aria-label="Estrelas da fase"><h3>Estrelas</h3><ul>${goals}</ul></section>` : ""}
         ${hints ? `<ol class="hint-list">${hints}</ol>` : ""}
         ${phase.hints.length > 0 ? `<button type="button" class="brief-hint" data-action="hint" ${moreHints ? "" : "disabled"}>${moreHints ? (state.hintsOpened === 0 ? "Ver uma dica" : "Ver mais uma dica") : "Sem mais dicas"}</button>` : ""}`
+      if (fresh) for (const part of el.querySelectorAll(".brief-title, .brief-text")) void softRise(part)
+      else for (const i of goalPops(lastGoals, state.goals)) {
+        const star = el.querySelector(`[data-goal="${i}"] .star-icon`)
+        if (star) void pop(star)
+      }
+      lastPhase = phase.id
+      lastGoals = state.goals.map((g) => g.state)
     },
   }
 }
@@ -545,6 +616,57 @@ export function createPlayerBadge(el: HTMLElement) {
   }
 }
 
+export function createTopBar(el: HTMLElement, onMap: () => void) {
+  el.classList.add("topbar")
+  el.hidden = true
+  el.innerHTML = `
+    <div class="topbar-level">
+      <span class="topbar-badge" aria-hidden="true"></span>
+      <div class="topbar-xp">
+        <div class="topbar-row"><span class="topbar-title"></span><span class="topbar-xp-text"></span></div>
+        <div class="xp-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="xp-fill"></div></div>
+      </div>
+    </div>
+    <ul class="topbar-stars" aria-label="Estrelas da fase"></ul>
+    <button type="button" class="btn-secondary topbar-map">Mapa</button>`
+  const badge = el.querySelector<HTMLElement>(".topbar-badge")!
+  const title = el.querySelector<HTMLElement>(".topbar-title")!
+  const xpText = el.querySelector<HTMLElement>(".topbar-xp-text")!
+  const track = el.querySelector<HTMLElement>(".xp-track")!
+  const fill = el.querySelector<HTMLElement>(".xp-fill")!
+  const stars = el.querySelector<HTMLElement>(".topbar-stars")!
+  el.querySelector(".topbar-map")!.addEventListener("click", onMap)
+  let lastGoals: GoalState[] = []
+  let lastKey = ""
+  return {
+    hide() {
+      el.hidden = true
+      lastGoals = []
+      lastKey = ""
+    },
+    render(info: LevelInfo, goals: Goal[]) {
+      el.hidden = false
+      badge.textContent = String(info.level)
+      title.textContent = `Nível ${info.level}`
+      xpText.textContent = info.next === null ? `${info.xp} XP` : `${info.xp} / ${info.next} XP`
+      const pct = Math.round(info.progress * 100)
+      fill.style.width = `${pct}%`
+      track.setAttribute("aria-valuenow", String(pct))
+      track.setAttribute("aria-label", info.next === null ? "Nível máximo" : `${info.xp - info.floor} de ${info.next - info.floor} XP até o próximo nível`)
+      const key = goals.map((g) => `${g.label}:${g.state}`).join("|")
+      if (key === lastKey) return
+      lastKey = key
+      stars.hidden = goals.length === 0
+      stars.innerHTML = goals.map((g) => `<li title="${g.label}" aria-label="${g.label}: ${GOAL_WORDS[g.state]}">${starIcon(g.state, 26)}</li>`).join("")
+      for (const i of goalPops(lastGoals, goals)) {
+        const star = stars.children[i]?.querySelector(".star-icon")
+        if (star) void pop(star)
+      }
+      lastGoals = goals.map((g) => g.state)
+    },
+  }
+}
+
 export type DailyCard = { unlocked: boolean; done: boolean; streak: number }
 
 export type TitleActions = {
@@ -648,29 +770,71 @@ export function createTitleScreen(el: HTMLElement) {
 export type CompleteSummary = {
   phaseId: string
   goal: string
-  rows: { label: string; ok: boolean }[]
   parts: { label: string; count: number }[]
   cost: number
   budget: number | null
   referenceCost: number | null
   bestCost: number | null
+  stars: { label: string; earned: boolean; isNew: boolean }[]
+  xpGained: number
+  levelBefore: LevelInfo
+  levelAfter: LevelInfo
+  unlocked: RewardItem[]
+}
+
+export type CompleteHandlers = {
+  onNext: (() => void) | null
+  onCheaper(): void
+  onRetry(): void
+  onMap(): void
+  play(name: SfxName, pitch?: number): void
+}
+
+const STAR_PITCH = [1, 1.12, 1.26]
+
+function wait(ms: number): Promise<void> {
+  if (motionReduced() || skipRequested) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function xpLine(info: LevelInfo, xp: number): string {
+  return info.next === null ? `${Math.round(xp)} XP · nível máximo` : `${Math.round(xp)} / ${info.next} XP`
 }
 
 export function createCompleteScreen(el: HTMLElement) {
   el.className = "complete-screen"
   el.hidden = true
-  let handlers: { onNext: (() => void) | null; onCheaper(): void; onMap(): void } | null = null
+  let handlers: CompleteHandlers | null = null
+  let animating = false
+  let skipped = false
+  let seq = 0
+  const skip = () => {
+    if (!animating || skipped) return
+    skipped = true
+    requestSkip(true)
+  }
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && animating) {
+      event.preventDefault()
+      skip()
+    }
+  }
   el.addEventListener("click", (event) => {
     const action = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action
+    if (!action) return skip()
     if (!handlers) return
     if (action === "next") handlers.onNext?.()
     if (action === "cheaper") handlers.onCheaper()
+    if (action === "retry") handlers.onRetry()
     if (action === "map") handlers.onMap()
   })
   return {
-    show(summary: CompleteSummary, next: { onNext: (() => void) | null; onCheaper(): void; onMap(): void }) {
+    async show(summary: CompleteSummary, next: CompleteHandlers): Promise<void> {
       handlers = next
       el.hidden = false
+      const before = summary.levelBefore
+      const after = summary.levelAfter
+      const levelUp = after.level > before.level
       const cheaper = summary.referenceCost !== null && summary.cost > summary.referenceCost
       const costLine =
         summary.referenceCost === null
@@ -678,31 +842,125 @@ export function createCompleteScreen(el: HTMLElement) {
           : cheaper
             ? `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span> \u00b7 dá pra fazer com <span class="mono">${summary.referenceCost}</span>.</p>`
             : `<p class="complete-cost">Seu circuito: <span class="mono">${summary.cost} créditos</span>. Esse é o menor custo que a gente conhece.</p>`
+      const stars = summary.stars
+        .map(
+          (s) =>
+            `<li class="complete-star ${s.earned ? "earned" : "missed"}" aria-label="${s.label}: ${s.earned ? "conquistada" : "ainda não"}${s.isNew ? ", nova" : ""}"><span class="complete-star-icon">${starIcon(s.earned ? "met" : "unmet", 60)}</span><span class="complete-star-label">${s.label}</span>${s.isNew ? '<span class="complete-star-new">nova</span>' : ""}</li>`,
+        )
+        .join("")
+      const item = summary.unlocked[0]
       el.innerHTML = `
-        <div class="complete-card" role="dialog" aria-label="Fase concluída">
-          <p class="complete-tag mono">${summary.phaseId}</p>
-          <h2>Fase concluída</h2>
-          <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)}</p>
-          ${summary.rows.length ? `<ul class="complete-rows">${summary.rows.map((r) => `<li><span class="check-icon ok">${CHECK_ICON}</span>${r.label}</li>`).join("")}</ul>` : ""}
-          ${summary.parts.length ? `<p class="complete-parts">Peças usadas: ${summary.parts.map((p) => `${p.count}\u00d7 ${p.label}`).join(", ")}</p>` : ""}
-          ${costLine}
-          ${summary.bestCost !== null && summary.budget !== null ? `<p class="complete-best">Melhor versão até agora: <span class="mono">${summary.bestCost} créditos</span></p>` : ""}
+        <div class="complete-card animating" role="dialog" aria-modal="true" aria-labelledby="complete-title" tabindex="-1">
+          <header class="complete-head">
+            <h2 id="complete-title">Fase concluída</h2>
+            <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)} <span class="mono">${summary.phaseId}</span></p>
+          </header>
+          <ol class="complete-stars">${stars}</ol>
+          <section class="complete-xp" aria-label="Experiência">
+            <div class="complete-xp-row">
+              <span class="badge-level complete-level-badge" aria-hidden="true"><span class="badge-level-number">${before.level}</span></span>
+              <span class="complete-level">Nível ${before.level}</span>
+              <span class="complete-xp-gain">${summary.xpGained > 0 ? "+0 XP" : "Sem estrela nova"}</span>
+            </div>
+            <div class="xp-track"><div class="xp-fill" style="width:${Math.round(before.progress * 100)}%"></div></div>
+            <span class="complete-xp-total">${xpLine(before, before.xp)}</span>
+          </section>
+          ${
+            levelUp
+              ? `<section class="complete-unlock" aria-live="polite"><p class="complete-unlock-level">Nível ${after.level}</p>${item ? `<p class="complete-unlock-item"><strong>${item.name}</strong><span>Novo item da oficina</span></p>` : ""}</section>`
+              : ""
+          }
+          <div class="complete-details">
+            ${summary.parts.length ? `<p class="complete-parts">Peças usadas: ${summary.parts.map((p) => `${p.count}\u00d7 ${p.label}`).join(", ")}</p>` : ""}
+            ${costLine}
+            ${summary.bestCost !== null && summary.budget !== null ? `<p class="complete-best">Melhor versão até agora: <span class="mono">${summary.bestCost} créditos</span></p>` : ""}
+          </div>
           <div class="complete-actions">
             ${next.onNext ? '<button type="button" class="btn-primary" data-action="next">Próxima fase</button>' : ""}
+            <button type="button" class="btn-secondary" data-action="retry">Tentar de novo</button>
             ${cheaper ? '<button type="button" class="btn-secondary" data-action="cheaper">Tentar versão mais barata</button>' : ""}
             <button type="button" class="btn-secondary" data-action="map">Mapa de fases</button>
           </div>
+          <p class="complete-skip" aria-hidden="true">Clique ou Esc pra pular</p>
         </div>`
-      el.querySelector<HTMLButtonElement>(".btn-primary, .btn-secondary")?.focus({ preventScroll: true })
+      const card = el.querySelector<HTMLElement>(".complete-card")!
+      const levelBadge = card.querySelector<HTMLElement>(".badge-level-number")!
+      const levelText = card.querySelector<HTMLElement>(".complete-level")!
+      const gain = card.querySelector<HTMLElement>(".complete-xp-gain")!
+      const fill = card.querySelector<HTMLElement>(".xp-fill")!
+      const total = card.querySelector<HTMLElement>(".complete-xp-total")!
+      const unlock = card.querySelector<HTMLElement>(".complete-unlock")
+      const runId = ++seq
+      const stale = () => runId !== seq
+      const quiet = () => skipped || stale() || motionReduced()
+      animating = true
+      skipped = false
+      window.addEventListener("keydown", onKey)
+      card.focus({ preventScroll: true })
+      next.play("win")
+      await fadeSlide(card, { duration: 300 })
+      // cada estrela cai um pouco depois da anterior, sem esperar a outra quicar até o fim
+      let earnedIndex = 0
+      const drops: Promise<void>[] = []
+      for (const li of card.querySelectorAll<HTMLElement>(".complete-star")) {
+        const icon = li.querySelector(".complete-star-icon")!
+        if (li.classList.contains("earned")) {
+          if (!quiet()) next.play("star", STAR_PITCH[Math.min(earnedIndex, STAR_PITCH.length - 1)])
+          earnedIndex++
+          drops.push(bounceLand(icon, -56))
+        } else drops.push(fadeSlide(icon, { y: 8, duration: 300 }))
+        await wait(320)
+      }
+      await Promise.all(drops)
+      const firstTarget = levelUp ? 100 : Math.round(after.progress * 100)
+      await Promise.all([
+        summary.xpGained > 0 ? countUp(gain, 0, summary.xpGained, 1200, (n) => `+${Math.round(n)} XP`) : Promise.resolve(),
+        countUp(total, before.xp, levelUp ? (before.next ?? after.xp) : after.xp, 1200, (n) => xpLine(before, n)),
+        springTo(fill, "width", `${Math.round(before.progress * 100)}%`, `${firstTarget}%`),
+      ])
+      if (stale()) return
+      if (levelUp) {
+        if (!skipped) next.play("levelup")
+        levelBadge.textContent = String(after.level)
+        levelText.textContent = `Nível ${after.level}`
+        const badgeBox = levelBadge.parentElement!.getBoundingClientRect()
+        const cardBox = card.getBoundingClientRect()
+        void burst(card, badgeBox.left - cardBox.left + badgeBox.width / 2, badgeBox.top - cardBox.top + badgeBox.height / 2)
+        await springTo(fill, "width", "0%", `${Math.round(after.progress * 100)}%`)
+        if (unlock) {
+          unlock.classList.add("shown")
+          if (!quiet() && item) next.play("unlock")
+          await bloom(unlock)
+        }
+      }
+      if (stale()) return
+      for (const animation of card.getAnimations({ subtree: true })) animation.cancel()
+      card.classList.remove("animating")
+      unlock?.classList.add("shown")
+      levelBadge.textContent = String(after.level)
+      levelText.textContent = `Nível ${after.level}`
+      if (summary.xpGained > 0) gain.textContent = `+${summary.xpGained} XP`
+      fill.style.width = `${Math.round(after.progress * 100)}%`
+      total.textContent = xpLine(after, after.xp)
+      animating = false
+      requestSkip(false)
+      window.removeEventListener("keydown", onKey)
+      card.querySelector<HTMLButtonElement>(".btn-primary, .btn-secondary")?.focus({ preventScroll: true })
     },
     hide() {
       el.hidden = true
+      seq++
+      if (animating) {
+        animating = false
+        requestSkip(false)
+        window.removeEventListener("keydown", onKey)
+      }
     },
   }
 }
 
-export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; systemReducedMotion: boolean; storageAvailable: boolean }
-export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onReset(): void; onExport(): void; onBack(): void }
+export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number; systemReducedMotion: boolean; storageAvailable: boolean }
+export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onVolume(v: number, done: boolean): void; onReset(): void; onExport(): void; onBack(): void }
 
 export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers) {
   el.className = "settings-screen"
@@ -733,6 +991,11 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
   el.addEventListener("change", (event) => {
     const input = event.target as HTMLInputElement
     if (input.name === "motion") handlers.onReducedMotion(input.checked)
+    if (input.name === "volume") handlers.onVolume(Number(input.value), true)
+  })
+  el.addEventListener("input", (event) => {
+    const input = event.target as HTMLInputElement
+    if (input.name === "volume") handlers.onVolume(Number(input.value), false)
   })
   function render() {
     if (!state) return
@@ -751,8 +1014,8 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
           <label class="switch-control"><input type="checkbox" name="motion" ${state.reducedMotion || state.systemReducedMotion ? "checked" : ""} ${state.systemReducedMotion ? "disabled" : ""}/><span>Ligado</span></label>
         </section>
         <section class="settings-row">
-          <div><h3>Volume</h3><p>Os sons chegam numa versão futura.</p></div>
-          <input type="range" min="0" max="1" step="0.1" value="0.8" disabled aria-label="Volume (indisponível)"/>
+          <div><h3>Volume</h3><p>Efeitos de clique, encaixe, estrelas e nível. No zero, fica tudo em silêncio.</p></div>
+          <input type="range" name="volume" min="0" max="1" step="0.1" value="${state.volume}" aria-label="Volume dos efeitos"/>
         </section>
         <section class="settings-row shortcuts">
           <div><h3>Atalhos</h3>
@@ -822,6 +1085,7 @@ export function createToastHost(el: HTMLElement) {
       close.addEventListener("click", () => toast.remove())
       toast.appendChild(close)
       el.appendChild(toast)
+      void run(toast, sampleSpring(1, 260, 24).map((v) => ({ transform: `translateY(${(1 - v) * 18}px)`, opacity: Math.min(1, v * 1.6) })), { duration: 600, easing: "linear" })
       if (durationMs > 0) setTimeout(() => toast.remove(), durationMs)
     },
   }
@@ -1132,7 +1396,7 @@ export function cssLinear(samples: number[]): string {
 const running = new Set<Animation>()
 
 function run(el: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions): Promise<void> {
-  if (reducedMotionFlag || typeof (el as HTMLElement).animate !== "function") return Promise.resolve()
+  if (reducedMotionFlag || skipRequested || typeof (el as HTMLElement).animate !== "function") return Promise.resolve()
   const animation = (el as HTMLElement).animate(keyframes, { fill: "both", ...options })
   running.add(animation)
   return animation.finished.then(
@@ -1182,7 +1446,7 @@ export function springTo(el: Element, prop: "width" | "transform", from: string,
 }
 
 export function countUp(el: HTMLElement, from: number, to: number, duration = 1200, format: (n: number) => string = (n) => String(Math.round(n))): Promise<void> {
-  if (reducedMotionFlag || typeof requestAnimationFrame !== "function") {
+  if (reducedMotionFlag || skipRequested || typeof requestAnimationFrame !== "function") {
     el.textContent = format(to)
     return Promise.resolve()
   }
@@ -1222,7 +1486,7 @@ export function bloom(el: Element): Promise<void> {
 }
 
 export function burst(container: HTMLElement, x: number, y: number): Promise<void> {
-  if (reducedMotionFlag) return Promise.resolve()
+  if (reducedMotionFlag || skipRequested) return Promise.resolve()
   const colors = ["var(--color-star)", "var(--color-xp)", "var(--color-accent)"]
   const jobs: Promise<void>[] = []
   for (let i = 0; i < 12; i++) {

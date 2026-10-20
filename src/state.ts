@@ -358,6 +358,10 @@ export function updateAttempt(data: SaveData, patch: (a: SessionAttempt) => Sess
   return { ...data, sessionLog: [...data.sessionLog.slice(0, -1), patch(last)] }
 }
 
+export function recordReward(data: SaveData, starsEarned: number[], xpEarned: number): SaveData {
+  return updateAttempt(data, (a) => ({ ...a, starsEarned, xpEarned }))
+}
+
 export function finishAttempt(data: SaveData, won: boolean, now: Date): SaveData {
   const log = closeActive(data.sessionLog, won, now)
   return log === data.sessionLog ? data : { ...data, sessionLog: log }

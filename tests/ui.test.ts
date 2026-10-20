@@ -145,3 +145,16 @@ describe("motion samplers", () => {
     setReducedMotion(false)
   })
 })
+
+import { starLabel } from "../src/ui"
+
+describe("starLabel", () => {
+  it("names every star kind", () => {
+    expect(starLabel({ kind: "solved" })).toBe("Resolver")
+    expect(starLabel({ kind: "noDivergence" })).toBe("Esquema igual à montagem")
+    expect(starLabel({ kind: "usedMeter", mode: "V" })).toBe("Medir com o multímetro (V)")
+    expect(starLabel({ kind: "usedMeter", mode: "ohm" })).toBe("Medir com o multímetro (Ω)")
+    expect(starLabel({ kind: "maxCost", value: 12 })).toBe("Custo até 12 créditos")
+    expect(starLabel({ kind: "maxWires", value: 3 })).toBe("Até 3 fios")
+  })
+})

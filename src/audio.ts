@@ -40,6 +40,8 @@ export function createAudio(opts: AudioOptions) {
         if (!original) return
         const node = original.cloneNode(true) as HTMLAudioElement
         node.volume = volume
+        // sem isso o navegador acelera mas segura o tom, e a escada das estrelas some
+        node.preservesPitch = false
         node.playbackRate = pitch
         // navegador pode bloquear áudio antes do primeiro clique: ignora
         void node.play()?.catch(() => undefined)

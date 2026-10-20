@@ -12,7 +12,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { levelFor, starsTotal, type Rewards } from "./game"
+import { applyPhaseReward, evaluateStars, goalState, levelFor, starsTotal, type GoalState, type Rewards, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -38,6 +38,7 @@ import {
   isValidDoc,
   exportLog,
   finishAttempt,
+  recordReward,
   pushSnapshot,
   redo,
   rewindTo,
@@ -68,11 +69,15 @@ import {
   createRewindBar,
   createToastHost,
   createToolbar,
+  createTopBar,
+  starLabel,
   createTray,
   createViewToggle,
   createWirePalette,
   scenarioLabel,
+  type CompleteSummary,
   type Datasheet,
+  type Goal,
   type PendingItem,
   type ToolId,
   type TrayItem,
@@ -120,6 +125,7 @@ const app = document.getElementById("app")!
 app.innerHTML = `
   <div class="layout">
     <nav class="toolbar-host"></nav>
+    <header class="topbar-host"></header>
     <main class="stage" tabindex="0" aria-label="Bancada">
       <div class="layer layer-blueprint"></div>
       <div class="layer layer-bench"></div>
@@ -131,6 +137,7 @@ const stageEl = app.querySelector<HTMLElement>(".stage")!
 const blueprintLayer = app.querySelector<HTMLElement>(".layer-blueprint")!
 const benchLayer = app.querySelector<HTMLElement>(".layer-bench")!
 const trayEl = app.querySelector<HTMLElement>(".tray-host")!
+const topbarEl = app.querySelector<HTMLElement>(".topbar-host")!
 const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl, sheetEl, rewindEl] = Array.from({ length: 13 }, () =>
   document.createElement("div"),
 )
@@ -149,6 +156,10 @@ type Session = {
   events: Set<TutorialEvent>
   previewIndex: number | null
   won: boolean
+  everAllPassed: boolean
+  meterModes: Set<"V" | "A" | "ohm">
+  heardOk: boolean[]
+  heardGoals: GoalState[]
 }
 
 let history: History = createHistory(emptyDoc())
@@ -174,6 +185,8 @@ function overlayOpen(): boolean {
   return overlay !== null
 }
 
+let renderSound = false
+let renderSettled = false
 const hint = createHint(hintEl)
 const bar = createDivergenceBar(barEl)
 const toggle = createViewToggle(toggleEl, switchView)
@@ -186,17 +199,20 @@ const brief = createPhaseBrief(briefEl, {
   },
   onHint: openHint,
   onPhases: showPhaseList,
-  onRestart: restartPhase,
+  onRestart: () => restartPhase(),
 })
+const topBar = createTopBar(topbarEl, () => showPhaseList())
 
-function restartPhase() {
+const SOUND_EVENTS: Record<string, "snap" | "wire" | "toggle"> = { partPlaced: "snap", partSnapped: "snap", wireDrawn: "wire", inputToggled: "toggle" }
+
+function restartPhase(quiet = false) {
   if (!session) return
   const id = session.phase.id
   if (id === "sandbox") return startSandbox()
   store.data.draft = null
   store.flush()
   startPhase(id)
-  toasts.show("info", "Fase recomeçada do zero.")
+  if (!quiet) toasts.show("info", "Fase recomeçada do zero.")
 }
 let rewinding = false
 const rewindBar = createRewindBar(rewindEl, {
@@ -254,10 +270,20 @@ setReducedMotion(reducedMotion)
     showSettings(overlayReturn)
     render()
   },
+  onVolume: (v, done) => {
+    store.data.settings.volume = v
+    audio.setVolume(v)
+    if (done) {
+      store.save()
+      audio.play("tick")
+    }
+  },
   onReset: () => {
     store.data.progress = {}
     store.data.draft = null
     store.data.seenDatasheets = []
+    store.data.xp = 0
+    store.data.seenGroups = []
     store.flush()
     session = null
     toasts.show("info", "Progresso apagado. Os dados de uso continuam guardados pra exportar.")
@@ -287,6 +313,9 @@ const callbacks = (name: ViewName) => ({
     update(doc, { commit })
   },
   onEvent: (event: string) => {
+    const sound = SOUND_EVENTS[event]
+    if (sound) audio.play(sound)
+    if (event === "inputToggled" || event === "partSnapped") return
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
@@ -460,7 +489,23 @@ function render() {
   stageEl.classList.toggle("previewing", previewResult !== undefined)
   preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
   if (phase && ev && session) {
+    // estado no meio de um arrasto não conta: só o que o jogador soltou ou desfez
+    const settled = renderSound || renderSettled
+    if (settled && (ev.scenarios.length > 0 ? ev.scenarios.every((s) => s.ok) : session.won)) session.everAllPassed = true
+    const goals = phaseGoals()
+    const rows = ev.scenarios.map((s) => s.ok)
+    if (renderSound && !overlayOpen()) {
+      const newOk = rows.some((ok, i) => ok && !session!.heardOk[i])
+      const newGoal = goals.some((g, i) => g.state === "met" && session!.heardGoals[i] !== undefined && session!.heardGoals[i] !== "met")
+      if (newOk || newGoal) audio.play("tick")
+    }
+    if (settled) {
+      session.heardOk = rows
+      session.heardGoals = goals.map((g) => g.state)
+    }
+    topBar.render(levelFor(store.data.xp, rewards), goals)
     brief.render(phase, {
+      goals,
       rows: ev.scenarios.map((s) => ({ ok: s.ok, isCurrent: s.isCurrent })),
       cost: ev.cost,
       budgetOk: ev.budgetOk,
@@ -469,7 +514,21 @@ function render() {
       hintsOpened: session.hintsOpened,
       won: session.won,
     })
-  } else brief.hide()
+  } else {
+    brief.hide()
+    topBar.hide()
+  }
+}
+
+function starContext(won: boolean): StarContext | null {
+  if (!session || !evaluation) return null
+  return { won, evaluation, doc: view.doc, side: session.phase.evaluateOn, meterModesUsed: [...session.meterModes] }
+}
+
+function phaseGoals(): Goal[] {
+  const ctx = starContext(session?.won ?? false)
+  if (!session || !ctx || session.phase.id === "sandbox") return []
+  return session.phase.stars.map((star) => ({ label: starLabel(star), state: goalState(star, ctx, session!.everAllPassed) }))
 }
 
 function update(doc: CircuitDoc, opts: { commit: boolean }) {
@@ -490,7 +549,9 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
     advanceSteps()
     checkVictory()
   }
+  renderSound = opts.commit
   render()
+  renderSound = false
   if (opts.commit) maybeOfferHint()
 }
 
@@ -500,7 +561,9 @@ function restore(next: History) {
   if (session && !session.won && session.phase.id !== "sandbox") store.saveDraftSoon(session.phase.id, view.doc)
   advanceSteps()
   checkVictory()
+  renderSettled = true
   render()
+  renderSettled = false
 }
 
 function activeEditor() {
@@ -544,6 +607,7 @@ function noticeMeterAndWarnings() {
   if (placed && session?.phase.id !== "sandbox") {
     record("meterPlaced")
     const mode = meter.mode as "V" | "A" | "ohm"
+    session?.meterModes.add(mode)
     if (!meterWasPlaced) store.data = updateAttempt(store.data, (a) => ({ ...a, meterPlacements: a.meterPlacements + 1 }))
     store.data = updateAttempt(store.data, (a) => (a.meterModes.includes(mode) ? a : { ...a, meterModes: [...a.meterModes, mode] }))
   }
@@ -559,6 +623,7 @@ function noticeMeterAndWarnings() {
     if (shownWarnings.has(key) || QUIET_WARNINGS.has(w.kind)) continue
     const text = warningText(w)
     if (text) toasts.show("warning", text)
+    if (w.kind === "shortCircuit") audio.play("soft-error")
   }
   shownWarnings = now
 }
@@ -628,18 +693,23 @@ function checkVictory() {
   const won = steps !== null ? stepsDone && expectOk : evaluation.won
   if (!won) return
   session.won = true
-  const id = session.phase.id
-  const previous = store.data.progress[id]
-  const cost = evaluation.cost
-  store.data.progress[id] = {
-    won: true,
-    bestCost: previous?.bestCost === null || previous?.bestCost === undefined ? cost : Math.min(previous.bestCost, cost),
-    stars: [...new Set([...(previous?.stars ?? []), 0])].sort(),
-  }
+  session.everAllPassed = true
+  const phase = session.phase
+  const earned = evaluateStars(phase.stars, starContext(true)!)
+  const xpBefore = store.data.xp
+  const reward = applyPhaseReward(store.data, phase.id, earned, evaluation.cost, rewards)
+  store.data = recordReward(reward.save, earned.flatMap((ok, i) => (ok ? [i] : [])), reward.xpGained)
   store.data.draft = null
   store.data = finishAttempt(store.data, true, new Date())
   store.flush()
-  showComplete()
+  const owned = new Set(store.data.progress[phase.id]?.stars ?? [])
+  showComplete({
+    stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: owned.has(i), isNew: reward.newStars.includes(i) })),
+    xpGained: reward.xpGained,
+    levelBefore: levelFor(xpBefore, rewards),
+    levelAfter: levelFor(store.data.xp, rewards),
+    unlocked: reward.unlocked,
+  })
 }
 
 function openHint() {
@@ -660,6 +730,7 @@ function maybeOfferHint() {
   session.offeredAt = performance.now()
   store.data = updateAttempt(store.data, (a) => ({ ...a, hintsOffered: a.hintsOffered + 1 }))
   toasts.show("info", "Quer uma dica?", { label: "Ver dica", run: openHint })
+  brief.nudgeHint()
 }
 
 function startPhase(phaseId: string, synthetic?: Phase) {
@@ -691,7 +762,12 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     events: new Set(),
     previewIndex: null,
     won: false,
+    everAllPassed: false,
+    meterModes: new Set(),
+    heardOk: [],
+    heardGoals: [],
   }
+  brief.reset()
   hideOverlays()
   toasts.clear()
   blueprint.setLockedIds(phase.keyParts.map((k) => k.id))
@@ -711,12 +787,14 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     store.data = startAttempt(store.data, phase.id, new Date())
     store.save()
   }
+  renderSettled = true
   render()
+  renderSettled = false
   if (!synthetic) queueNewDatasheets(phase)
 }
 
 function hideOverlays() {
-  document.body.classList.remove("showcase")
+  document.body.classList.remove("showcase", "overlay")
   bench.setShowcase(false)
   phaseMap.hide()
   titleScreen.hide()
@@ -737,6 +815,7 @@ function openOverlay(kind: Exclude<Overlay, null>) {
   cancelRewind()
   hideOverlays()
   overlay = kind
+  document.body.classList.add("overlay")
   setTool("select")
   stageEl.classList.add("choosing")
 }
@@ -804,7 +883,7 @@ function showTitle() {
       render()
     }
   }
-  bench.setShowcase(true)
+  bench.setShowcase(true, reducedMotion)
   const hasProgress = Object.keys(store.data.progress).length > 0 || store.data.draft !== null
   titleScreen.show({
     canContinue: hasProgress,
@@ -823,6 +902,7 @@ function showTitle() {
       store.data.draft = null
       store.data.seenDatasheets = []
       store.data.xp = 0
+      store.data.seenGroups = []
       store.flush()
       session = null
       startPhase(phaseOrder(phases)[0])
@@ -835,9 +915,15 @@ function showTitle() {
 function showSettings(from: Overlay) {
   overlayReturn = from
   openOverlay("settings")
+  // config aberta do título mantém a vitrine atrás, sem pular pro layout da bancada
+  if (from === "title") {
+    document.body.classList.add("showcase")
+    bench.setShowcase(true, reducedMotion)
+  }
   settingsScreen.show({
     standard: store.data.settings.standard,
     reducedMotion: store.data.settings.reducedMotion,
+    volume: store.data.settings.volume,
     systemReducedMotion,
     storageAvailable: store.available,
   })
@@ -850,20 +936,17 @@ function partsUsed(doc: CircuitDoc, side: "bench" | "blueprint"): { label: strin
   return [...counts].map(([type, count]) => ({ label: PART_LABELS[type] ?? type, count }))
 }
 
-function showComplete() {
+function showComplete(reward: Pick<CompleteSummary, "stars" | "xpGained" | "levelBefore" | "levelAfter" | "unlocked">) {
   if (!session || !evaluation) return
   const phase = session.phase
   const order = phaseOrder(phases)
   const nextId = order[order.indexOf(phase.id) + 1]
   openOverlay("complete")
-  completeScreen.show(
+  void completeScreen.show(
     {
+      ...reward,
       phaseId: phase.id,
       goal: phase.goal,
-      rows: phase.expect.map((s) => {
-        const label = scenarioLabel(s)
-        return { label: label.when ? `${label.when} \u2192 ${label.then}` : label.then, ok: true }
-      }),
       parts: partsUsed(view.doc, phase.evaluateOn),
       cost: evaluation.cost,
       budget: phase.budget,
@@ -875,10 +958,14 @@ function showComplete() {
       onCheaper: () => {
         if (!session) return
         session.won = false
+        session.everAllPassed = false
+        session.meterModes = new Set()
         store.data = startAttempt(store.data, session.phase.id, new Date())
         closeOverlay()
       },
+      onRetry: () => restartPhase(true),
       onMap: showPhaseList,
+      play: (name, pitch) => audio.play(name, pitch),
     },
   )
 }

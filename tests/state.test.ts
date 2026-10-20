@@ -317,3 +317,19 @@ describe("seen groups", () => {
     expect(migrateSave({ version: 1, progress: {}, settings: {} })!.seenGroups).toEqual([])
   })
 })
+
+import { recordReward } from "../src/state"
+
+describe("recordReward", () => {
+  it("recordReward writes stars and xp to the active attempt", () => {
+    const d = recordReward(startAttempt(defaultSave(), "g1p1", new Date(0)), [0, 2], 200)
+    expect(d.sessionLog.at(-1)).toMatchObject({ starsEarned: [0, 2], xpEarned: 200 })
+  })
+
+  it("does nothing without an active attempt", () => {
+    const closed = finishAttempt(startAttempt(defaultSave(), "g1p1", new Date(0)), true, new Date(1))
+    expect(recordReward(closed, [0], 100)).toBe(closed)
+    const empty = defaultSave()
+    expect(recordReward(empty, [0], 100)).toBe(empty)
+  })
+})
