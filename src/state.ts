@@ -106,16 +106,25 @@ export type SessionAttempt = {
   divergences: { pending: number; wiring: number; value: number }
   meterPlacements: number
   meterModes: ("V" | "A" | "ohm")[]
+  starsEarned: number[]
+  xpEarned: number
 }
 
 export const SESSION_LOG_LIMIT = 2000
+export type Cosmetics = { board: string; wires: string; mat: string }
+export type Daily = { lastWonDate: string | null; streak: number; wonDates: string[] }
+export type PhaseProgress = { won: boolean; bestCost: number | null; stars: number[] }
 export type SaveData = {
-  version: 1
-  progress: Record<string, { won: boolean; bestCost: number | null }>
+  version: 2
+  progress: Record<string, PhaseProgress>
   settings: Settings
   draft: { phaseId: string; doc: CircuitDoc } | null
   sessionLog: SessionAttempt[]
   seenDatasheets: string[]
+  xp: number
+  cosmetics: Cosmetics
+  daily: Daily
+  tutorialSeen: boolean
 }
 export type StorageLike = Pick<Storage, "getItem" | "setItem">
 export type Store = {
@@ -127,7 +136,18 @@ export type Store = {
 }
 
 export function defaultSave(): SaveData {
-  return { version: 1, progress: {}, settings: { standard: "IEC", reducedMotion: false, volume: 0.8 }, draft: null, sessionLog: [], seenDatasheets: [] }
+  return {
+    version: 2,
+    progress: {},
+    settings: { standard: "IEC", reducedMotion: false, volume: 0.8 },
+    draft: null,
+    sessionLog: [],
+    seenDatasheets: [],
+    xp: 0,
+    cosmetics: { board: "default", wires: "default", mat: "default" },
+    daily: { lastWonDate: null, streak: 0, wonDates: [] },
+    tutorialSeen: false,
+  }
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v)
@@ -179,14 +199,64 @@ export function isValidDoc(doc: unknown, catalog: PartsCatalog): doc is CircuitD
   )
 }
 
-function cleanProgress(raw: Record<string, unknown>): SaveData["progress"] {
+function cleanProgress(raw: Record<string, unknown>, fromV1: boolean): SaveData["progress"] {
   const result: SaveData["progress"] = {}
   for (const [id, entry] of Object.entries(raw)) {
-    if (isObject(entry) && typeof entry.won === "boolean" && (entry.bestCost === null || isNumber(entry.bestCost))) {
-      result[id] = { won: entry.won, bestCost: entry.bestCost as number | null }
-    }
+    if (!isObject(entry) || typeof entry.won !== "boolean" || !(entry.bestCost === null || isNumber(entry.bestCost))) continue
+    // save antigo: fase vencida vale a estrela de "resolver"
+    const stars = fromV1 ? (entry.won ? [0] : []) : Array.isArray(entry.stars) ? entry.stars.filter((n): n is number => Number.isInteger(n) && n >= 0 && n <= 2) : []
+    result[id] = { won: entry.won, bestCost: entry.bestCost as number | null, stars: [...new Set(stars)].sort() }
   }
   return result
+}
+
+function cleanAttempt(a: SessionAttempt): SessionAttempt {
+  const raw = a as SessionAttempt & Partial<Pick<SessionAttempt, "starsEarned" | "xpEarned">>
+  return { ...a, starsEarned: Array.isArray(raw.starsEarned) ? raw.starsEarned.filter((n) => Number.isInteger(n)) : [], xpEarned: isNumber(raw.xpEarned) ? raw.xpEarned : 0 }
+}
+
+function cleanCosmetics(raw: unknown): Cosmetics {
+  const base = defaultSave().cosmetics
+  if (!isObject(raw)) return base
+  return {
+    board: isString(raw.board) ? raw.board : base.board,
+    wires: isString(raw.wires) ? raw.wires : base.wires,
+    mat: isString(raw.mat) ? raw.mat : base.mat,
+  }
+}
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+function cleanDaily(raw: unknown): Daily {
+  if (!isObject(raw)) return defaultSave().daily
+  return {
+    lastWonDate: isString(raw.lastWonDate) && DATE_PATTERN.test(raw.lastWonDate) ? raw.lastWonDate : null,
+    streak: Number.isInteger(raw.streak) && (raw.streak as number) > 0 ? (raw.streak as number) : 0,
+    wonDates: Array.isArray(raw.wonDates) ? raw.wonDates.filter((d): d is string => isString(d) && DATE_PATTERN.test(d)) : [],
+  }
+}
+
+export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | null {
+  if (!isObject(raw) || (raw.version !== 1 && raw.version !== 2) || !isObject(raw.progress) || !isObject(raw.settings)) return null
+  const fromV1 = raw.version === 1
+  const base = defaultSave()
+  const progress = cleanProgress(raw.progress, fromV1)
+  const draft =
+    isObject(raw.draft) && typeof raw.draft.phaseId === "string" && (!catalog || isValidDoc(raw.draft.doc, catalog)) && isObject(raw.draft.doc)
+      ? { phaseId: raw.draft.phaseId, doc: raw.draft.doc as CircuitDoc }
+      : null
+  return {
+    version: 2,
+    progress,
+    settings: { ...base.settings, ...(raw.settings as Partial<Settings>) },
+    draft,
+    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt).map(cleanAttempt) : [],
+    seenDatasheets: Array.isArray(raw.seenDatasheets) ? raw.seenDatasheets.filter((k): k is string => typeof k === "string") : [],
+    xp: fromV1 ? Object.values(progress).filter((p) => p.won).length * 100 : isNumber(raw.xp) && raw.xp > 0 ? raw.xp : 0,
+    cosmetics: fromV1 ? base.cosmetics : cleanCosmetics(raw.cosmetics),
+    daily: fromV1 ? base.daily : cleanDaily(raw.daily),
+    tutorialSeen: raw.tutorialSeen === true,
+  }
 }
 
 function parseSave(text: string | null, catalog: PartsCatalog): SaveData {
@@ -197,17 +267,7 @@ function parseSave(text: string | null, catalog: PartsCatalog): SaveData {
   } catch {
     return defaultSave()
   }
-  if (!isObject(raw) || raw.version !== 1 || !isObject(raw.progress) || !isObject(raw.settings)) return defaultSave()
-  const base = defaultSave()
-  const draft = isObject(raw.draft) && typeof raw.draft.phaseId === "string" && isValidDoc(raw.draft.doc, catalog) ? { phaseId: raw.draft.phaseId, doc: raw.draft.doc } : null
-  return {
-    version: 1,
-    progress: cleanProgress(raw.progress),
-    settings: { ...base.settings, ...(raw.settings as Partial<Settings>) },
-    draft,
-    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt) : [],
-    seenDatasheets: Array.isArray(raw.seenDatasheets) ? raw.seenDatasheets.filter((k): k is string => typeof k === "string") : [],
-  }
+  return migrateSave(raw, catalog) ?? defaultSave()
 }
 
 export function createStore(storage: StorageLike | null, catalog: PartsCatalog): Store {
@@ -282,6 +342,8 @@ export function startAttempt(data: SaveData, phaseId: string, now: Date): SaveDa
     divergences: { pending: 0, wiring: 0, value: 0 },
     meterPlacements: 0,
     meterModes: [],
+    starsEarned: [],
+    xpEarned: 0,
   }
   const log = [...closeActive(data.sessionLog, false, now), attempt]
   return { ...data, sessionLog: log.slice(Math.max(0, log.length - SESSION_LOG_LIMIT)) }

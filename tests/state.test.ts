@@ -86,7 +86,7 @@ describe("store", () => {
 
   it("resets another version and drops drafts with unknown parts", () => {
     const s = memory()
-    s.setItem(STORAGE_KEY, JSON.stringify({ ...defaultSave(), version: 2 }))
+    s.setItem(STORAGE_KEY, JSON.stringify({ ...defaultSave(), version: 7 }))
     expect(createStore(s, catalog).data).toEqual(defaultSave())
     s.setItem(
       STORAGE_KEY,
@@ -169,7 +169,7 @@ describe("deep validation", () => {
 
   it("drops malformed progress entries", () => {
     const data = save(emptyDoc(), { progress: { g0p1: null, g0p2: { won: true, bestCost: 4 }, g0p3: { won: "yes" } } })
-    expect(data.progress).toEqual({ g0p2: { won: true, bestCost: 4 } })
+    expect(data.progress).toEqual({ g0p2: { won: true, bestCost: 4, stars: [] } })
   })
 })
 
@@ -253,5 +253,57 @@ describe("export of an open attempt", () => {
     const d = startAttempt(defaultSave(), "g0p2", new Date(0))
     const out = JSON.parse(exportLog(d, new Date(30_000)))
     expect(out.sessionLog[0]).toMatchObject({ endedAt: null, durationMs: 30_000, inProgress: true })
+  })
+})
+
+import { migrateSave } from "../src/state"
+
+describe("save v2", () => {
+  const v1 = () => ({
+    version: 1,
+    progress: { g0p1: { won: true, bestCost: null }, g0p2: { won: true, bestCost: 4 }, g1p1: { won: true, bestCost: 5 }, g1p2: { won: false, bestCost: null } },
+    settings: { standard: "ANSI", reducedMotion: true, volume: 0.5 },
+    draft: { phaseId: "g1p2", doc: docWithType("lamp") },
+    sessionLog: [
+      { phaseId: "g0p1", startedAt: new Date(0).toISOString(), endedAt: new Date(1).toISOString(), won: true, durationMs: 1, changes: 2, hintsOffered: 0, hintsOpened: 0, divergences: { pending: 0, wiring: 0, value: 0 }, meterPlacements: 0, meterModes: [] },
+      { phaseId: "g0p2", startedAt: new Date(2).toISOString(), endedAt: null, won: false, durationMs: null, changes: 0, hintsOffered: 0, hintsOpened: 0, divergences: { pending: 0, wiring: 0, value: 0 }, meterPlacements: 0, meterModes: [] },
+    ],
+    seenDatasheets: ["lamp"],
+  })
+
+  it("migrates a v1 save with progress, draft and log", () => {
+    const s = memory()
+    s.setItem(STORAGE_KEY, JSON.stringify(v1()))
+    const data = createStore(s, catalog).data
+    expect(data.version).toBe(2)
+    expect(data.progress.g0p1).toEqual({ won: true, bestCost: null, stars: [0] })
+    expect(data.progress.g1p2).toEqual({ won: false, bestCost: null, stars: [] })
+    expect(data.xp).toBe(300)
+    expect(data.draft?.phaseId).toBe("g1p2")
+    expect(data.settings.standard).toBe("ANSI")
+    expect(data.sessionLog).toHaveLength(2)
+    expect(data.sessionLog[0]).toMatchObject({ starsEarned: [], xpEarned: 0 })
+    expect(data.seenDatasheets).toEqual(["lamp"])
+    expect(data.cosmetics).toEqual({ board: "default", wires: "default", mat: "default" })
+    expect(data.daily).toEqual({ lastWonDate: null, streak: 0, wonDates: [] })
+    expect(data.tutorialSeen).toBe(false)
+  })
+
+  it("drops unknown versions", () => {
+    expect(migrateSave({ ...v1(), version: 7 })).toBeNull()
+  })
+
+  it("validates cosmetics, daily and stars", () => {
+    const raw = { ...defaultSave(), xp: -5, cosmetics: "x", daily: { lastWonDate: 3, streak: -2, wonDates: ["2026-10-20", 1] }, progress: { g0p1: { won: true, bestCost: null, stars: [0, "1", 2] } } }
+    const data = migrateSave(raw)!
+    expect(data.xp).toBe(0)
+    expect(data.cosmetics).toEqual({ board: "default", wires: "default", mat: "default" })
+    expect(data.daily).toEqual({ lastWonDate: null, streak: 0, wonDates: ["2026-10-20"] })
+    expect(data.progress.g0p1.stars).toEqual([0, 2])
+  })
+
+  it("new attempts carry star and xp fields", () => {
+    const d = startAttempt(defaultSave(), "g0p1", new Date(0))
+    expect(d.sessionLog[0]).toMatchObject({ starsEarned: [], xpEarned: 0 })
   })
 })
