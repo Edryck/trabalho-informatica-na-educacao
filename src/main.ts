@@ -318,6 +318,7 @@ const callbacks = (name: ViewName) => ({
     if (event === "inputToggled" || event === "partSnapped") return
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
+    else if (event === "lightMode") toasts.show("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
     else record(event as TutorialEvent)
   },

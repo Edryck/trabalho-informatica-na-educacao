@@ -1,12 +1,10 @@
 import {
-  AmbientLight,
+  Box3,
   BoxGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
-  DirectionalLight,
   Group,
-  HemisphereLight,
   InstancedMesh,
   LineCurve3,
   Material,
@@ -16,7 +14,6 @@ import {
   Object3D,
   PerspectiveCamera,
   Plane,
-  PlaneGeometry,
   Raycaster,
   RingGeometry,
   Scene,
@@ -33,15 +30,32 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import {
   bandHex,
+  chipLeg,
   CHIP_CODES,
+  createFpsWatch,
+  createStudio,
   glow,
   hatch,
   iconSprite,
   label,
   LED_COLORS,
+  makeBattery,
+  makeBreadboard,
+  makeBulb,
+  makeBuzzer,
+  makeButton,
+  makeChip,
+  makeLampBody,
+  makeLedHead,
+  makeMotor,
+  makeResistorBody,
+  makeSwitch,
   offboardShape,
+  PART_COLORS,
   PITCH,
   resistorBands,
+  shade,
+  sparkTexture,
   std,
   wireCurve,
 } from "./parts3d"
@@ -88,8 +102,8 @@ const COLOR = {
   hole: 0x3a3f45,
   holeStrip: 0x8a9aab,
   accent: 0xe0954a,
-  positive: 0xe5534b,
-  negative: 0x5aa9e6,
+  positive: 0xe11d74,
+  negative: 0x2563eb,
   current: 0xffd166,
   warning: 0xe3b341,
 }
@@ -178,12 +192,12 @@ type Mode =
   | { kind: "flexible"; type: string; value?: number; id?: string; first: HoleId | null }
   | { kind: "probes"; next: "red" | "black" }
 type Particle = { mesh: Mesh; curve: Curve<Vector3>; length: number; t: number; speed: number; direction: number }
-type Spinner = { obj: Object3D; direction: number }
+type Spinner = { obj: Object3D; direction: number; body: Object3D | null; baseX: number }
+type Spark = { sprite: Sprite; velocity: Vector3; born: number }
 
 export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: BenchCallbacks) {
   const renderer = new WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setClearColor(0xf6f1e8)
   container.appendChild(renderer.domElement)
 
   const scene = new Scene()
@@ -196,40 +210,10 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   controls.mouseButtons = { LEFT: 0, MIDDLE: 1, RIGHT: 2 }
   controls.addEventListener("end", () => cb.onEvent("cameraOrbited"))
 
-  scene.add(new HemisphereLight(0xfff1dc, 0x1a2128, 0.6))
-  scene.add(new AmbientLight(0xffffff, 0.15))
-  const key = new DirectionalLight(0xffe2b8, 1.6)
-  key.position.set(-80, 160, 90)
-  scene.add(key)
-  const fill = new DirectionalLight(0x9fc4ff, 0.35)
-  fill.position.set(120, 60, -80)
-  scene.add(fill)
-
-  const mat = new Mesh(new PlaneGeometry(900, 900), std(COLOR.mat, { roughness: 0.95 }))
-  mat.rotation.x = -Math.PI / 2
-  mat.position.y = MAT_Y
-  scene.add(mat)
-
-  const board = new Mesh(new BoxGeometry(BOARD_HALF_X * 2, BOARD_HEIGHT, BOARD_HALF_Z * 2), std(COLOR.board, { roughness: 0.8 }))
-  board.position.y = -BOARD_HEIGHT / 2
-  scene.add(board)
-
-  const channel = new Mesh(new BoxGeometry(BOARD_HALF_X * 2 - 2, 0.2, PITCH * 0.9), std(0xd8d4ca))
-  channel.position.y = 0.01
-  scene.add(channel)
-
-  for (const [rail, z] of Object.entries(RAIL_Z)) {
-    const positive = rail.endsWith("+")
-    const stripe = new Mesh(new BoxGeometry(COLUMNS * PITCH, 0.05, 0.3), new MeshBasicMaterial({ color: positive ? COLOR.positive : COLOR.negative }))
-    const offset = rail.startsWith("T") ? -0.6 : 0.6
-    stripe.position.set(0, 0.03, (z + offset) * PITCH)
-    scene.add(stripe)
-    for (const side of [-1, 1]) {
-      const glyph = label(positive ? "+" : "−", 6, positive ? "#E5534B" : "#5AA9E6", "rgba(0,0,0,0)")
-      glyph.position.set(side * (COLUMNS / 2 + 0.9) * PITCH, 1.2, z * PITCH)
-      scene.add(glyph)
-    }
-  }
+  const studio = createStudio(renderer, scene, MAT_Y)
+  const breadboard = makeBreadboard({ halfX: BOARD_HALF_X, halfZ: BOARD_HALF_Z, height: BOARD_HEIGHT, pitch: PITCH, columns: COLUMNS, rowZ: ROW_Z, railZ: RAIL_Z })
+  shade(breadboard, true)
+  scene.add(breadboard)
 
   const holes = allHoles()
   const holeMesh = new InstancedMesh(new BoxGeometry(1.1, 0.06, 1.1), new MeshBasicMaterial({ color: 0xffffff }), holes.length)
@@ -252,7 +236,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   const partsGroup = new Group()
   const ghostGroup = new Group()
   const particleGroup = new Group()
-  scene.add(partsGroup, ghostGroup, particleGroup)
+  const sparkGroup = new Group()
+  scene.add(partsGroup, ghostGroup, particleGroup, sparkGroup)
 
   let view: AppView | null = null
   let opts: BenchRenderOpts = { currentView: false, reducedMotion: false }
@@ -267,6 +252,9 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   const pickables: Mesh[] = []
   let particles: Particle[] = []
   let spinners: Spinner[] = []
+  let sparks: Spark[] = []
+  let shortWas = false
+  const pops = new Map<string, number>()
   const raycaster = new Raycaster()
   const pointer = new Vector2()
   const boardPlane = new Plane(new Vector3(0, 1, 0), 0)
@@ -413,6 +401,48 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     return selection && selection.id === id && selection.kind === kind ? 0.35 : 0
   }
 
+  function dress(g: Group, id: string, sel: number) {
+    g.traverse((o) => {
+      if (!(o instanceof Mesh)) return
+      addPickable(o, { kind: "part", id })
+      if (sel > 0 && o.name === "body" && !o.userData.glows && o.material instanceof MeshStandardMaterial) {
+        o.material.emissive.setHex(COLOR.accent)
+        o.material.emissiveIntensity = sel
+      }
+    })
+    const body = g.getObjectByName("body")
+    if (sel > 0 && body instanceof Group) body.traverse((o) => {
+      if (o instanceof Mesh && o.material instanceof MeshStandardMaterial) {
+        o.material.emissive.setHex(COLOR.accent)
+        o.material.emissiveIntensity = sel
+      }
+    })
+  }
+
+  function popPart(id: string) {
+    if (!opts.reducedMotion) pops.set(id, performance.now())
+  }
+
+  function spawnSparks(partId: string) {
+    if (!view) return
+    const placement = view.doc.bench.placements.find((p) => p.id === partId)
+    const instance = view.doc.instances.find((i) => i.id === partId)
+    if (!placement || !instance) return
+    const at = pinWorld(placement, instance.type, catalog[instance.type]?.pins[0] ?? "+")
+    if (catalog[instance.type]?.placement === "offboard") at.y = MAT_Y + offboardShape(instance.type).size[1] + 2
+    const now = performance.now()
+    for (let i = 0; i < 12; i++) {
+      // fundo claro: brilho aditivo some, então a faísca é cor chapada com miolo branco
+      const sprite = new Sprite(new SpriteMaterial({ map: sparkTexture(), color: i % 3 === 0 ? PART_COLORS.orange : PART_COLORS.yellow, transparent: true, depthWrite: false, toneMapped: false }))
+      sprite.scale.setScalar(3 + Math.random() * 2)
+      sprite.position.copy(at)
+      const angle = (i / 12) * Math.PI * 2 + Math.random() * 0.4
+      const speed = 22 + Math.random() * 26
+      sparkGroup.add(sprite)
+      sparks.push({ sprite, velocity: new Vector3(Math.cos(angle) * speed, 30 + Math.random() * 30, Math.sin(angle) * speed), born: now })
+    }
+  }
+
   function buildRigid(placement: BenchPlacement, type: string, state: string | undefined): Group {
     const g = new Group()
     const positions = Object.values(placement.holes).flatMap((h) => {
@@ -422,80 +452,49 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (positions.length === 0) return g
     const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length
     const cz = positions.reduce((s, p) => s + p.z, 0) / positions.length
+    const xs = positions.map((p) => p.x)
+    const zs = positions.map((p) => p.z)
+    const spanX = Math.max(...xs) - Math.min(...xs)
+    const spanZ = Math.max(...zs) - Math.min(...zs)
     const sel = selectedEmissive(placement.id, "part")
+    const chip = type.startsWith("chip_")
     for (const p of positions) {
-      const leg = new Mesh(new CylinderGeometry(0.25, 0.25, 3), std(0xb8bcc2, { metalness: 0.8, roughness: 0.3 }))
-      leg.position.set(p.x, 1.2, p.z)
+      const leg = chip ? chipLeg() : new Mesh(new CylinderGeometry(0.25, 0.25, 3), std(0xb8bcc2, { metalness: 0.8, roughness: 0.3 }))
+      leg.position.set(p.x, chip ? 1.7 : 1.2, p.z)
       g.add(leg)
     }
-    if (type === "switch") {
-      const xs = positions.map((p) => p.x)
-      const width = Math.max(...xs) - Math.min(...xs) + 4
-      const body = new Mesh(new BoxGeometry(width, 4, 4.5), std(0x2b2f36, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(cx, 3.5, cz)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      const on = state === "on"
-      const lever = new Mesh(new BoxGeometry(2, 3, 2), std(on ? 0xe6edf3 : 0x93a4b5))
-      lever.position.set(cx + (on ? width / 4 : -width / 4), 6.5, cz)
-      g.add(lever)
-      const tag = label(on ? "LIGA" : "DESL", 9)
+    let body: Group
+    if (type === "switch" || type === "logic_switch") {
+      const high = type === "switch" ? state === "on" : state === "1"
+      body = type === "switch" ? makeSwitch(high, Math.max(spanX, spanZ) + 4) : makeSwitch(high, Math.max(spanX, spanZ) + 3.5, 0x1e3a5f, PART_COLORS.yellow)
+      // chave em pé na placa: o corpo gira junto com as pernas
+      if (spanZ > spanX) body.rotation.y = Math.PI / 2
+      const tag = type === "switch" ? label(high ? "LIGA" : "DESL", 9) : label(high ? "1" : "0", 6, high ? "#FFD166" : "#93A4B5")
       tag.position.set(cx, 11, cz)
       g.add(tag)
     } else if (type === "push_button") {
-      const body = new Mesh(new BoxGeometry(6, 3.4, 6), std(0x2b2f36, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(cx, 2.9, cz)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      const pressed = state === "pressed"
-      const cap = new Mesh(new CylinderGeometry(1.8, 1.8, pressed ? 0.8 : 2), std(0xc62828))
-      cap.position.set(cx, pressed ? 5 : 5.6, cz)
-      g.add(cap)
-      addPickable(cap, { kind: "part", id: placement.id })
-    } else if (type.startsWith("chip_")) {
-      const xs = positions.map((p) => p.x)
-      const zs = positions.map((p) => p.z)
-      const width = Math.max(...xs) - Math.min(...xs) + PITCH * 0.9
-      const depth = Math.max(...zs) - Math.min(...zs) - PITCH * 0.6
-      const body = new Mesh(new BoxGeometry(width, 3.4, depth), std(0x1b1d21, { roughness: 0.5, emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(cx, 3.2, cz)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
+      const n = Number.parseInt(placement.id.replace(/\D/g, ""), 10) || 1
+      body = makeButton(n % 2 === 1 ? PART_COLORS.green : PART_COLORS.yellow, state === "pressed")
+    } else if (chip) {
       const pin1 = placement.holes[catalog[type].pins[0]]
       const p1 = pin1 ? holePosition(pin1) : null
+      const side = p1 ? Math.sign(p1.x - cx) || -1 : -1
+      body = makeChip(CHIP_CODES[type] ?? type, spanX + PITCH * 0.9, spanZ - PITCH * 0.6, side)
       if (p1) {
-        const side = Math.sign(p1.x - cx) || -1
-        const notch = new Mesh(new CylinderGeometry(1, 1, 0.4, 16, 1, false, 0, Math.PI), std(0x0e0f12))
-        notch.rotation.y = side > 0 ? Math.PI / 2 : -Math.PI / 2
-        notch.position.set(cx + side * (width / 2 - 0.05), 4.95, cz)
-        g.add(notch)
         const dot = new Mesh(new CylinderGeometry(0.45, 0.45, 0.2, 12), std(0xd0d4d8))
-        dot.position.set(p1.x, 5, p1.z + Math.sign(cz - p1.z) * 1.2)
+        dot.position.set(p1.x, 4.95, p1.z + Math.sign(cz - p1.z) * 1.2)
         g.add(dot)
       }
-      const code = label(CHIP_CODES[type] ?? type, 9, "#E6EDF3", "rgba(0,0,0,0)")
-      code.position.set(cx, 5.6, cz)
-      g.add(code)
-    } else if (type === "logic_switch") {
-      const xs = positions.map((p) => p.x)
-      const width = Math.max(...xs) - Math.min(...xs) + 3.5
-      const body = new Mesh(new BoxGeometry(width, 4, 4.5), std(0x23415f, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(cx, 3.5, cz)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      const high = state === "1"
-      const lever = new Mesh(new BoxGeometry(1.6, 3, 1.6), std(0xe6edf3))
-      lever.position.set(cx + (high ? width / 4 : -width / 4), 6.5, cz)
-      g.add(lever)
-      const tag = label(high ? "1" : "0", 6, high ? "#FFD166" : "#93A4B5")
-      tag.position.set(cx, 11, cz)
-      g.add(tag)
     } else {
-      const body = new Mesh(new BoxGeometry(5, 3, 5), std(0x555b63, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(cx, 3, cz)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
+      body = new Group()
+      const box = new Mesh(new BoxGeometry(5, 3, 5), std(0x555b63))
+      box.name = "body"
+      box.position.y = 3
+      body.add(box)
     }
+    body.position.set(cx, 0, cz)
+    g.add(body)
+    dress(g, placement.id, sel)
     const tag = label(placement.id)
     tag.position.set(cx, type === "switch" || type === "logic_switch" ? 15 : 10, cz)
     g.add(tag)
@@ -511,80 +510,58 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const partState = r?.partState[placement.id]
     if (type === "battery") {
       const off = state === "off"
-      const body = new Mesh(new BoxGeometry(w, h, d), std(0x1f2a36, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(base.x, MAT_Y + h / 2, base.z)
+      const value = view?.doc.instances.find((i) => i.id === placement.id)?.actualValue ?? 9
+      const body = makeBattery(PART_COLORS.blue, `${String(value).replace(".", ",")} V`)
+      body.position.set(base.x, MAT_Y, base.z)
+      dress(body, placement.id, sel)
       g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      const band = new Mesh(new BoxGeometry(w + 0.2, h * 0.4, d * 0.5), std(0xe0954a))
-      band.position.set(base.x, MAT_Y + h / 2, base.z + d * 0.15)
-      g.add(band)
-      for (const [pin, glyph, color] of [["+", "+", "#E5534B"], ["-", "−", "#5AA9E6"]] as const) {
+      for (const [pin, glyph, color] of [["+", "+", "#E11D74"], ["-", "−", "#2563EB"]] as const) {
         const p = offboardPin(placement, type, pin)
-        const terminal = new Mesh(new CylinderGeometry(2.2, 2.2, 2), std(0xb8bcc2, { metalness: 0.8, roughness: 0.3 }))
-        terminal.position.copy(p).setY(MAT_Y + h + 1)
-        g.add(terminal)
-        const t = label(glyph, 5, color)
-        t.position.copy(p).setY(MAT_Y + h + 6)
+        const t = label(glyph, 5, color, "rgba(255,255,255,0.92)")
+        t.position.copy(p).setY(MAT_Y + h + 2)
         g.add(t)
       }
-      const value = view?.doc.instances.find((i) => i.id === placement.id)?.actualValue ?? 9
       const tag = label(`${placement.id} ${String(value).replace(".", ",")} V`, 11)
-      tag.position.set(base.x, MAT_Y + h + 9, base.z + 4)
+      tag.position.set(base.x, MAT_Y + h + 13, base.z - 6)
       g.add(tag)
       const power = label(off ? "desligada" : "ligada", 9, off ? "#93A4B5" : "#4CC38A")
-      power.position.set(base.x, MAT_Y + h + 4, base.z + 12)
+      power.position.set(base.x, MAT_Y + h + 6, base.z - 6)
       g.add(power)
       return g
     }
     if (type === "lamp") {
       const lit = partState?.kind === "lamp" ? partState.brightness : 0
-      const socket = new Mesh(new CylinderGeometry(w / 2, w / 2, h), std(0x3a3f45, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      socket.position.set(base.x, MAT_Y + h / 2, base.z)
-      g.add(socket)
-      addPickable(socket, { kind: "part", id: placement.id })
-      const bulb = new Mesh(
-        new SphereGeometry(5, 24, 16),
-        std(0xfff4d6, { emissive: 0xffd27a, emissiveIntensity: lit * 2.2, transparent: true, opacity: 0.85, roughness: 0.2 }),
-      )
-      bulb.position.set(base.x, MAT_Y + h + 4.5, base.z)
-      g.add(bulb)
+      const lamp = makeLampBody()
+      const bulb = makeBulb()
+      bulb.position.y = 9.2
+      lamp.add(bulb)
+      const filament = bulb.getObjectByName("filament")
+      const glass = bulb.getObjectByName("glass")
+      if (filament instanceof Mesh && filament.material instanceof MeshStandardMaterial) filament.material.emissiveIntensity = lit * 6
+      if (glass instanceof Mesh && glass.material instanceof MeshStandardMaterial) glass.material.emissiveIntensity = lit * 0.6
+      lamp.position.set(base.x, MAT_Y, base.z)
+      dress(lamp, placement.id, sel)
+      g.add(lamp)
       if (lit > 0) {
-        const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.25 + lit) }))
+        const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.25 + lit), toneMapped: false }))
         const size = 14 + lit * 26
         halo.scale.set(size, size, 1)
-        halo.position.copy(bulb.position)
+        halo.position.set(base.x, MAT_Y + 16.6, base.z)
         g.add(halo)
       }
-      addPickable(bulb, { kind: "part", id: placement.id })
       const tag = label(placement.id)
-      tag.position.set(base.x, MAT_Y + h + 14, base.z)
+      tag.position.set(base.x, MAT_Y + 27, base.z)
       g.add(tag)
       return g
     }
     if (type === "dc_motor") {
-      const body = new Mesh(new CylinderGeometry(w / 2, w / 2, d, 24), std(0x9aa3ad, { metalness: 0.6, roughness: 0.35, emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.rotation.x = Math.PI / 2
-      body.position.set(base.x, MAT_Y + w / 2, base.z)
-      g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      const rotor = new Group()
-      rotor.position.set(base.x, MAT_Y + w / 2, base.z + d / 2 + 3)
-      const shaft = new Mesh(new CylinderGeometry(0.8, 0.8, 6), std(0xd0d4d8, { metalness: 0.8 }))
-      shaft.rotation.x = Math.PI / 2
-      rotor.add(shaft)
-      for (let i = 0; i < 3; i++) {
-        const blade = new Mesh(new BoxGeometry(2.4, 11, 0.6), std(0xe0954a))
-        blade.position.y = 5.5
-        const holder = new Group()
-        holder.rotation.z = (i * Math.PI * 2) / 3
-        holder.add(blade)
-        rotor.add(holder)
-      }
-      const marker = new Mesh(new SphereGeometry(0.9), std(0x202020))
-      marker.position.set(0, 9.5, 0.6)
-      rotor.add(marker)
-      g.add(rotor)
-      if (partState?.kind === "motor" && partState.spinning) spinners.push({ obj: rotor, direction: partState.direction })
+      const motor = makeMotor()
+      motor.position.set(base.x, MAT_Y, base.z)
+      dress(motor, placement.id, sel)
+      g.add(motor)
+      const rotor = motor.getObjectByName("rotor")
+      const body = motor.getObjectByName("body") ?? null
+      if (rotor && partState?.kind === "motor" && partState.spinning) spinners.push({ obj: rotor, direction: partState.direction, body, baseX: body?.position.x ?? 0 })
       const tag = label(placement.id)
       tag.position.set(base.x, MAT_Y + w + 8, base.z)
       g.add(tag)
@@ -596,10 +573,10 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       return g
     }
     if (type === "buzzer") {
-      const body = new Mesh(new CylinderGeometry(w / 2, w / 2, h, 24), std(0x202428, { emissive: COLOR.accent, emissiveIntensity: sel }))
-      body.position.set(base.x, MAT_Y + h / 2, base.z)
+      const body = makeBuzzer()
+      body.position.set(base.x, MAT_Y, base.z)
+      dress(body, placement.id, sel)
       g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
       const sounding = partState?.kind === "buzzer" && partState.sounding
       if (sounding) {
         for (let i = 1; i <= 3; i++) {
@@ -615,7 +592,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       return g
     }
     if (type === "logic_probe") {
-      const body = new Mesh(new CylinderGeometry(w / 2, w / 2, d, 16), std(0x2b2f36, { emissive: COLOR.accent, emissiveIntensity: sel }))
+      const body = new Mesh(new CylinderGeometry(w / 2, w / 2, d, 20), std(PART_COLORS.purple, { roughness: 0.45, emissive: COLOR.accent, emissiveIntensity: sel }))
       body.rotation.x = Math.PI / 2
       body.position.set(base.x, MAT_Y + h / 2, base.z)
       g.add(body)
@@ -662,18 +639,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const span = new Mesh(new TubeGeometry(new LineCurve3(a.clone().setY(top), b.clone().setY(top)), 2, 0.22, 6), legMat)
       g.add(span)
       const length = Math.min(6.2, Math.max(2.2, a.distanceTo(b) - 1.2))
-      const body = new Mesh(new CylinderGeometry(1.05, 1.05, length, 16), std(0xd9c49a, { roughness: 0.7, emissive: COLOR.accent, emissiveIntensity: sel }))
+      const body = makeResistorBody(resistorBands(instanceValue), length)
       body.position.copy(mid).setY(top)
       body.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), b.clone().sub(a).normalize())
+      dress(body, placement.id, sel)
       g.add(body)
-      addPickable(body, { kind: "part", id: placement.id })
-      resistorBands(instanceValue).forEach((band, i) => {
-        const ring = new Mesh(new CylinderGeometry(1.1, 1.1, 0.42, 16), std(bandHex(band)))
-        const t = -0.32 + i * 0.2 + (i === 3 ? 0.08 : 0)
-        ring.position.copy(mid.clone().add(b.clone().sub(a).normalize().multiplyScalar(t * length))).setY(top)
-        ring.quaternion.copy(body.quaternion)
-        g.add(ring)
-      })
       const tag = label(placement.id)
       tag.position.copy(mid).setY(top + 5)
       g.add(tag)
@@ -692,24 +662,17 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         g.add(plus)
       }
     }
-    const base = new Mesh(new CylinderGeometry(1.75, 1.75, 0.6, 20), std(color, { transparent: true, opacity: 0.85, emissive: color, emissiveIntensity: lit * 1.6 + sel }))
-    base.position.copy(mid).setY(height - 0.7)
-    g.add(base)
-    const dome = new Mesh(new CylinderGeometry(1.5, 1.5, 2.6, 20), std(color, { transparent: true, opacity: 0.75, roughness: 0.2, emissive: color, emissiveIntensity: lit * 2 + sel }))
-    dome.position.copy(mid).setY(height + 0.9)
-    g.add(dome)
-    const cap = new Mesh(new SphereGeometry(1.5, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), std(color, { transparent: true, opacity: 0.75, roughness: 0.2, emissive: color, emissiveIntensity: lit * 2 + sel }))
-    cap.position.copy(mid).setY(height + 2.2)
-    g.add(cap)
-    addPickable(dome, { kind: "part", id: placement.id })
-    addPickable(cap, { kind: "part", id: placement.id })
+    const head = makeLedHead(color, lit * 2 + sel)
+    head.position.copy(mid).setY(height - 1)
+    dress(head, placement.id, 0)
+    g.add(head)
     const flat = new Mesh(new BoxGeometry(0.3, 0.7, 2.4), std(0x1b1b1b))
     const towardK = b.clone().sub(mid).normalize()
     flat.position.copy(mid.clone().add(towardK.multiplyScalar(1.7))).setY(height - 0.7)
     flat.lookAt(mid.clone().setY(height - 0.7))
     g.add(flat)
     if (lit > 0) {
-      const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.3 + lit), color }))
+      const halo = new Sprite(new SpriteMaterial({ map: glow(), transparent: true, depthWrite: false, opacity: Math.min(1, 0.3 + lit), color, toneMapped: false }))
       const size = 8 + lit * 14
       halo.scale.set(size, size, 1)
       halo.position.copy(mid).setY(height + 1.5)
@@ -853,21 +816,29 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (!view) return
     const r = result()
     const byId = new Map(view.doc.instances.map((i) => [i.id, i]))
+    const hold = (id: string, built: Group) => {
+      // embrulha a peça pra poder dar o pulo escalando em volta do centro dela
+      const holder = new Group()
+      holder.userData.popId = id
+      shade(built)
+      holder.add(built)
+      partsGroup.add(holder)
+    }
     for (const placement of view.doc.bench.placements) {
       const instance = byId.get(placement.id)
       if (!instance) continue
       const def = catalog[instance.type]
       const state = pressedButton === placement.id ? "pressed" : instance.inputState
       if (def?.placement === "offboard") {
-        partsGroup.add(buildOffboard(placement, instance.type, state, r))
-        partsGroup.add(buildLeads(placement, instance.type))
+        hold(placement.id, buildOffboard(placement, instance.type, state, r))
+        hold(`${placement.id}:leads`, buildLeads(placement, instance.type))
       } else if (def?.placement === "flexible") {
-        partsGroup.add(buildFlexible(placement, instance.type, r, instance.actualValue, instance.variant))
+        hold(placement.id, buildFlexible(placement, instance.type, r, instance.actualValue, instance.variant))
       } else {
-        partsGroup.add(buildRigid(placement, instance.type, state))
+        hold(placement.id, buildRigid(placement, instance.type, state))
       }
     }
-    for (const wire of view.doc.bench.wires) partsGroup.add(buildWire(wire))
+    for (const wire of view.doc.bench.wires) hold(wire.id, buildWire(wire))
     partsGroup.add(buildProbes())
     if (opts.divergences) partsGroup.add(buildDivergences(opts.divergences))
     rebuildParticles()
@@ -1038,6 +1009,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const pins = catalog[mode.type].pins
     d.bench.placements = d.bench.placements.filter((p) => p.id !== id)
     d.bench.placements.push({ id, holes: { [pins[0]]: mode.first, [pins[1]]: hole }, rotation: 0 })
+    popPart(id)
     cb.onChange(d, true)
     cb.onEvent("partPlaced")
     finishPlacement()
@@ -1085,6 +1057,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const d = doc()
     const id = claimInstance(d, mode.type, mode.value, mode.id)
     d.bench.placements.push({ id, holes: holesByPin, rotation: mode.rotation })
+    popPart(id)
     cb.onChange(d, true)
     cb.onEvent("partPlaced")
     finishPlacement()
@@ -1098,6 +1071,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const def = catalog[mode.type]
     const id = claimInstance(d, mode.type, mode.value, mode.id)
     d.bench.placements.push({ id, holes: Object.fromEntries(def.pins.map((p) => [p, null])), rotation: 0, offboard: { x: Math.round(at.x), z: Math.round(at.z) } })
+    popPart(id)
     cb.onChange(d, true)
     cb.onEvent("partPlaced")
     mode = { kind: "leads", id, pins: def.pins, index: 0 }
@@ -1113,6 +1087,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const pin = leads.pins[leads.index]
     if (!placement || !pin) return finishPlacement()
     placement.holes[pin] = hole
+    popPart(`${leads.id}:leads`)
     cb.onChange(d, true)
     cb.onEvent("partSnapped")
     if (leads.index + 1 >= leads.pins.length) finishPlacement()
@@ -1133,6 +1108,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     let n = 1
     while (ids.has(`W${n}`)) n++
     d.bench.wires.push({ id: `W${n}`, a: mode.start, b: hole, color: suggestedWireColor(mode.start) })
+    popPart(`W${n}`)
     mode = { kind: "wire", start: null }
     cb.onChange(d, true)
     cb.onEvent("wireDrawn")
@@ -1242,8 +1218,10 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (pressedButton) setButton(null)
     if (drag) {
       const moved = drag.moved
+      const pick = drag.pick
       drag = null
       if (moved && view) {
+        popPart(pick.kind === "leadEnd" ? `${pick.id}:leads` : pick.id)
         cb.onChange(doc(), true)
         cb.onEvent("partSnapped")
         const m = view.doc.bench.meter
@@ -1279,6 +1257,44 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   renderer.domElement.addEventListener("pointerup", onPointerUp)
   renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault())
 
+  const fpsWatch = createFpsWatch()
+  let lightOn = true
+  const box = new Box3()
+  const pivot = new Vector3()
+
+  function animatePops(now: number) {
+    for (const holder of partsGroup.children) {
+      const start = pops.get(holder.userData.popId as string)
+      if (start === undefined) continue
+      const t = Math.min(1, (now - start) / 600)
+      if (!holder.userData.pivot) {
+        box.setFromObject(holder)
+        holder.userData.pivot = box.getCenter(new Vector3()).setY(box.min.y)
+      }
+      pivot.copy(holder.userData.pivot as Vector3)
+      // sobe rápido até 1,08 e volta devagar, cara de easeOutBack
+      const s = 1 + 0.08 * Math.sin(Math.PI * Math.pow(t, 0.6))
+      holder.scale.setScalar(t >= 1 ? 1 : s)
+      holder.position.copy(pivot).multiplyScalar(t >= 1 ? 0 : 1 - s)
+    }
+    for (const [id, start] of pops) if (now - start >= 600) pops.delete(id)
+  }
+
+  function animateSparks(now: number, dt: number) {
+    sparks = sparks.filter((spark) => {
+      const age = (now - spark.born) / 600
+      if (age >= 1) {
+        sparkGroup.remove(spark.sprite)
+        spark.sprite.material.dispose()
+        return false
+      }
+      spark.velocity.y -= 140 * dt
+      spark.sprite.position.addScaledVector(spark.velocity, dt)
+      spark.sprite.material.opacity = 1 - age
+      return true
+    })
+  }
+
   let last = performance.now()
   renderer.setAnimationLoop((now) => {
     const dt = Math.min(0.1, (now - last) / 1000)
@@ -1288,7 +1304,19 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       p.t = (p.t + (p.direction * p.speed * 6 * dt) / p.length + 1) % 1
       p.mesh.position.copy(p.curve.getPointAt(p.t))
     }
-    if (!opts.reducedMotion) for (const s of spinners) s.obj.rotation.z -= s.direction * dt * 12
+    if (!opts.reducedMotion) {
+      for (const s of spinners) {
+        s.obj.rotation.z -= s.direction * dt * 12
+        if (s.body) s.body.position.x = s.baseX + 0.15 * Math.sin((now / 1000) * Math.PI * 2 * 30)
+      }
+    }
+    if (pops.size > 0) animatePops(now)
+    if (sparks.length > 0) animateSparks(now, dt)
+    if (lightOn && fpsWatch.sample(now) === "degrade") {
+      lightOn = false
+      studio.setLight(false)
+      cb.onEvent("lightMode")
+    }
     renderer.render(scene, camera)
   })
 
@@ -1383,8 +1411,12 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
           cb.onSelect?.(null)
         }
       }
+      const short = result()?.warnings.find((w) => w.kind === "shortCircuit")
+      fpsWatch.reset()
       rebuild()
       updateGhost()
+      if (short?.partId && !shortWas && !opts.reducedMotion) spawnSparks(short.partId)
+      shortWas = short !== undefined
     },
     setTool,
     currentTool: () => tool,
@@ -1400,8 +1432,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     frame,
     handleKey,
     setWireColor,
+    setLight(on: boolean) {
+      lightOn = on
+      studio.setLight(on)
+    },
     dispose() {
       renderer.setAnimationLoop(null)
+      studio.dispose()
       resizeObserver.disconnect()
       controls.dispose()
       renderer.dispose()

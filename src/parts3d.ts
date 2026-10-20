@@ -1,4 +1,37 @@
-import { CanvasTexture, CubicBezierCurve3, MeshStandardMaterial, Sprite, SpriteMaterial, Vector3 } from "three"
+import {
+  ACESFilmicToneMapping,
+  BoxGeometry,
+  CanvasTexture,
+  CatmullRomCurve3,
+  CircleGeometry,
+  CubicBezierCurve3,
+  CylinderGeometry,
+  DirectionalLight,
+  Fog,
+  Group,
+  HemisphereLight,
+  LatheGeometry,
+  Material,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  PCFSoftShadowMap,
+  PlaneGeometry,
+  PMREMGenerator,
+  Scene,
+  ShadowMaterial,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
+  TorusGeometry,
+  TubeGeometry,
+  Vector2,
+  Vector3,
+  type WebGLRenderer,
+} from "three"
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js"
 
 export const PITCH = 2.54
 
@@ -83,7 +116,7 @@ export function textTexture(text: string, color = "#E6EDF3", background = "rgba(
 }
 
 export function label(text: string, scale = 7, color?: string, background?: string): Sprite {
-  const sprite = new Sprite(new SpriteMaterial({ map: textTexture(text, color, background), depthTest: false }))
+  const sprite = new Sprite(new SpriteMaterial({ map: textTexture(text, color, background), depthTest: false, toneMapped: false }))
   sprite.scale.set(scale, scale / 2, 1)
   sprite.renderOrder = 10
   return sprite
@@ -158,7 +191,7 @@ export function iconTexture(name: IconName, color: string): CanvasTexture {
 }
 
 export function iconSprite(name: IconName, color: string, size = 5): Sprite {
-  const sprite = new Sprite(new SpriteMaterial({ map: iconTexture(name, color), depthTest: false }))
+  const sprite = new Sprite(new SpriteMaterial({ map: iconTexture(name, color), depthTest: false, toneMapped: false }))
   sprite.scale.set(size, size, 1)
   sprite.renderOrder = 10
   return sprite
@@ -179,6 +212,24 @@ export function glow(): CanvasTexture {
   ctx.fillRect(0, 0, 128, 128)
   glowTexture = new CanvasTexture(canvas)
   return glowTexture
+}
+
+let sparkTex: CanvasTexture | null = null
+
+export function sparkTexture(): CanvasTexture {
+  if (sparkTex) return sparkTex
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 64
+  const ctx = canvas.getContext("2d")!
+  const gradient = ctx.createRadialGradient(32, 32, 2, 32, 32, 30)
+  gradient.addColorStop(0, "rgba(255,255,255,1)")
+  gradient.addColorStop(0.3, "rgba(255,255,255,1)")
+  gradient.addColorStop(0.45, "rgba(255,255,255,0.9)")
+  gradient.addColorStop(1, "rgba(255,255,255,0)")
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 64, 64)
+  sparkTex = new CanvasTexture(canvas)
+  return sparkTex
 }
 
 let hatchTexture: CanvasTexture | null = null
@@ -211,3 +262,449 @@ export function std(color: number | string, extra: Partial<{ emissive: number; e
   return new MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.05, ...extra })
 }
 
+
+export const PART_COLORS = { green: 0x22c55e, yellow: 0xffc21a, blue: 0x3b82f6, pink: 0xec4899, coral: 0xef4444, purple: 0x8b5cf6, orange: 0xf97316 }
+const METAL = { color: 0xc9ced4, metalness: 0.9, roughness: 0.28 }
+const FLOOR = 0xe7e1d6
+const BACKDROP = 0xf6f1e8
+
+export function createStudio(renderer: WebGLRenderer, scene: Scene, floorY: number) {
+  renderer.toneMapping = ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.05
+  renderer.outputColorSpace = SRGBColorSpace
+  renderer.setClearColor(BACKDROP)
+  renderer.shadowMap.type = PCFSoftShadowMap
+  scene.fog = new Fog(BACKDROP, 320, 820)
+
+  const pmrem = new PMREMGenerator(renderer)
+  const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  pmrem.dispose()
+
+  const hemi = new HemisphereLight(0xffffff, 0xd9cfbf, 0.9)
+  scene.add(hemi)
+  const key = new DirectionalLight(0xfff4e5, 2.2)
+  key.position.set(-70, 170, 95)
+  key.target.position.set(0, floorY, 0)
+  key.shadow.mapSize.set(2048, 2048)
+  key.shadow.camera.left = key.shadow.camera.bottom = -130
+  key.shadow.camera.right = key.shadow.camera.top = 130
+  key.shadow.camera.near = 20
+  key.shadow.camera.far = 420
+  key.shadow.bias = -0.0004
+  key.shadow.normalBias = 0.25
+  key.shadow.radius = 4
+  scene.add(key, key.target)
+
+  const floor = new Mesh(new PlaneGeometry(2400, 2400), new MeshStandardMaterial({ color: FLOOR, roughness: 0.95 }))
+  floor.rotation.x = -Math.PI / 2
+  floor.position.y = floorY - 0.05
+  scene.add(floor)
+  const catcher = new Mesh(new PlaneGeometry(420, 420), new ShadowMaterial({ opacity: 0.25 }))
+  catcher.rotation.x = -Math.PI / 2
+  catcher.position.y = floorY + 0.02
+  catcher.receiveShadow = true
+  scene.add(catcher)
+
+  function setLight(on: boolean) {
+    // modo leve: sem sombra e sem ambiente, a hemisférica segura a cena sozinha
+    renderer.shadowMap.enabled = on
+    key.castShadow = on
+    catcher.visible = on
+    scene.environment = on ? environment : null
+    scene.environmentIntensity = 0.55
+    hemi.intensity = on ? 0.9 : 2.1
+    scene.traverse((o) => {
+      if (o instanceof Mesh) for (const m of [o.material].flat() as Material[]) m.needsUpdate = true
+    })
+  }
+  setLight(true)
+
+  return {
+    setLight,
+    dispose() {
+      environment.dispose()
+      floor.geometry.dispose()
+      catcher.geometry.dispose()
+    },
+  }
+}
+
+export function shade(obj: Group | Mesh, receive = false): void {
+  obj.traverse((o) => {
+    if (o instanceof Mesh) {
+      o.castShadow = true
+      o.receiveShadow = receive
+    }
+  })
+}
+
+function rounded(w: number, h: number, d: number, r: number, material: Material): Mesh {
+  return new Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2, h / 2, d / 2)), material)
+}
+
+function satin(color: number, extra: Partial<{ roughness: number; metalness: number; emissive: number; emissiveIntensity: number }> = {}): MeshStandardMaterial {
+  return new MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.02, ...extra })
+}
+
+function metal(): MeshStandardMaterial {
+  return new MeshStandardMaterial(METAL)
+}
+
+function lathe(profile: [number, number][], segments = 32): LatheGeometry {
+  return new LatheGeometry(profile.map(([r, y]) => new Vector2(r, y)), segments)
+}
+
+const decalCache = new Map<string, CanvasTexture>()
+
+function decal(key: string, width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void): CanvasTexture {
+  const cached = decalCache.get(key)
+  if (cached) return cached
+  const canvas = document.createElement("canvas")
+  canvas.width = width
+  canvas.height = height
+  draw(canvas.getContext("2d")!)
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  texture.anisotropy = 4
+  decalCache.set(key, texture)
+  return texture
+}
+
+function printed(texture: CanvasTexture, w: number, d: number): Mesh {
+  const mesh = new Mesh(new PlaneGeometry(w, d), new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }))
+  mesh.rotation.x = -Math.PI / 2
+  return mesh
+}
+
+function named<T extends Mesh | Group>(obj: T, name: string): T {
+  obj.name = name
+  return obj
+}
+
+export function makeBattery(color: number, text: string): Group {
+  const g = new Group()
+  const body = named(rounded(26, 17, 46, 3, satin(color, { roughness: 0.45 })), "body")
+  body.position.y = 8.5
+  g.add(body)
+  const band = rounded(26.6, 17.6, 15, 1.5, satin(0xf8fafc, { roughness: 0.55 }))
+  band.position.set(0, 8.5, 11)
+  g.add(band)
+  const tex = decal(`battery|${text}`, 256, 160, (ctx) => {
+    ctx.fillStyle = "#1E3A8A"
+    ctx.font = "700 92px Rubik, sans-serif"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(text, 128, 84)
+  })
+  const print = printed(tex, 18, 11.25)
+  print.position.set(0, 17.35, 11)
+  g.add(print)
+  const shoulder = rounded(22, 4, 4, 1.2, satin(0x1f2937, { roughness: 0.6 }))
+  shoulder.position.set(0, 9, -23.4)
+  g.add(shoulder)
+  for (const [x, c] of [[-6, PART_COLORS.coral], [6, 0x1f2937]] as const) {
+    const cap = rounded(10.5, 8, 5.2, 1.6, satin(c, { roughness: 0.42 }))
+    cap.position.set(x, 9, -25.2)
+    g.add(cap)
+  }
+  return g
+}
+
+export function makeLampBody(): Group {
+  const g = new Group()
+  const base = named(rounded(17, 3.2, 15, 1.4, satin(PART_COLORS.green)), "body")
+  base.position.y = 1.6
+  g.add(base)
+  for (const x of [-6.2, 6.2]) {
+    const screw = new Mesh(new CylinderGeometry(1.1, 1.1, 0.8, 16), metal())
+    screw.position.set(x, 3.5, 0)
+    g.add(screw)
+  }
+  const thread: [number, number][] = [[0, 0], [3.4, 0]]
+  for (let i = 0; i < 5; i++) thread.push([3.6, 0.5 + i], [3.2, 1 + i])
+  thread.push([3.4, 5.6], [2.8, 6], [0, 6])
+  const socket = new Mesh(lathe(thread), metal())
+  socket.position.y = 3.2
+  g.add(socket)
+  return g
+}
+
+export function makeBulb(): Group {
+  const g = new Group()
+  const profile: [number, number][] = [[0, 0], [2.7, 0]]
+  for (let i = 0; i <= 16; i++) {
+    const a = -Math.PI / 2 + (i / 16) * Math.PI
+    const r = 5.2 * Math.cos(a)
+    profile.push([Math.max(r, 2.7 * (1 - i / 16)), 7 + 5.2 * Math.sin(a)])
+  }
+  const glass = named(
+    new Mesh(lathe(profile, 36), new MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.05, thickness: 0.6, ior: 1.45, transparent: true, emissive: 0xffd27a, emissiveIntensity: 0 })),
+    "glass",
+  )
+  g.add(glass)
+  const points: Vector3[] = []
+  for (let i = 0; i <= 80; i++) {
+    const t = i / 80
+    const a = t * Math.PI * 2 * 7
+    points.push(new Vector3(-2.2 + 4.4 * t, 7.4 + Math.sin(a) * 0.55, Math.cos(a) * 0.55))
+  }
+  const filament = named(new Mesh(new TubeGeometry(new CatmullRomCurve3(points), 160, 0.12, 5), satin(0x7c5a3a, { emissive: 0xffb347, emissiveIntensity: 0 })), "filament")
+  g.add(filament)
+  for (const x of [-2.2, 2.2]) {
+    const post = new Mesh(new CylinderGeometry(0.12, 0.12, 6.4, 6), metal())
+    post.position.set(x, 4.2, 0)
+    g.add(post)
+  }
+  return g
+}
+
+export function makeSwitch(on: boolean, width: number, body = 0x2b2f36, lever = PART_COLORS.orange): Group {
+  const g = new Group()
+  const box = named(rounded(width, 4, 4.6, 0.8, satin(body)), "body")
+  box.position.y = 3.5
+  g.add(box)
+  const slot = rounded(width * 0.62, 0.4, 1.6, 0.2, satin(0x111316, { roughness: 0.8 }))
+  slot.position.y = 5.5
+  g.add(slot)
+  const knob = rounded(2.2, 3, 2.2, 0.7, satin(lever, { roughness: 0.4 }))
+  knob.position.set(on ? width / 4 : -width / 4, 6.8, 0)
+  g.add(knob)
+  return g
+}
+
+export function makeButton(color: number, pressed: boolean): Group {
+  const g = new Group()
+  const box = named(rounded(6.2, 3.4, 6.2, 0.7, satin(0x2b2f36)), "body")
+  box.position.y = 2.9
+  g.add(box)
+  const ring = new Mesh(new CylinderGeometry(2.5, 2.5, 0.3, 24), metal())
+  ring.position.y = 4.7
+  g.add(ring)
+  const cap = new Mesh(lathe([[0, 0], [2, 0], [2.05, 1.2], [1.8, 1.8], [1.1, 2.15], [0, 2.25]]), satin(color, { roughness: 0.38 }))
+  cap.position.y = pressed ? 4.3 : 4.9
+  g.add(cap)
+  return g
+}
+
+export function makeChip(code: string, width: number, depth: number, notchSide: number): Group {
+  const g = new Group()
+  const box = named(rounded(width, 3.2, depth, 0.45, satin(0x1c1e22, { roughness: 0.78 })), "body")
+  box.position.y = 3.3
+  g.add(box)
+  const notch = new Mesh(new CylinderGeometry(1, 1, 0.5, 16, 1, false, 0, Math.PI), satin(0x0b0c0e, { roughness: 0.9 }))
+  notch.rotation.y = notchSide > 0 ? Math.PI / 2 : -Math.PI / 2
+  notch.position.set(notchSide * (width / 2 - 0.02), 4.7, 0)
+  g.add(notch)
+  const tex = decal(`chip|${code}`, 256, 96, (ctx) => {
+    ctx.fillStyle = "rgba(226,232,240,0.85)"
+    ctx.font = "600 56px 'IBM Plex Mono', monospace"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(code, 128, 50)
+  })
+  const print = printed(tex, Math.min(width * 0.7, 12), Math.min(width * 0.7, 12) * 0.375)
+  print.position.y = 4.92
+  g.add(print)
+  return g
+}
+
+export function chipLeg(): Mesh {
+  return new Mesh(new BoxGeometry(0.9, 3.4, 0.3), metal())
+}
+
+export function makeMotor(blade = PART_COLORS.pink): Group {
+  const g = new Group()
+  const can: [number, number][] = [[0, -13], [8.6, -13], [9.6, -12.2], [10, -11], [10, 11], [9.4, 12.4], [5, 13], [0, 13]]
+  const body = named(new Group(), "body")
+  const shell = new Mesh(lathe(can, 40), new MeshStandardMaterial({ color: 0xc7ccd3, metalness: 0.85, roughness: 0.32 }))
+  shell.rotation.x = Math.PI / 2
+  body.add(shell)
+  const band = new Mesh(new CylinderGeometry(10.15, 10.15, 7, 40, 1, true), satin(PART_COLORS.blue))
+  band.rotation.x = Math.PI / 2
+  band.position.z = -3
+  body.add(band)
+  const boss = new Mesh(new CylinderGeometry(2.6, 3.2, 1.6, 24), metal())
+  boss.rotation.x = Math.PI / 2
+  boss.position.z = 13.6
+  body.add(boss)
+  for (const x of [-5, 5]) {
+    const tab = new Mesh(new BoxGeometry(1.6, 3, 0.4), new MeshStandardMaterial({ color: 0xd4a256, metalness: 0.9, roughness: 0.3 }))
+    tab.position.set(x, -6, -13.3)
+    body.add(tab)
+  }
+  body.position.y = 10
+  g.add(body)
+  for (const z of [-7, 7]) {
+    const foot = rounded(16, 2.2, 4, 0.8, satin(0x374151))
+    foot.position.set(0, 1.1, z)
+    g.add(foot)
+  }
+  const rotor = named(new Group(), "rotor")
+  rotor.position.set(0, 10, 16)
+  const shaft = new Mesh(new CylinderGeometry(0.8, 0.8, 5, 12), metal())
+  shaft.rotation.x = Math.PI / 2
+  shaft.position.z = -1.5
+  rotor.add(shaft)
+  const hub = new Mesh(new CylinderGeometry(2.2, 2.2, 2.2, 24), satin(blade, { roughness: 0.4 }))
+  hub.rotation.x = Math.PI / 2
+  rotor.add(hub)
+  for (let i = 0; i < 3; i++) {
+    const holder = new Group()
+    holder.rotation.z = (i * Math.PI * 2) / 3
+    const fin = rounded(3.6, 11, 0.9, 0.45, satin(blade, { roughness: 0.4 }))
+    fin.position.y = 6.5
+    fin.rotation.y = 0.35
+    holder.add(fin)
+    rotor.add(holder)
+  }
+  const marker = new Mesh(new CylinderGeometry(0.9, 0.9, 1.1, 12), satin(0xffffff))
+  marker.rotation.x = Math.PI / 2
+  marker.position.set(0, 10, 0.4)
+  rotor.add(marker)
+  g.add(rotor)
+  return g
+}
+
+export function makeBuzzer(): Group {
+  const g = new Group()
+  const body = named(new Mesh(lathe([[0, 0], [5.8, 0], [6, 0.4], [6, 8.4], [5.6, 9], [0, 9]], 40), satin(0x1d1f23, { roughness: 0.55 })), "body")
+  g.add(body)
+  const rim = new Mesh(new TorusGeometry(1.7, 0.35, 10, 28), satin(0x2c2f35))
+  rim.rotation.x = Math.PI / 2
+  rim.position.y = 9.05
+  g.add(rim)
+  const hole = new Mesh(new CircleGeometry(1.5, 24), new MeshBasicMaterial({ color: 0x050506 }))
+  hole.rotation.x = -Math.PI / 2
+  hole.position.y = 9.03
+  g.add(hole)
+  const tex = decal("buzzer|+", 64, 64, (ctx) => {
+    ctx.fillStyle = "rgba(255,255,255,0.8)"
+    ctx.font = "700 48px Rubik, sans-serif"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText("+", 32, 34)
+  })
+  const plus = printed(tex, 2.6, 2.6)
+  plus.position.set(-3.6, 9.04, 0)
+  g.add(plus)
+  return g
+}
+
+export function makeLedHead(color: number, glowLevel: number): Group {
+  const g = new Group()
+  const material = new MeshPhysicalMaterial({ color, roughness: 0.18, transmission: 0.25, thickness: 1, transparent: true, opacity: 0.88, emissive: color, emissiveIntensity: glowLevel })
+  const profile: [number, number][] = [[0, 0], [1.85, 0], [1.9, 0.15], [1.9, 0.5], [1.55, 0.65], [1.5, 0.75], [1.5, 2.9]]
+  for (let i = 1; i <= 10; i++) {
+    const a = (i / 10) * (Math.PI / 2)
+    profile.push([1.5 * Math.cos(a), 2.9 + 1.5 * Math.sin(a)])
+  }
+  const head = named(new Mesh(lathe(profile, 28), material), "body")
+  head.userData.glows = true
+  g.add(head)
+  return g
+}
+
+export function makeResistorBody(bands: string[], length: number): Group {
+  const g = new Group()
+  const h = length / 2
+  const profile: [number, number][] = [[0, -h], [0.7, -h], [1.12, -h + 0.25], [1.18, -h + 1], [0.98, -h + 1.6], [0.98, h - 1.6], [1.18, h - 1], [1.12, h - 0.25], [0.7, h], [0, h]]
+  const body = named(new Mesh(lathe(profile, 24), satin(0xe9d6ab, { roughness: 0.55 })), "body")
+  g.add(body)
+  bands.forEach((band, i) => {
+    const t = -0.32 + i * 0.2 + (i === 3 ? 0.08 : 0)
+    const y = t * length
+    const r = Math.abs(y) > h - 1.6 ? 1.2 : 1.01
+    const ring = new Mesh(new CylinderGeometry(r, r, 0.42, 24, 1, true), satin(Number.parseInt(bandHex(band).slice(1), 16), { roughness: 0.45 }))
+    ring.position.y = y
+    g.add(ring)
+  })
+  return g
+}
+
+export type BreadboardLayout = { halfX: number; halfZ: number; height: number; pitch: number; columns: number; rowZ: Record<string, number>; railZ: Record<string, number> }
+
+export function makeBreadboard(layout: BreadboardLayout): Group {
+  const g = new Group()
+  const { halfX, halfZ, height, pitch, columns } = layout
+  const board = named(rounded(halfX * 2, height, halfZ * 2, 1.4, satin(0xfbfbf8, { roughness: 0.62 })), "body")
+  board.position.y = -height / 2
+  board.receiveShadow = true
+  g.add(board)
+  const channel = new Mesh(new BoxGeometry(halfX * 2 - 4, 0.3, pitch * 0.85), satin(0xe4e2dc, { roughness: 0.8 }))
+  channel.position.y = -0.1
+  channel.receiveShadow = true
+  g.add(channel)
+  const scale = 16
+  const w = Math.round(halfX * 2 * scale)
+  const d = Math.round(halfZ * 2 * scale)
+  const tex = decal(`board|${columns}`, w, d, (ctx) => {
+    const x = (col: number) => ((col - (columns + 1) / 2) * pitch + halfX) * scale
+    const z = (rowUnits: number) => (rowUnits * pitch + halfZ) * scale
+    for (const [rail, rz] of Object.entries(layout.railZ)) {
+      const positive = rail.endsWith("+")
+      const offset = rail.startsWith("T") ? -0.6 : 0.6
+      ctx.fillStyle = positive ? "#E11D74" : "#2563EB"
+      ctx.fillRect(x(1) - pitch * scale * 0.5, z(rz + offset) - 3, columns * pitch * scale, 6)
+      ctx.font = "700 44px Rubik, sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      for (const side of [-1, 1]) ctx.fillText(positive ? "+" : "−", halfX * scale + side * (columns / 2 + 0.95) * pitch * scale, z(rz))
+    }
+    ctx.fillStyle = "#8A8F98"
+    ctx.font = "500 22px 'IBM Plex Mono', monospace"
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    const top = Math.min(...Object.values(layout.rowZ))
+    const bottom = Math.max(...Object.values(layout.rowZ))
+    for (let col = 1; col <= columns; col++) {
+      if (col !== 1 && col % 5 !== 0) continue
+      ctx.fillText(String(col), x(col), z(top - 0.85))
+      ctx.fillText(String(col), x(col), z(bottom + 0.85))
+    }
+    for (const [row, rz] of Object.entries(layout.rowZ)) {
+      ctx.fillText(row, x(0) + 6, z(rz))
+      ctx.fillText(row, x(columns + 1) - 6, z(rz))
+    }
+  })
+  const print = printed(tex, halfX * 2, halfZ * 2)
+  print.position.y = 0.02
+  g.add(print)
+  return g
+}
+
+export type FpsWatchOpts = { warmupMs: number; windowMs: number; minFps: number }
+
+export function createFpsWatch(opts: FpsWatchOpts = { warmupMs: 3000, windowMs: 2000, minFps: 40 }) {
+  let start: number | null = null
+  let last = 0
+  let windowStart: number | null = null
+  let frames = 0
+  let fired = false
+  return {
+    reset() {
+      windowStart = null
+    },
+    sample(nowMs: number): "ok" | "degrade" {
+      if (fired) return "ok"
+      if (start === null) start = nowMs
+      // aba escondida ou montagem pesada de fase travam um quadro; isso não é fps baixo de verdade
+      if (nowMs - last > 250) windowStart = null
+      last = nowMs
+      if (nowMs - start < opts.warmupMs) return "ok"
+      if (windowStart === null) {
+        windowStart = nowMs
+        frames = 0
+        return "ok"
+      }
+      frames++
+      const elapsed = nowMs - windowStart
+      if (elapsed < opts.windowMs) return "ok"
+      const fps = (frames * 1000) / elapsed
+      windowStart = nowMs
+      frames = 0
+      if (fps >= opts.minFps) return "ok"
+      fired = true
+      return "degrade"
+    },
+  }
+}

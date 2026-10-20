@@ -80,6 +80,7 @@ describe("scenarioLabel", () => {
 })
 
 import { resistorBands } from "../src/bench"
+import { createFpsWatch } from "../src/parts3d"
 
 describe("resistorBands", () => {
   it("encodes standard values", () => {
@@ -156,5 +157,51 @@ describe("starLabel", () => {
     expect(starLabel({ kind: "usedMeter", mode: "ohm" })).toBe("Medir com o multímetro (Ω)")
     expect(starLabel({ kind: "maxCost", value: 12 })).toBe("Custo até 12 créditos")
     expect(starLabel({ kind: "maxWires", value: 3 })).toBe("Até 3 fios")
+  })
+})
+
+describe("createFpsWatch", () => {
+  const opts = { warmupMs: 3000, windowMs: 2000, minFps: 40 }
+  const run = (watch: ReturnType<typeof createFpsWatch>, from: number, to: number, stepMs: number) => {
+    const out: string[] = []
+    for (let t = from; t <= to; t += stepMs) out.push(watch.sample(t))
+    return out
+  }
+
+  it("ignores slow frames during warmup", () => {
+    const watch = createFpsWatch(opts)
+    expect(run(watch, 0, 2990, 50)).not.toContain("degrade")
+  })
+
+  it("degrades once after a slow window", () => {
+    const watch = createFpsWatch(opts)
+    run(watch, 0, 3000, 16)
+    const out = run(watch, 3050, 12000, 50)
+    expect(out.filter((s) => s === "degrade")).toHaveLength(1)
+  })
+
+  it("stays ok with fast frames", () => {
+    const watch = createFpsWatch(opts)
+    expect(run(watch, 0, 12000, 16)).not.toContain("degrade")
+  })
+
+  it("does not count a hidden-tab pause as slowness", () => {
+    const watch = createFpsWatch(opts)
+    run(watch, 0, 5000, 16)
+    const out = [...run(watch, 20000, 20100, 16), ...run(watch, 20116, 26000, 16)]
+    expect(out).not.toContain("degrade")
+  })
+})
+
+describe("createFpsWatch reset", () => {
+  it("discards the slow window when the scene is rebuilt", () => {
+    const watch = createFpsWatch({ warmupMs: 3000, windowMs: 2000, minFps: 40 })
+    const out: string[] = []
+    for (let t = 0; t <= 3000; t += 16) watch.sample(t)
+    for (let t = 3050; t <= 9000; t += 50) {
+      if (t % 1000 === 0) watch.reset()
+      out.push(watch.sample(t))
+    }
+    expect(out).not.toContain("degrade")
   })
 })
