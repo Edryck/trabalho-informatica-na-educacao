@@ -233,6 +233,8 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       parts.push(`<line class="${high ? "lit" : ""}" x1="${x}" y1="${y}" x2="${inner}" y2="${y}"/>`)
       parts.push(`<text class="pin-name" x="${x < 0 ? -38 : 38}" y="${y + 4}" style="text-anchor:${x < 0 ? "start" : "end"}">${pin}</text>`)
       parts.push(`<text class="pin-number" x="${x < 0 ? -52 : 52}" y="${y - 4}">${i + 1}</text>`)
+      const level = outputs[pin]
+      if (level === 0 || level === 1) parts.push(`<text class="pin-level" x="${x < 0 ? -52 : 52}" y="${y + 12}">${level}</text>`)
     })
     return parts.join("")
   }

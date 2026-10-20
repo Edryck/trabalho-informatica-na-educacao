@@ -40,7 +40,7 @@ export function particleSpeed(current: number): number {
   return Math.min(SPEED_MAX, Math.max(SPEED_MIN, SPEED_MIN + t * (SPEED_MAX - SPEED_MIN)))
 }
 
-export type ToolId = "select" | "wire" | "meter" | "currentView" | "undo" | "redo"
+export type ToolId = "select" | "wire" | "meter" | "currentView" | "undo" | "redo" | "rewind"
 
 const ICONS: Record<ToolId, string> = {
   select: '<path d="M5 3l12 6-5 2-2 5z"/>',
@@ -49,6 +49,7 @@ const ICONS: Record<ToolId, string> = {
   currentView: '<path d="M3 12h14"/><path d="M13 7l5 5-5 5"/><circle cx="6" cy="12" r="1.2"/><circle cx="10" cy="12" r="1.2"/>',
   undo: '<path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 010 12"/>',
   redo: '<path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 000 12"/>',
+  rewind: '<path d="M11 6l-6 6 6 6"/><path d="M19 6l-6 6 6 6"/><path d="M4 21h16"/>',
 }
 
 const TOOL_LABELS: Record<ToolId, string> = {
@@ -58,6 +59,7 @@ const TOOL_LABELS: Record<ToolId, string> = {
   currentView: "Visão de corrente (C)",
   undo: "Desfazer (Ctrl+Z)",
   redo: "Refazer (Ctrl+Y)",
+  rewind: "Linha do tempo (T)",
 }
 
 function icon(id: ToolId): string {
@@ -95,6 +97,9 @@ export function createToolbar(el: HTMLElement, onTool: (tool: ToolId) => void) {
     setCurrentView(on: boolean) {
       buttons.get("currentView")!.classList.toggle("active", on)
       buttons.get("currentView")!.setAttribute("aria-pressed", String(on))
+    },
+    setRewind(enabled: boolean) {
+      buttons.get("rewind")!.disabled = !enabled
     },
     setHistory(canUndo: boolean, canRedo: boolean) {
       buttons.get("undo")!.disabled = !canUndo
@@ -357,16 +362,27 @@ export type BriefState = {
   won: boolean
 }
 
-export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void }) {
+export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void; onRestart(): void }) {
   el.className = "phase-brief"
   el.setAttribute("aria-label", "Objetivo da fase")
   el.hidden = true
+  let confirmingRestart = false
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
     const row = target.closest<HTMLElement>("[data-row]")
     if (row) handlers.onPreview(Number(row.dataset.row))
     if (target.closest("[data-action=hint]")) handlers.onHint()
     if (target.closest("[data-action=phases]")) handlers.onPhases()
+    if (target.closest("[data-action=restart]")) {
+      if (confirmingRestart) {
+        confirmingRestart = false
+        handlers.onRestart()
+      } else {
+        confirmingRestart = true
+        const button = el.querySelector<HTMLButtonElement>("[data-action=restart]")
+        if (button) button.textContent = "Confirmar recomeço"
+      }
+    }
   })
   return {
     hide() {
@@ -398,6 +414,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
         <header class="brief-head">
           <span class="brief-tag">${PHASE_TAGS[phase.type] ?? phase.type}</span>
           <span class="brief-id mono">${phase.id}</span>
+          <button type="button" class="brief-link" data-action="restart" title="Volta a fase pro começo">${confirmingRestart ? "Confirmar recomeço" : "Recomeçar"}</button>
           <button type="button" class="brief-link" data-action="phases">Fases</button>
         </header>
         <h2 class="brief-title">${phase.goal.charAt(0).toUpperCase()}${phase.goal.slice(1)}</h2>
@@ -630,6 +647,15 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
         <section class="settings-row">
           <div><h3>Volume</h3><p>Os sons chegam numa versão futura.</p></div>
           <input type="range" min="0" max="1" step="0.1" value="0.8" disabled aria-label="Volume (indisponível)"/>
+        </section>
+        <section class="settings-row shortcuts">
+          <div><h3>Atalhos</h3>
+            <dl class="shortcut-list">
+              <dt>S</dt><dd>selecionar</dd><dt>W</dt><dd>fio</dd><dt>M</dt><dd>multímetro</dd><dt>C</dt><dd>visão de corrente</dd>
+              <dt>V ou Tab</dt><dd>trocar blueprint e bancada</dd><dt>R</dt><dd>girar peça / inverter LED</dd><dt>F</dt><dd>enquadrar</dd>
+              <dt>Delete</dt><dd>remover</dd><dt>Esc</dt><dd>cancelar</dd><dt>Ctrl+Z / Ctrl+Y</dt><dd>desfazer / refazer</dd><dt>T</dt><dd>linha do tempo</dd>
+            </dl>
+          </div>
         </section>
         <section class="settings-row">
           <div><h3>Dados de uso</h3><p>Baixa um arquivo JSON com o tempo, as alterações, as dicas e as medições de cada fase jogada neste navegador.</p></div>
@@ -873,6 +899,60 @@ export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => v
         <button type="button" class="sheet-ok" data-action="close">Entendi</button>`
       el.scrollTop = 0
       el.querySelector<HTMLButtonElement>(".sheet-ok")?.focus({ preventScroll: true })
+    },
+  }
+}
+
+export function createRewindBar(el: HTMLElement, handlers: { onPreview(index: number): void; onCommit(index: number): void; onCancel(): void }) {
+  el.className = "rewind-bar"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-label", "Linha do tempo")
+  let total = 0
+  let index = 0
+  el.addEventListener("input", (event) => {
+    const input = event.target as HTMLInputElement
+    if (input.name !== "rewind") return
+    index = Number(input.value)
+    label()
+    handlers.onPreview(index)
+  })
+  el.addEventListener("click", (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>("[data-action]")?.dataset.action
+    if (action === "commit") handlers.onCommit(index)
+    if (action === "cancel") handlers.onCancel()
+  })
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation()
+      handlers.onCancel()
+    }
+    if (event.key === "Enter" && (event.target as HTMLElement).tagName === "INPUT") {
+      event.stopPropagation()
+      handlers.onCommit(index)
+    }
+  })
+  function label() {
+    const out = el.querySelector<HTMLElement>(".rewind-step")
+    if (out) out.textContent = index === total - 1 ? "agora" : `${total - 1 - index} passo${total - 1 - index === 1 ? "" : "s"} atrás`
+  }
+  return {
+    isOpen: () => !el.hidden,
+    show(count: number, current: number) {
+      total = count
+      index = current
+      el.hidden = false
+      el.innerHTML = `
+        <span class="rewind-title">Linha do tempo</span>
+        <input type="range" name="rewind" min="0" max="${Math.max(0, count - 1)}" step="1" value="${current}" aria-label="Momento do circuito" />
+        <span class="rewind-step mono"></span>
+        <button type="button" class="btn-primary" data-action="commit">Voltar pra cá</button>
+        <button type="button" class="btn-secondary" data-action="cancel">Cancelar</button>`
+      label()
+      el.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true })
+    },
+    hide() {
+      el.hidden = true
     },
   }
 }

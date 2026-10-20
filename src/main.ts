@@ -34,6 +34,7 @@ import {
   finishAttempt,
   pushSnapshot,
   redo,
+  rewindTo,
   startAttempt,
   trackDivergences,
   updateAttempt,
@@ -57,6 +58,7 @@ import {
   createSettingsScreen,
   createTitleScreen,
   createPreviewBanner,
+  createRewindBar,
   createToastHost,
   createToolbar,
   createTray,
@@ -120,10 +122,10 @@ const stageEl = app.querySelector<HTMLElement>(".stage")!
 const blueprintLayer = app.querySelector<HTMLElement>(".layer-blueprint")!
 const benchLayer = app.querySelector<HTMLElement>(".layer-bench")!
 const trayEl = app.querySelector<HTMLElement>(".tray-host")!
-const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl, sheetEl] = Array.from({ length: 12 }, () =>
+const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, previewEl, meterEl, pickerEl, sheetEl, rewindEl] = Array.from({ length: 13 }, () =>
   document.createElement("div"),
 )
-stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl, sheetEl)
+stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl, sheetEl, rewindEl)
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -168,10 +170,50 @@ const toggle = createViewToggle(toggleEl, switchView)
 const toasts = createToastHost(toastEl)
 const preview = createPreviewBanner(previewEl, () => setPreview(null))
 const brief = createPhaseBrief(briefEl, {
-  onPreview: (index) => setPreview(session?.previewIndex === index ? null : index),
+  onPreview: (index) => {
+    if (rewinding) return
+    setPreview(session?.previewIndex === index ? null : index)
+  },
   onHint: openHint,
   onPhases: showPhaseList,
+  onRestart: restartPhase,
 })
+
+function restartPhase() {
+  if (!session) return
+  const id = session.phase.id
+  if (id === "sandbox") return startSandbox()
+  store.data.draft = null
+  store.flush()
+  startPhase(id)
+  toasts.show("info", "Fase recomeçada do zero.")
+}
+let rewinding = false
+const rewindBar = createRewindBar(rewindEl, {
+  onPreview: (index) => {
+    // só mostra o momento escolhido; o histórico só muda se confirmar
+    view = compute(structuredClone(history.snapshots[index]))
+    render()
+  },
+  onCommit: (index) => {
+    rewinding = false
+    rewindBar.hide()
+    restore(rewindTo(history, index))
+  },
+  onCancel: () => {
+    rewinding = false
+    rewindBar.hide()
+    restore(history)
+  },
+})
+
+function openRewind() {
+  if (!session || overlayOpen() || history.snapshots.length < 2) return
+  rewinding = true
+  setTool("select")
+  rewindBar.show(history.snapshots.length, history.index)
+}
+
 const titleEl = document.createElement("div")
 const completeEl = document.createElement("div")
 const settingsEl = document.createElement("div")
@@ -222,6 +264,7 @@ const settingsScreen = createSettingsScreen(settingsEl, {
 
 const callbacks = (name: ViewName) => ({
   onChange: (doc: CircuitDoc, commit: boolean) => {
+    if (rewinding) return
     if (session?.previewIndex !== null && session?.previewIndex !== undefined) return
     update(doc, { commit })
   },
@@ -269,7 +312,7 @@ function queueNewDatasheets(phase: Phase) {
 }
 
 async function pickFromTray(type: string) {
-  if (!session || overlayOpen() || session.previewIndex !== null) return
+  if (!session || overlayOpen() || rewinding || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
   const partType = item?.type ?? type
   const values = activeView === "bench" ? session.phase.trayValues?.[partType] : undefined
@@ -309,6 +352,7 @@ function physicalHtml(type: string, value: number): string {
 }
 
 async function editValue(id: string) {
+  if (rewinding) return
   const instance = view.doc.instances.find((i) => i.id === id)
   const values = instance ? catalog[instance.type]?.values : undefined
   if (!instance || !values || values.length === 0 || !session) return
@@ -334,6 +378,7 @@ palette.show(false)
 const pendingList = createPendingList(pendingEl, "Na protoboard, falta no esquema", (item: PendingItem) => setTool({ place: item.type, id: item.id }))
 
 function compute(doc: CircuitDoc): AppView {
+  const started = import.meta.env.DEV ? performance.now() : 0
   const benchNet = benchToNetlist(doc, catalog)
   const blueprintNet = blueprintToNetlist(doc, catalog)
   const benchResult = solve(benchNet, catalog, { previous: benchDiscrete })
@@ -341,6 +386,7 @@ function compute(doc: CircuitDoc): AppView {
   benchDiscrete = benchResult.discrete
   blueprintDiscrete = blueprintResult.discrete
   evaluation = session ? evaluate(session.phase, doc, catalog) : null
+  if (import.meta.env.DEV) console.debug(`[fio] netlists + solves + cenários: ${(performance.now() - started).toFixed(2)} ms`)
   return { doc, benchNet, benchResult, blueprintNet, blueprintResult }
 }
 
@@ -388,13 +434,14 @@ function render() {
   const meter = view.doc.bench.meter
   meterHud.render(meter.mode, (previewResult && evaluatesBench ? previewResult : view.benchResult).meter, !!meter.red && !!meter.black)
   toolbar.setMeterAvailable(meterAvailable())
-  pendingList.update(pendingFor("blueprint"))
+  pendingList.update(phase?.showDivergence ? pendingFor("blueprint") : [])
   tray.update(trayItems(view.doc), activePart)
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
+  toolbar.setRewind(history.snapshots.length > 1)
   toolbar.setCurrentView(currentView)
   stageEl.classList.toggle("previewing", previewResult !== undefined)
   preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
-  if (phase && ev && session && phase.id !== "sandbox") {
+  if (phase && ev && session) {
     brief.render(phase, {
       rows: ev.scenarios.map((s) => ({ ok: s.ok, isCurrent: s.isCurrent })),
       cost: ev.cost,
@@ -413,13 +460,13 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
     if (session) session.changes++
   }
   view = compute(doc)
-  if (opts.commit && session) {
-    const divergences = evaluation?.divergences ?? []
+  if (opts.commit && session && session.phase.id !== "sandbox") {
+    const divergences = session.phase.showDivergence ? evaluation?.divergences ?? [] : []
     store.data = updateAttempt(store.data, (a) => ({ ...a, changes: a.changes + 1, divergences: trackDivergences(lastDivergences, divergences, a.divergences) }))
     lastDivergences = divergences
     if (!session.won) store.saveDraftSoon(session.phase.id, doc)
   }
-  noticeMeterAndWarnings()
+  if (opts.commit) noticeMeterAndWarnings()
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
   if (opts.commit) {
     advanceSteps()
@@ -432,7 +479,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
 function restore(next: History) {
   history = next
   view = compute(current(history))
-  if (session && !session.won) store.saveDraftSoon(session.phase.id, view.doc)
+  if (session && !session.won && session.phase.id !== "sandbox") store.saveDraftSoon(session.phase.id, view.doc)
   advanceSteps()
   checkVictory()
   render()
@@ -450,7 +497,7 @@ function meterAvailable(): boolean {
 }
 
 function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
-  if (!session) return
+  if (!session || rewinding) return
   const doc = structuredClone(view.doc)
   doc.bench.meter.mode = mode
   if (mode !== "off") lastMeterMode = mode
@@ -476,7 +523,7 @@ function noticeMeterAndWarnings() {
   const reading = result.meter
   const meter = view.doc.bench.meter
   const placed = meter.mode !== "off" && !!meter.red && !!meter.black
-  if (placed) {
+  if (placed && session?.phase.id !== "sandbox") {
     record("meterPlaced")
     const mode = meter.mode as "V" | "A" | "ohm"
     if (!meterWasPlaced) store.data = updateAttempt(store.data, (a) => ({ ...a, meterPlacements: a.meterPlacements + 1 }))
@@ -596,6 +643,8 @@ function maybeOfferHint() {
 function startPhase(phaseId: string, synthetic?: Phase) {
   const phase = synthetic ?? findPhase(phases, phaseId)
   if (!phase) return
+  rewinding = false
+  rewindBar.hide()
   const draft = store.data.draft
   let resumed = draft && draft.phaseId === phaseId && isValidDoc(draft.doc, catalog) ? draft.doc : null
   if (resumed) {
@@ -653,7 +702,15 @@ function hideOverlays() {
   stageEl.classList.remove("choosing")
 }
 
+function cancelRewind() {
+  if (!rewinding) return
+  rewinding = false
+  rewindBar.hide()
+  restore(history)
+}
+
 function openOverlay(kind: Exclude<Overlay, null>) {
+  cancelRewind()
   hideOverlays()
   overlay = kind
   setTool("select")
@@ -698,10 +755,6 @@ function showPhaseList() {
   )
 }
 
-function hidePhaseList() {
-  closeOverlay()
-}
-
 function showTitle() {
   openOverlay("title")
   const hasProgress = Object.keys(store.data.progress).length > 0 || store.data.draft !== null
@@ -710,8 +763,7 @@ function showTitle() {
     sandboxAvailable: progressWon().size > 0,
     onContinue: () => {
       const draft = store.data.draft?.phaseId
-      if (draft === "sandbox") startSandbox()
-      else startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
+      startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
     },
     onNew: () => {
       store.data.progress = {}
@@ -778,6 +830,8 @@ function showComplete() {
 }
 
 function startSandbox() {
+  store.data = finishAttempt(store.data, false, new Date())
+  store.save()
   const won = progressWon()
   const unlocked = phases.groups.filter((g) => g.demo && g.phases[0] && (isPhaseAvailable(phases, won, g.phases[0].id) || won.has(g.phases[0].id)))
   const tray: Record<string, number> = {}
@@ -803,7 +857,7 @@ function startSandbox() {
 }
 
 function onToolbar(id: ToolId) {
-  if (overlayOpen() || !session) return
+  if (overlayOpen() || !session || rewinding) return
   if (session?.previewIndex !== null && session?.previewIndex !== undefined && id !== "currentView") return
   if (id === "select" || id === "wire") setTool(id)
   else if (id === "meter") toggleMeter()
@@ -811,7 +865,8 @@ function onToolbar(id: ToolId) {
     currentView = !currentView
     if (currentView) record("currentViewToggled")
     render()
-  } else if (id === "undo") restore(undo(history))
+  } else if (id === "rewind") openRewind()
+  else if (id === "undo") restore(undo(history))
   else if (id === "redo") restore(redo(history))
 }
 
@@ -826,6 +881,7 @@ window.addEventListener("keydown", (event) => {
     )
     return
   }
+  if (rewinding) return
   if (overlayOpen()) {
     if (event.key === "Escape" && session && overlay === "map") {
       event.preventDefault()
@@ -849,7 +905,7 @@ window.addEventListener("keydown", (event) => {
     return restore(redo(history))
   }
   if (ctrl || event.altKey || !session) return
-  if (event.key === "Tab" && document.activeElement === stageEl) {
+  if (event.key === "Tab" && !event.shiftKey && document.activeElement === stageEl) {
     event.preventDefault()
     return switchView(activeView === "bench" ? "blueprint" : "bench")
   }
@@ -862,6 +918,7 @@ window.addEventListener("keydown", (event) => {
   else if (key === "w") setTool("wire")
   else if (key === "c") onToolbar("currentView")
   else if (key === "m") toggleMeter()
+  else if (key === "t") openRewind()
   else if (key === "v") switchView(activeView === "bench" ? "blueprint" : "bench")
 })
 
@@ -878,7 +935,10 @@ stageEl.addEventListener(
   { capture: true },
 )
 
-window.addEventListener("beforeunload", () => store.flush())
+window.addEventListener("pagehide", () => {
+  store.data = finishAttempt(store.data, false, new Date())
+  store.flush()
+})
 setInterval(maybeOfferHint, HINT_CHECK_MS)
 
 view = compute(current(history))

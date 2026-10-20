@@ -12,7 +12,7 @@
         "0,2 Ω"
       ]
     ],
-    "breadboard": "Fica na mesa, fora da placa. Espeta o cabinho vermelho no trilho + e o preto no trilho −, e daí leva a energia pras colunas com fios.",
+    "breadboard": "Fica na mesa, fora da placa. Espeta o cabinho vermelho no trilho + e o preto no trilho −, e daí leva a energia pras colunas com fios. Clica na bateria pra ligar ou desligar.",
     "mistake": "Ligar o + direto no − sem nada no meio. A corrente dispara e a bateria esquenta; o jogo avisa com um marcador amarelo."
   },
   "lamp": {
