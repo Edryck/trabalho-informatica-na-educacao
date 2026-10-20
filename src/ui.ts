@@ -956,3 +956,211 @@ export function createRewindBar(el: HTMLElement, handlers: { onPreview(index: nu
     },
   }
 }
+
+export type Easing = "easeOutCubic" | "easeOutQuart" | "easeOutBack" | "easeInOutCubic" | "easeInOutQuint" | "easeOutSine"
+
+export const EASING: Record<Easing, string> = {
+  easeOutCubic: "cubic-bezier(.33,1,.68,1)",
+  easeOutQuart: "cubic-bezier(.25,1,.5,1)",
+  easeOutBack: "cubic-bezier(.34,1.56,.64,1)",
+  easeInOutCubic: "cubic-bezier(.65,0,.35,1)",
+  easeInOutQuint: "cubic-bezier(.83,0,.17,1)",
+  easeOutSine: "cubic-bezier(.61,1,.88,1)",
+}
+
+let reducedMotionFlag = false
+
+export function setReducedMotion(on: boolean): void {
+  reducedMotionFlag = on
+}
+
+export function motionReduced(): boolean {
+  return reducedMotionFlag
+}
+
+function resample(values: number[], points: number): number[] {
+  const out: number[] = []
+  for (let i = 0; i < points; i++) {
+    const t = (i / (points - 1)) * (values.length - 1)
+    const lo = Math.floor(t)
+    const hi = Math.min(values.length - 1, lo + 1)
+    out.push(values[lo] + (values[hi] - values[lo]) * (t - lo))
+  }
+  out[out.length - 1] = 1
+  return out
+}
+
+export function sampleSpring(mass = 1, stiffness = 80, damping = 10, points = 40): number[] {
+  // integra a mola com passo fixo até assentar e depois reamostra
+  const dt = 1 / 60
+  let x = 0
+  let v = 0
+  const values = [0]
+  for (let i = 0; i < 6000; i++) {
+    const a = (-stiffness * (x - 1) - damping * v) / mass
+    v += a * dt
+    x += v * dt
+    values.push(x)
+    if (Math.abs(x - 1) < 0.001 && Math.abs(v) < 0.001) break
+  }
+  return resample(values, points)
+}
+
+function easeOutBounce(t: number): number {
+  const n = 7.5625
+  const d = 2.75
+  if (t < 1 / d) return n * t * t
+  if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75
+  if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375
+  return n * (t -= 2.625 / d) * t + 0.984375
+}
+
+export function sampleBounce(points = 40): number[] {
+  return Array.from({ length: points }, (_, i) => Math.min(1, easeOutBounce(i / (points - 1))))
+}
+
+export function cssLinear(samples: number[]): string {
+  return `linear(${samples.map((v) => String(Math.round(v * 1000) / 1000)).join(", ")})`
+}
+
+const running = new Set<Animation>()
+
+function run(el: Element, keyframes: Keyframe[], options: KeyframeAnimationOptions): Promise<void> {
+  if (reducedMotionFlag || typeof (el as HTMLElement).animate !== "function") return Promise.resolve()
+  const animation = (el as HTMLElement).animate(keyframes, { fill: "both", ...options })
+  running.add(animation)
+  return animation.finished.then(
+    () => {
+      running.delete(animation)
+    },
+    () => {
+      running.delete(animation)
+    },
+  )
+}
+
+export function skipAnimations(): void {
+  for (const animation of [...running]) animation.finish()
+}
+
+export function fadeSlide(el: Element, opts: { y?: number; duration?: number; delay?: number } = {}): Promise<void> {
+  const y = opts.y ?? 16
+  return run(el, [{ opacity: 0, transform: `translateY(${y}px)` }, { opacity: 1, transform: "translateY(0)" }], {
+    duration: opts.duration ?? 600,
+    delay: opts.delay ?? 0,
+    easing: EASING.easeOutCubic,
+  })
+}
+
+export function stagger<T extends Element>(els: T[], fn: (el: T, delay: number) => Promise<void>, gapMs = 40): Promise<void> {
+  return Promise.all(els.map((el, i) => fn(el, i * gapMs))).then(() => undefined)
+}
+
+export function pop(el: Element): Promise<void> {
+  return run(el, [{ transform: "scale(0.6)", opacity: 0.4 }, { transform: "scale(1)", opacity: 1 }], { duration: 520, easing: EASING.easeOutBack })
+}
+
+export function bounceLand(el: Element, fromY = -40): Promise<void> {
+  const keyframes = sampleBounce().map((v) => ({ transform: `translateY(${(1 - v) * fromY}px)`, opacity: Math.min(1, v * 3) }))
+  return run(el, keyframes, { duration: 700, easing: "linear" })
+}
+
+export function springTo(el: Element, prop: "width" | "transform", from: string, to: string): Promise<void> {
+  if (prop === "width") {
+    const a = parseFloat(from)
+    const b = parseFloat(to)
+    const unit = to.replace(/[-\d.]/g, "") || "%"
+    return run(el, sampleSpring().map((v) => ({ width: `${a + (b - a) * v}${unit}` })), { duration: 1800, easing: "linear" })
+  }
+  return run(el, [{ transform: from }, { transform: to }], { duration: 1800, easing: cssLinear(sampleSpring()) })
+}
+
+export function countUp(el: HTMLElement, from: number, to: number, duration = 1200, format: (n: number) => string = (n) => String(Math.round(n))): Promise<void> {
+  if (reducedMotionFlag || typeof requestAnimationFrame !== "function") {
+    el.textContent = format(to)
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    const start = performance.now()
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      el.textContent = format(from + (to - from) * eased)
+      if (t < 1 && !skipRequested) requestAnimationFrame(step)
+      else {
+        el.textContent = format(to)
+        resolve()
+      }
+    }
+    requestAnimationFrame(step)
+  })
+}
+
+let skipRequested = false
+
+export function requestSkip(on: boolean): void {
+  skipRequested = on
+  if (on) skipAnimations()
+}
+
+export function bloom(el: Element): Promise<void> {
+  return run(
+    el,
+    [
+      { transform: "scale(0.4)", opacity: 0, filter: "brightness(1.6)" },
+      { transform: "scale(1.06)", opacity: 1, filter: "brightness(1.2)", offset: 0.6 },
+      { transform: "scale(1)", opacity: 1, filter: "brightness(1)" },
+    ],
+    { duration: 860, easing: EASING.easeOutBack },
+  )
+}
+
+export function burst(container: HTMLElement, x: number, y: number): Promise<void> {
+  if (reducedMotionFlag) return Promise.resolve()
+  const colors = ["var(--color-star)", "var(--color-xp)", "var(--color-accent)"]
+  const jobs: Promise<void>[] = []
+  for (let i = 0; i < 12; i++) {
+    const dot = document.createElement("span")
+    dot.className = "burst-dot"
+    dot.style.left = `${x}px`
+    dot.style.top = `${y}px`
+    dot.style.background = colors[i % colors.length]
+    container.appendChild(dot)
+    const angle = (i / 12) * Math.PI * 2
+    const dist = 60 + (i % 3) * 18
+    jobs.push(
+      run(dot, [{ transform: "translate(-50%,-50%) scale(1)", opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(angle) * dist}px), calc(-50% + ${Math.sin(angle) * dist}px)) scale(0.3)`, opacity: 0 }], {
+        duration: 820,
+        easing: EASING.easeOutQuart,
+      }).then(() => dot.remove()),
+    )
+  }
+  return Promise.all(jobs).then(() => undefined)
+}
+
+export function maskWipe(el: Element): Promise<void> {
+  return run(el, [{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 700, easing: EASING.easeInOutQuint })
+}
+
+export function iris(el: Element, x: number, y: number, r: number, fromR = 0): Promise<void> {
+  return run(el, [{ clipPath: `circle(${fromR}px at ${x}px ${y}px)` }, { clipPath: `circle(${r}px at ${x}px ${y}px)` }], { duration: 760, easing: EASING.easeOutQuart })
+}
+
+export function softRise(el: Element, delay = 0): Promise<void> {
+  return run(el, [{ opacity: 0, transform: "translateY(7px)", filter: "blur(2.3px)" }, { opacity: 1, transform: "translateY(0)", filter: "blur(0)" }], {
+    duration: 900,
+    delay,
+    easing: EASING.easeOutSine,
+  })
+}
+
+export function press(el: Element): Promise<void> {
+  return run(el, [{ transform: "scale(1)" }, { transform: "scale(0.94)", offset: 0.35 }, { transform: "scale(1)" }], { duration: 420, easing: EASING.easeOutCubic })
+}
+
+export function nudge(el: Element): Promise<void> {
+  return run(el, [{ transform: "translateX(0)" }, { transform: "translateX(-6px)", offset: 0.3 }, { transform: "translateX(4px)", offset: 0.6 }, { transform: "translateX(0)" }], {
+    duration: 520,
+    easing: EASING.easeOutBack,
+  })
+}

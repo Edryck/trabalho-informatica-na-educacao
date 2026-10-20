@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { divergenceLabel, formatValue, particleSpeed, scenarioLabel, visibleDivergences } from "../src/ui"
+import { bounceLand, cssLinear, divergenceLabel, formatValue, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 
 const T = " "
@@ -110,5 +110,38 @@ describe("warningText", () => {
 describe("scenarioLabel off words", () => {
   it("uses a word that fits each part", () => {
     expect(scenarioLabel({ when: {}, then: { M1: "off", Z1: "off", LED1: "off", L1: "off" } }).then).toBe("M1 parado, Z1 em silêncio, LED1 apagado, L1 apagada")
+  })
+})
+
+import { vi } from "vitest"
+
+describe("motion samplers", () => {
+  it("spring starts at 0, ends at 1 and overshoots", () => {
+    const s = sampleSpring()
+    expect(s[0]).toBe(0)
+    expect(s.at(-1)).toBeCloseTo(1, 3)
+    expect(Math.max(...s)).toBeGreaterThan(1)
+    expect(s.length).toBe(40)
+  })
+
+  it("bounce starts at 0, ends at 1 and never passes 1", () => {
+    const b = sampleBounce()
+    expect(b[0]).toBe(0)
+    expect(b.at(-1)).toBeCloseTo(1, 3)
+    expect(Math.max(...b)).toBeLessThanOrEqual(1.0001)
+  })
+
+  it("cssLinear formats a linear() easing", () => {
+    expect(cssLinear([0, 0.5, 1])).toBe("linear(0, 0.5, 1)")
+    expect(cssLinear([0, 0.33333, 1])).toBe("linear(0, 0.333, 1)")
+  })
+
+  it("reduced motion resolves helpers without animating", async () => {
+    setReducedMotion(true)
+    const el = { animate: vi.fn() } as unknown as HTMLElement
+    await pop(el)
+    await bounceLand(el)
+    expect((el as unknown as { animate: ReturnType<typeof vi.fn> }).animate).not.toHaveBeenCalled()
+    setReducedMotion(false)
   })
 })
