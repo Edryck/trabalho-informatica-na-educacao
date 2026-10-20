@@ -85,7 +85,7 @@ The game should feel like a well-kept lab bench at night: calm, technical, with 
 ## Anti-references
 
 - Quiz games dressed up as adventures — the learning has to come from building and measuring, never from picking answers
-- Childish edutainment (cartoon mascots, stars raining on every click) — the audience is teens and adults
+- Childish edutainment (cartoon mascots, rewards for every click, praise for nothing) — the audience is teens and adults. Stars and XP exist, but they mark method milestones (measured, matched the schematic, solved), never clicks or speed, and asking for a hint is never penalised
 - Professional EDA tools (KiCad, LTspice) — powerful but intimidating; this must be approachable in minutes
 - Generic logic-gate puzzle look (Turing Complete style) — this game is about real parts on a real-looking bench
 
