@@ -1,6 +1,6 @@
 import type { LevelInfo, RewardItem } from "./game"
 import type { SfxName } from "./audio"
-import { bloom, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
+import { bloom, phaseLabel, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
 
 export type CompleteSummary = {
   phaseId: string
@@ -88,7 +88,7 @@ export function createCompleteScreen(el: HTMLElement) {
         <div class="complete-card animating" role="dialog" aria-modal="true" aria-labelledby="complete-title" tabindex="-1">
           <header class="complete-head">
             <h2 id="complete-title">Fase concluída</h2>
-            <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)} <span class="mono">${summary.phaseId}</span></p>
+            <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)} <span class="mono">${phaseLabel(summary.phaseId)}</span></p>
           </header>
           <ol class="complete-stars">${stars}</ol>
           <section class="complete-xp" aria-label="Experiência">

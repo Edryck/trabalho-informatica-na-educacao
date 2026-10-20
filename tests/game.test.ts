@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
-import { applyPhaseReward, evaluateStars, goalState, itemsUpTo, levelFor, type Rewards, type StarContext } from "../src/game"
-import type { Evaluation, Star } from "../src/phases"
+import parts from "../data/parts.json"
+import phasesJson from "../data/phases.json"
+import { applyDailyReward, applyPhaseReward, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type StarContext } from "../src/game"
+import type { PartsCatalog } from "../src/netlist"
+import { evaluate, type Evaluation, type PhaseData, type Star } from "../src/phases"
 import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
 
 const rewards = rewardsJson as unknown as Rewards
@@ -98,5 +101,83 @@ describe("starsTotal", () => {
     const data = loadPhases(phasesRaw)
     const progress = { g0p1: { won: true, bestCost: null, stars: [0, 2] }, g1p1: { won: true, bestCost: 5, stars: [0] }, sandbox: { won: true, bestCost: null, stars: [0, 1, 2] } }
     expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 72 })
+  })
+})
+
+const catalog = parts as unknown as PartsCatalog
+const data = loadPhases(phasesJson)
+const g3Done = new Set(data.groups.filter((g) => ["g0", "g1", "g2", "g3"].includes(g.id)).flatMap((g) => g.phases.map((p) => p.id)))
+const DATES = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10"]
+
+describe("daily repair", () => {
+  it("seeded random is deterministic", () => {
+    const a = seededRandom("2026-11-01")
+    const b = seededRandom("2026-11-01")
+    expect([a(), a(), a()]).toEqual([b(), b(), b()])
+    expect(seededRandom("2026-11-02")()).not.toBe(seededRandom("2026-11-01")())
+  })
+
+  it("same date gives the same challenge", () => {
+    const one = dailyRepair("2026-11-03", data, g3Done, catalog)
+    const two = dailyRepair("2026-11-03", data, g3Done, catalog)
+    expect(one).not.toBeNull()
+    expect(JSON.stringify(one!.initial)).toBe(JSON.stringify(two!.initial))
+  })
+
+  it("challenge starts broken and the reference wins", () => {
+    for (const date of DATES) {
+      const phase = dailyRepair(date, data, g3Done, catalog)!
+      expect(phase.id).toBe(`daily-${date}`)
+      expect(phase.type).toBe("repair")
+      expect(phase.showDivergence).toBe(false)
+      expect(phase.stars).toEqual([{ kind: "solved" }, { kind: "usedMeter", mode: "V" }, { kind: "usedMeter", mode: "A" }])
+      expect(evaluate(phase, phase.initial!, catalog).won).toBe(false)
+      expect(evaluate(phase, phase.referenceSolution!, catalog).won).toBe(true)
+    }
+  })
+
+  it("different dates usually differ", () => {
+    const distinct = new Set(DATES.map((d) => JSON.stringify(dailyRepair(d, data, g3Done, catalog)!.initial)))
+    expect(distinct.size).toBeGreaterThanOrEqual(7)
+  })
+
+  it("returns null when nothing breaks", () => {
+    const base = data.groups[1].phases.find((p) => p.type === "build" && p.referenceSolution)!
+    const fake: PhaseData = { future: [], groups: [{ id: "g3", title: "t", demo: true, concept: "", unlocks: [], phases: [{ ...base, id: "x1", expect: [] }] }] }
+    expect(dailyRepair("2026-11-01", fake, new Set(["x1"]), catalog)).toBeNull()
+  })
+
+  it("locked before finishing g3", () => {
+    const partial = new Set([...g3Done].filter((id) => id !== "g3p6"))
+    expect(dailyUnlocked(partial, data)).toBe(false)
+    expect(dailyUnlocked(g3Done, data)).toBe(true)
+  })
+
+  it("streak counts consecutive days, resets on gaps, ignores repeats", () => {
+    let daily = defaultSave().daily
+    daily = updateStreak(daily, "2026-11-01")
+    expect(daily.streak).toBe(1)
+    daily = updateStreak(daily, "2026-11-02")
+    expect(daily.streak).toBe(2)
+    daily = updateStreak(daily, "2026-11-02")
+    expect(daily.streak).toBe(2)
+    expect(daily.wonDates).toEqual(["2026-11-01", "2026-11-02"])
+    daily = updateStreak(daily, "2026-11-30")
+    expect(daily.streak).toBe(2 - 1)
+    expect(updateStreak({ lastWonDate: "2026-10-31", streak: 4, wonDates: ["2026-10-31"] }, "2026-11-01").streak).toBe(5)
+    expect(daily.lastWonDate).toBe("2026-11-30")
+  })
+
+  it("daily xp only once per date", () => {
+    const first = applyDailyReward(defaultSave(), "2026-11-01", rewards)
+    expect(first.xpGained).toBe(150)
+    expect(first.save.xp).toBe(150)
+    expect(first.save.daily.streak).toBe(1)
+    const again = applyDailyReward(first.save, "2026-11-01", rewards)
+    expect(again.xpGained).toBe(0)
+    expect(again.save.xp).toBe(150)
+    const levelUp = applyDailyReward({ ...defaultSave(), xp: 250 }, "2026-11-02", rewards)
+    expect([levelUp.levelBefore, levelUp.levelAfter]).toEqual([1, 2])
+    expect(levelUp.unlocked.map((i) => i.id)).toEqual(["lamp-desk"])
   })
 })

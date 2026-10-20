@@ -219,3 +219,12 @@ describe("tour", () => {
     }
   })
 })
+
+import { phaseLabel } from "../src/ui"
+
+describe("phaseLabel", () => {
+  it("shows the daily repair by its date", () => {
+    expect(phaseLabel("daily-2026-11-03")).toBe("03/11")
+    expect(phaseLabel("g1p2")).toBe("g1p2")
+  })
+})

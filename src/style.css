@@ -2303,6 +2303,20 @@ body.showcase .stage {
   outline-offset: 2px;
 }
 
+.daily-side {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 10px !important;
+}
+
+.daily-play {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 600 13px var(--font-display) !important;
+  color: var(--color-on-fill) !important;
+  background: var(--color-accent-deep);
+}
+
 .daily-streak {
   display: inline-flex;
   align-items: center;

@@ -13,7 +13,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { applyPhaseReward, evaluateStars, goalState, levelFor, starsTotal, type GoalState, type Rewards, type StarContext } from "./game"
+import { applyDailyReward, applyPhaseReward, dailyRepair, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -65,6 +65,7 @@ import {
   createPhaseMap,
   createSettingsScreen,
   createTitleScreen,
+  type DailyCard,
   createPreviewBanner,
   createRewindBar,
   createToastHost,
@@ -210,7 +211,7 @@ function restartPhase(quiet = false) {
   if (id === "sandbox") return startSandbox()
   store.data.draft = null
   store.flush()
-  startPhase(id)
+  startPhase(id, findPhase(phases, id) ? undefined : session.phase)
   if (!quiet) toasts.show("info", "Fase recomeçada do zero.")
 }
 let rewinding = false
@@ -571,7 +572,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
     const divergences = session.phase.showDivergence ? evaluation?.divergences ?? [] : []
     store.data = updateAttempt(store.data, (a) => ({ ...a, changes: a.changes + 1, divergences: trackDivergences(lastDivergences, divergences, a.divergences) }))
     lastDivergences = divergences
-    if (!session.won) store.saveDraftSoon(session.phase.id, doc)
+    if (!session.won && !isDaily(session.phase.id)) store.saveDraftSoon(session.phase.id, doc)
   }
   if (opts.commit) noticeMeterAndWarnings()
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
@@ -588,7 +589,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
 function restore(next: History) {
   history = next
   view = compute(current(history))
-  if (session && !session.won && session.phase.id !== "sandbox") store.saveDraftSoon(session.phase.id, view.doc)
+  if (session && !session.won && session.phase.id !== "sandbox" && !isDaily(session.phase.id)) store.saveDraftSoon(session.phase.id, view.doc)
   advanceSteps()
   checkVictory()
   renderSettled = true
@@ -602,6 +603,7 @@ function activeEditor() {
 
 function meterAvailable(): boolean {
   if (!session) return false
+  if (isDaily(session.phase.id)) return true
   const groupIndex = phases.groups.findIndex((g) => g.phases.some((p) => p.id === session!.phase.id))
   const unlockIndex = phases.groups.findIndex((g) => g.unlocks.includes("multimeter"))
   return unlockIndex >= 0 && groupIndex >= unlockIndex
@@ -727,6 +729,19 @@ function checkVictory() {
   const phase = session.phase
   const earned = evaluateStars(phase.stars, starContext(true)!)
   const xpBefore = store.data.xp
+  if (isDaily(phase.id)) {
+    // estrela do conserto não soma XP: o prêmio é fixo e vale uma vez por data
+    const reward = applyDailyReward(store.data, phase.id.slice("daily-".length), rewards)
+    store.data = reward.save
+    store.flush()
+    return showComplete({
+      stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] })),
+      xpGained: reward.xpGained,
+      levelBefore: levelFor(xpBefore, rewards),
+      levelAfter: levelFor(store.data.xp, rewards),
+      unlocked: reward.unlocked,
+    })
+  }
   const reward = applyPhaseReward(store.data, phase.id, earned, evaluation.cost, rewards)
   store.data = recordReward(reward.save, earned.flatMap((ok, i) => (ok ? [i] : [])), reward.xpGained)
   store.data.draft = null
@@ -905,6 +920,24 @@ function badgeData() {
 
 const SHOWCASE_PHASE = "g2p3"
 
+function today(): string {
+  return new Date().toLocaleDateString("sv-SE")
+}
+
+function isDaily(id: string | undefined): boolean {
+  return id?.startsWith("daily-") ?? false
+}
+
+function dailyCard(): DailyCard {
+  const date = today()
+  const daily = store.data.daily
+  const unlocked = dailyUnlocked(progressWon(), phases)
+  const done = daily.wonDates.includes(date)
+  // sequência parada há mais de um dia já não vale, mesmo antes de jogar de novo
+  const alive = daily.lastWonDate === date || (daily.lastWonDate !== null && updateStreak(daily, date).streak > daily.streak)
+  return { unlocked, done, available: unlocked && !done && dailyRepair(date, phases, progressWon(), catalog) !== null, streak: alive ? daily.streak : 0 }
+}
+
 function showTitle() {
   openOverlay("title")
   document.body.classList.add("showcase")
@@ -922,9 +955,12 @@ function showTitle() {
     sandboxAvailable: progressWon().size > 0,
     workshopAvailable: false,
     badge: badgeData(),
-    daily: { unlocked: false, done: false, streak: store.data.daily.streak },
+    daily: dailyCard(),
     onWorkshop: () => undefined,
-    onDaily: () => undefined,
+    onDaily: () => {
+      const phase = dailyRepair(today(), phases, progressWon(), catalog)
+      if (phase) startPhase(phase.id, phase)
+    },
     onContinue: () => {
       const draft = store.data.draft?.phaseId
       startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
@@ -972,7 +1008,7 @@ function showComplete(reward: Pick<CompleteSummary, "stars" | "xpGained" | "leve
   if (!session || !evaluation) return
   const phase = session.phase
   const order = phaseOrder(phases)
-  const nextId = order[order.indexOf(phase.id) + 1]
+  const nextId = isDaily(phase.id) ? undefined : order[order.indexOf(phase.id) + 1]
   openOverlay("complete")
   void completeScreen.show(
     {
@@ -1132,4 +1168,4 @@ showTitle()
 
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)
 
-if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox } })
+if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox, dailyRef: () => session?.phase.referenceSolution } })

@@ -371,6 +371,11 @@ export function scenarioLabel(scenario: ScenarioLike): { when: string; then: str
 const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'
 const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 
+export function phaseLabel(id: string): string {
+  // conserto do dia aparece pela data, "daily-2026-11-03" vira "03/11"
+  return id.startsWith("daily-") ? id.slice(6).split("-").reverse().slice(0, 2).join("/") : id
+}
+
 export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[] }
 const METER_UNITS: Record<"V" | "A" | "ohm", string> = { V: "V", A: "A", ohm: "Ω" }
 
@@ -476,7 +481,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
       el.innerHTML = `
         <header class="brief-head">
           <span class="brief-tag">${PHASE_TAGS[phase.type] ?? phase.type}</span>
-          <span class="brief-id mono">${phase.id}</span>
+          <span class="brief-id mono">${phaseLabel(phase.id)}</span>
           <button type="button" class="brief-link" data-action="restart" title="Volta a fase pro começo">${confirmingRestart ? "Confirmar recomeço" : "Recomeçar"}</button>
           <button type="button" class="brief-link" data-action="phases">Fases</button>
         </header>
@@ -667,7 +672,7 @@ export function createTopBar(el: HTMLElement, onMap: () => void) {
   }
 }
 
-export type DailyCard = { unlocked: boolean; done: boolean; streak: number }
+export type DailyCard = { unlocked: boolean; done: boolean; available: boolean; streak: number }
 
 export type TitleActions = {
   canContinue: boolean
@@ -693,9 +698,12 @@ const WRENCH_ICON =
 function dailyCardHtml(daily: DailyCard): string {
   if (!daily.unlocked)
     return `<div class="daily-card locked">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>${LOCK_SMALL} Libera ao concluir Resistência</span></div></div>`
+  const streak = daily.streak > 0 ? `<span class="daily-streak" aria-label="Sequência de ${daily.streak} ${daily.streak === 1 ? "dia" : "dias"}">${FLAME_ICON}${daily.streak}</span>` : ""
+  if (!daily.done && !daily.available)
+    return `<div class="daily-card done">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>Sem conserto hoje · volta amanhã</span></div>${streak}</div>`
   if (daily.done)
-    return `<div class="daily-card done">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>${CHECK_ICON} Feito hoje · volta amanhã</span></div>${daily.streak > 0 ? `<span class="daily-streak">${FLAME_ICON}${daily.streak}</span>` : ""}</div>`
-  return `<button type="button" class="daily-card available" data-action="daily">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>Um circuito quebrado te esperando</span></div>${daily.streak > 0 ? `<span class="daily-streak">${FLAME_ICON}${daily.streak}</span>` : ""}</button>`
+    return `<div class="daily-card done">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>${CHECK_ICON} Feito hoje · volta amanhã</span></div>${streak}</div>`
+  return `<button type="button" class="daily-card available" data-action="daily">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>Um circuito quebrado te esperando</span></div><span class="daily-side">${streak}<span class="daily-play">Jogar</span></span></button>`
 }
 
 export function createTitleScreen(el: HTMLElement) {
@@ -750,6 +758,8 @@ export function createTitleScreen(el: HTMLElement) {
       </div>`
     const badge = createPlayerBadge(el.querySelector<HTMLElement>(".title-badge")!)
     void badge.render(a.badge)
+    const daily = el.querySelector<HTMLElement>(".daily-card.available")
+    if (daily) glowPulse(daily)
     const blocks = [...el.querySelectorAll<HTMLElement>(".title-panel > *")]
     void stagger(blocks, (block, delay) => fadeSlide(block, { delay, duration: 600 }), 60)
     el.querySelector<HTMLButtonElement>(".title-actions button")?.focus({ preventScroll: true })
@@ -1346,6 +1356,15 @@ export function softRise(el: Element, delay = 0): Promise<void> {
     delay,
     easing: EASING.easeOutSine,
   })
+}
+
+export function glowPulse(el: HTMLElement): Animation | null {
+  // loop infinito fica fora do registro de animações: finish() num loop infinito lança erro
+  if (reducedMotionFlag || typeof el.animate !== "function") return null
+  return el.animate(
+    [{ boxShadow: "0 3px 0 var(--color-border), 0 0 0 0 rgba(184,115,51,0)" }, { boxShadow: "0 3px 0 var(--color-border), 0 0 0 6px rgba(184,115,51,0.28)" }, { boxShadow: "0 3px 0 var(--color-border), 0 0 0 0 rgba(184,115,51,0)" }],
+    { duration: 1100, iterations: Infinity, easing: "cubic-bezier(.37,0,.63,1)" },
+  )
 }
 
 export function press(el: Element): Promise<void> {
