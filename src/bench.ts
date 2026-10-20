@@ -83,7 +83,7 @@ export const WIRE_PALETTE = [
 ]
 
 const COLOR = {
-  mat: 0x1a2128,
+  mat: 0xe7e1d6,
   board: 0xf2f0ea,
   hole: 0x3a3f45,
   holeStrip: 0x8a9aab,
@@ -183,7 +183,7 @@ type Spinner = { obj: Object3D; direction: number }
 export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: BenchCallbacks) {
   const renderer = new WebGLRenderer({ antialias: true })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setClearColor(0x0e141b)
+  renderer.setClearColor(0xf6f1e8)
   container.appendChild(renderer.domElement)
 
   const scene = new Scene()

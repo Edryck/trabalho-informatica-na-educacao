@@ -2,153 +2,110 @@
 
 ## Theme
 
-Dark mode primary. Two surfaces with different moods that must read as the same game:
+Light studio workshop, playful but precise. The base follows the clean product look of a well-lit maker studio (warm cream background, white panels, soft shadows, saturated parts); on top sits a game layer that is impossible to miss: level and XP always visible, chunky pressable buttons, stars that drop and bounce, celebrations with sound.
 
-- **Blueprint (2D)** — deep blueprint blue with a fine grid, symbols drawn in light cyan lines. Feels like a technical drawing.
-- **Bench (3D)** — dark anti-static mat under a warm desk light, white breadboard, real-looking parts. Feels like a lab at night.
+Two surfaces that must read as the same game:
 
-The UI chrome (panels, toolbars, datasheet) sits on top of both and uses the same neutral dark palette, so switching between blueprint and bench never feels like changing apps. A light theme is not built in the demo.
+- **Bench (3D)** — bright studio: warm light floor, one soft key light with contact shadows, product-like parts in strong colors, LEDs and lamps that really glow.
+- **Blueprint (2D)** — unchanged: deep blueprint blue with a fine grid and light cyan symbols. The UI frame around it follows this document.
 
 ## Colors
 
 | Token | Value | Role |
 |-------|-------|------|
-| `colorBg` | `#0E141B` | App background, outside the canvases |
-| `colorPanel` | `#16202B` | Panels, toolbars, datasheet card |
-| `colorPanelRaised` | `#1D2A38` | Hover, selected list items, popovers |
-| `colorBorder` | `#2A3A4C` | Panel borders, dividers |
-| `colorText` | `#E6EDF3` | Primary text |
-| `colorTextMuted` | `#93A4B5` | Secondary text, labels, metadata |
-| `colorBlueprint` | `#0B2540` | Blueprint canvas background |
-| `colorBlueprintGrid` | `#16385C` | Blueprint grid lines |
-| `colorBlueprintLine` | `#9FD3FF` | Symbols and wires on the blueprint |
-| `colorAccent` | `#E0954A` | Copper — primary action, selected tool, focus ring |
-| `colorAccentPressed` | `#C27A35` | Pressed/hover of primary action |
-| `colorCurrent` | `#FFD166` | Current view particles and arrows |
-| `colorSuccess` | `#4CC38A` | Phase complete, expected state reached |
-| `colorWarning` | `#E3B341` | Divergence blueprint × bench, measurement out of range |
-| `colorError` | `#E5534B` | Short circuit, burned part (g6+), invalid placement |
-| `colorPositive` | `#E5534B` | + rail / VCC marker (always paired with "+" glyph) |
-| `colorNegative` | `#5AA9E6` | − rail / GND marker (always paired with "−" glyph) |
+| `colorBg` | `#F6F1E8` | App background (warm cream, subtle circuit-trace pattern) |
+| `colorPanel` | `#FFFFFF` | Panels, cards, tray |
+| `colorPanelSoft` | `#FBF7F0` | Hover, list rows |
+| `colorBorder` | `#E9DFCE` | Borders, dividers |
+| `colorText` | `#2B2118` | Primary text |
+| `colorTextMuted` | `#6B5D4F` | Secondary text (AA on cream and white) |
+| `colorAccent` | `#B87333` | Copper brand: borders, icons, focus ring, selection |
+| `colorAccentDeep` | `#8A5424` | Filled primary buttons (white text AA), copper text on white |
+| `colorAccentShadow` | `#5E3818` | Solid bottom shadow of primary buttons |
+| `colorXp` | `#6D4BFF` | XP, level, progress |
+| `colorXpDeep` | `#4B2FD1` | XP shadow and text |
+| `colorStar` | `#FFB400` | Earned stars (always with a dark outline) |
+| `colorSuccess` | `#16A34A` | Win state, check icons (text uses `#15803D`) |
+| `colorWarning` | `#D97706` | Divergence, warnings (text uses `#B45309`) |
+| `colorError` | `#DC2626` | Short circuit, invalid placement |
+| `colorPositive` | `#E11D74` | + rail / VCC, always with the "+" glyph |
+| `colorNegative` | `#2563EB` | − rail / GND, always with the "−" glyph |
+| `colorCurrent` | `#F59E0B` | Current view particles and arrows |
 
-Rail and state colors are never the only signal: "+", "−", icons or dash patterns always go with them.
+Part and wire colors (saturated): green `#22C55E`, yellow `#FFC21A`, blue `#3B82F6`, pink `#EC4899`, coral `#EF4444`, purple `#8B5CF6`, orange `#F97316`.
+
+Color never carries meaning alone: stars have filled vs outline shapes, rails carry "+"/"−", phase states use icons, divergence uses dashes, invalid placement uses hatching.
 
 ## Typography
 
-Font family: **IBM Plex Sans** for UI, **IBM Plex Mono** for values, IDs and the multimeter. Both are SIL Open Font License and ship with the game.
-Fallback stack: `"IBM Plex Sans", system-ui, sans-serif` / `"IBM Plex Mono", ui-monospace, monospace`
+| Style | Font | Weight | Size | Usage |
+|-------|------|--------|------|-------|
+| Display | Rubik | 700 | 40–56px | Game title, celebration headline |
+| Title | Rubik | 600 | 20–28px | Screen and group titles |
+| Game number | Rubik | 600 | 14–24px | Level, XP, star counts, counters |
+| Button | Rubik | 600 | 15px | Primary and secondary buttons |
+| Body | IBM Plex Sans | 400 | 14px | Brief, datasheet, feedback |
+| Label | IBM Plex Sans | 500 | 12px, +0.04em | Field labels, tags |
+| Value | IBM Plex Mono | 400 | 14px | Electrical values, IDs |
+| Meter | IBM Plex Mono | 500 | 32px | Multimeter display |
 
-| Style | Weight | Size | Usage |
-|-------|--------|------|-------|
-| Display | SemiBold (600) | 28px | Group title on the phase map ("Circuitos lógicos") |
-| Heading | SemiBold (600) | 18px | Panel titles, phase name, datasheet component name |
-| Body | Regular (400) | 14px | Phase brief, datasheet text, feedback |
-| Label | Medium (500) | 12px, +0.04em | Tool names, field labels, toggles |
-| Value | Plex Mono Regular | 14px | Electrical values (`4,72 V`, `18,3 mA`, `220 Ω`) |
-| Meter | Plex Mono Medium | 32px | Multimeter display |
+Electrical values keep SI prefixes, Brazilian decimal comma and a thin space before units.
 
-Electrical values always use SI prefixes and the Brazilian decimal comma (`0,02 A` is shown as `20,0 mA`). Units always have a thin space before them.
+## Shape and depth
 
-## Iconography
-
-Line icons, 1.5px stroke, 20px default, rounded joins. Electrical symbols on the blueprint follow the chosen standard (IEC default, ANSI toggle) and are drawn as SVG, never as icon-font glyphs.
-
-Key icons: select, wire, place part, multimeter, current view, undo, rewind, datasheet, blueprint view, bench view, run/power, reset phase.
-
-## Components
-
-### Tool Bar (left)
-- Vertical, `colorPanel`, 56px wide
-- Tools: select, wire, multimeter, current view toggle, undo, rewind
-- Active tool: `colorAccent` icon + 2px left indicator
-- Each tool has a keyboard shortcut shown in its tooltip
-
-### Parts Tray (bottom)
-- Horizontal strip, `colorPanel`, 88px tall
-- Shows only parts unlocked and allowed in the current phase, with remaining count badge
-- Locked parts don't appear (no grayed-out teasers)
-- Drag from tray to blueprint or bench; click opens the datasheet
-
-### Phase Brief (top right)
-- Card on `colorPanel`, 320px wide
-- Phase name, type tag (tutorial / montagem / conserto / encomenda), goal in one or two sentences
-- Expected state shown as a checklist that ticks live as the simulator reaches it
-- Order phases also show the spec (parts allowed, budget)
-
-### Datasheet Card
-- Opens automatically when a part is unlocked, later from the tray or the part
-- Sections: what it does, symbol (IEC/ANSI), key values in Plex Mono, how it goes on the breadboard, one common mistake
-- Short text, written like a lab monitor explaining it, never like a textbook
-
-### Multimeter (HUD)
-- Floating panel bottom-right, mode selector (V, A, Ω) and the Meter display
-- Probes are placed on breadboard holes; reading updates live from the solver
-- Ammeter mode requires breaking the loop (series), as in real life; the game says so when it's used wrong
-
-### Current View
-- Toggle in the tool bar
-- On: small `colorCurrent` particles move along wires in the conventional current direction; speed proportional to current (clamped so tiny currents still visibly move)
-- Arrows on every wire segment so the direction reads without motion
-- Reduced motion: particles off, arrows only
-
-### Feedback Toast
-- Bottom center, above the tray
-- Success: `colorSuccess` left bar. Warning/error: matching bar + icon
-- Error text follows the course guidelines: says why, gives a hint, never shows the answer on the first try, never mocking
-
-### Divergence Marker
-- When blueprint and bench netlists differ, both views highlight the mismatched connection with a `colorWarning` dashed outline and a short label ("no esquema essa ponta vai no +")
-
-### Buttons
-- Primary: `colorAccent` bg, `colorBg` text, SemiBold, radius 6px, height 36px
-- Secondary: transparent, 1px `colorBorder`, `colorText`
-- No gradients, no glow on buttons. Glow is reserved for things that are electrically on (LEDs, lamps)
-
-## Screens & Navigation
-
-1. **Title** — game name, continue / new game / sandbox / settings
-2. **Phase map** — groups as columns or a path, phases as nodes; completed, available and locked states (icon + color)
-3. **Phase screen** — the main workspace:
-   - Center: blueprint or bench, switched by a two-state toggle (`Blueprint | Bancada`, shortcut `Tab`)
-   - Left: tool bar. Bottom: parts tray. Top right: phase brief. Bottom right: multimeter when active
-4. **Phase complete** — summary: expected state reached, parts used, cost, "tentar versão mais barata" option
-5. **Sandbox** — same workspace, all unlocked parts, no brief, save/load slots
-6. **Settings** — symbol standard (IEC/ANSI), reduced motion, volume, reset progress
-
-## Layout
-
-- Desktop first, minimum 1280×720
-- Canvas takes all space not used by panels; panels never cover the area where the circuit is
-- Panel padding: 12px; gap between panels: 8px
-- Click targets: minimum 32px in the UI, 1 hole pitch in the bench with hover snapping to the nearest hole
+- Panels: white, 1px `colorBorder`, radius 14px, shadow `0 8px 24px rgba(80,60,30,.12)` (soft, offset — never a zero-offset colored glow).
+- Primary button ("chunky"): 44px tall, `colorAccentDeep` fill, white Rubik text, solid 3px bottom shadow in `colorAccentShadow`; on press it moves down 3px and the shadow disappears.
+- Secondary button: white fill, `colorBorder` outline and bottom shadow, same press behavior.
+- XP bar: rounded track in `colorPanelSoft`, `colorXp` fill with a lighter top highlight.
+- Stars: 5-point star with a dark outline; earned = `colorStar` fill, not earned = outline only, neutral goal = dashed gray outline.
 
 ## Bench (3D)
 
-- Camera: orbit around the breadboard with limits (no going under the table), default 3/4 top view, `F` to frame the board
-- Interaction happens on the board plane: hover highlights the hole under the cursor, connected holes of the same strip light up faintly so the internal wiring is learnable
-- Wires are free: the player clicks a start hole and an end hole; the wire is a tube following a soft curve between them. Auto-tidy is a future feature
-- Parts are mostly procedural geometry (resistor body with real color bands, LED dome, chips with notch and pin 1 dot); third-party models only where procedural looks bad, always credited
-- Lighting: one warm key light, soft fill, LEDs and lamps emit when lit
+- Background and floor: cream `#F6F1E8` fading into a warm gray floor `#E7E1D6`.
+- Lighting: one soft directional key with 2048px soft shadows, a hemisphere fill, and a studio environment generated with `RoomEnvironment` (no external HDR file). ACES tone mapping.
+- A shadow-catcher plane gives contact shadows under the board and parts.
+- Parts look like well-made products: rounded edges, satin plastic, metallic terminals, strong colors. Battery with a colored band and label; lamp with a threaded socket and glass bulb with a glowing filament; buttons with green or yellow caps; LEDs with translucent heads; chips matte black with silver pins and printed codes; the breadboard white with colored rails and printed column numbers.
+- Reactions: lamp filament and halo follow brightness; LED glow in its color; motor propeller spins with a slight body vibration; buzzer emits animated rings; a short circuit throws small sparks for 600ms (nothing burns); a placed part does a small settle bounce.
+- Light mode: after a 3s warm-up, if the frame rate stays below 40 for 2s, shadows and environment turn off and the game says so once.
 
-## Blueprint (2D)
+## Screens
 
-- SVG on a grid of 20px; symbols snap to grid, wires are orthogonal on the blueprint (unlike the free wires of the bench)
-- Junction dots on T connections, no dot on crossings
-- Labels (`R1`, `LED1`, `U1`) assigned automatically, editable
+1. **Title** — the player's bench in slow showcase orbit behind a white panel: logo, player badge (level, XP bar, stars), daily repair card, buttons (Continue, New game, Workshop, Sandbox, Settings).
+2. **Phase map** — one path per group with round nodes, 3 stars under each node, padlock on locked groups, player badge on top.
+3. **Phase screen** — top bar (level, XP, the phase's 3 star goals, map button), brief panel (goal, scenario checklist, star goals), tool bar, tray with chunky part cards and mini illustrations, blueprint/bench toggle.
+4. **Phase complete** — celebration: stars drop one by one, XP counts up, level bar fills, unlock scene on level up; skippable with click or Esc.
+5. **Workshop** — bench close-up with unlocked decor, cosmetic cards (breadboard, wires, mat), next reward.
+6. **Settings** — symbol standard, reduced motion, volume, shortcuts, replay tour, export data, reset progress.
 
 ## Motion
 
-- View switch blueprint ↔ bench: crossfade 200ms
-- Panels open: fade + translateY 6px, 150ms, ease-out
-- Expected-state checklist tick: 120ms scale on the check
-- LED turning on: brightness ramp 80ms, no flicker
-- No bounce, no elastic
-- `prefers-reduced-motion`: all transitions instant, current particles off
+Reference: TakayuStudio motion reference catalog. Web Animations API and CSS only; spring and bounce are sampled into keyframes or CSS `linear()`.
 
-## Simulation UI Patterns
+| Moment | Pattern | Duration | Easing |
+|--------|---------|----------|--------|
+| Screen and panel entrance | fade + slide (フェード＋スライド) | 600ms (panels 300ms) | easeOutCubic |
+| Lists, map nodes, tray cards | sequential list (リスト順次表示) | 760ms, 40ms gap | easeOutCubic |
+| Checklist tick, star goal lighting | pop scale (ポップスケール) | 520ms | easeOutBack |
+| Star dropping on completion | bounce landing (バウンス着地) | 700ms | easeOutBounce |
+| XP bar filling | spring follow (スプリング追従) | 1800ms | damped spring (mass 1, stiffness 80, damping 10) |
+| XP number | count up (カウントアップ) | 1200ms | easeOutCubic |
+| Item unlocked | expand from center + bloom (中央から展開 + ブルーム出現) | 860ms + 780ms | easeOutBack / easeOutQuart |
+| Level up | particle burst (パーティクルバースト) | 820ms | easeOutQuart |
+| Blueprint ↔ bench toggle | view crossfade (ビュークロスフェード) | 200ms | easeInOutCubic |
+| Screen change | mask wipe (マスクワイプ) | 700ms | easeInOutQuint |
+| Tour spotlight | iris open (アイリスオープン) | 760ms | easeOutQuart |
+| Balloon and brief text | soft rise (ソフトライズ) | 900ms | easeOutSine |
+| Button press | press feedback (プレスフィードバック) | 420ms | easeOutCubic |
+| Hint offer | nudge (ナッジ) | 520ms | easeOutBack |
+| Toasts | toast stack (トーストスタック) | 600ms | damped spring |
+| Daily repair available | glow pulse (グローパルス) | 1100ms loop | easeInOutSine |
 
-- **Single source of truth**: every value shown anywhere (meter, current view, LED brightness, checklist) comes from the last solver result. No screen recalculates anything.
-- **Live by default**: the circuit is solved on every change; there's no "simulate" button. A power switch on the battery lets the player cut everything.
-- **Number formatting**: one shared formatter for values (SI prefix, 3 significant digits, comma decimal).
-- **Nothing burns before g6**: before the Limits group, overcurrent shows a `colorWarning` marker and a hint instead of destroying the part.
-- **Rewind** restores the full circuit state (blueprint + bench), not just the last action.
+Reduced motion (system or settings): everything is instant, no loops, no particles; the completion screen shows its final state directly.
+
+## Sound
+
+CC0 effects, volume in settings, silent failure if the browser blocks audio: click, snap (part placed), wire, toggle, tick (scenario met), star (rising pitch per star), win, level up, unlock, soft error (short circuit, never punitive).
+
+## Simulation UI patterns
+
+Unchanged from the original design: every value shown comes from the last solver result, the circuit is solved live on every change, one shared value formatter, nothing burns before the Limits group, rewind restores both views.

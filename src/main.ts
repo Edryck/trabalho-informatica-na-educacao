@@ -3,6 +3,9 @@ import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
 import "@fontsource/ibm-plex-mono/400.css"
 import "@fontsource/ibm-plex-mono/500.css"
+import "@fontsource/rubik/500.css"
+import "@fontsource/rubik/600.css"
+import "@fontsource/rubik/700.css"
 import "./style.css"
 import partsJson from "../data/parts.json"
 import phasesJson from "../data/phases.json"
@@ -50,6 +53,7 @@ import {
   createMeterHud,
   createValuePicker,
   formatValue,
+  setReducedMotion,
   warningText,
   createPendingList,
   createPhaseBrief,
@@ -159,6 +163,7 @@ const hints: Record<ViewName, string | null> = { bench: null, blueprint: null }
 const systemReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 let reducedMotion = systemReducedMotion || store.data.settings.reducedMotion
 document.body.classList.toggle("reduce-motion", reducedMotion)
+setReducedMotion(reducedMotion)
 
 function overlayOpen(): boolean {
   return overlay !== null
@@ -233,6 +238,7 @@ const settingsScreen = createSettingsScreen(settingsEl, {
     store.save()
     reducedMotion = systemReducedMotion || on
     document.body.classList.toggle("reduce-motion", reducedMotion)
+setReducedMotion(reducedMotion)
     showSettings(overlayReturn)
     render()
   },
@@ -613,7 +619,11 @@ function checkVictory() {
   const id = session.phase.id
   const previous = store.data.progress[id]
   const cost = evaluation.cost
-  store.data.progress[id] = { won: true, bestCost: previous?.bestCost === null || previous?.bestCost === undefined ? cost : Math.min(previous.bestCost, cost) }
+  store.data.progress[id] = {
+    won: true,
+    bestCost: previous?.bestCost === null || previous?.bestCost === undefined ? cost : Math.min(previous.bestCost, cost),
+    stars: [...new Set([...(previous?.stars ?? []), 0])].sort(),
+  }
   store.data.draft = null
   store.data = finishAttempt(store.data, true, new Date())
   store.flush()
@@ -852,6 +862,7 @@ function startSandbox() {
     steps: null,
     hints: [],
     referenceSolution: null,
+    stars: [{ kind: "solved" }],
   }
   startPhase("sandbox", sandbox)
 }

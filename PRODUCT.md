@@ -89,6 +89,19 @@ The game should feel like a well-kept lab bench at night: calm, technical, with 
 - Professional EDA tools (KiCad, LTspice) — powerful but intimidating; this must be approachable in minutes
 - Generic logic-gate puzzle look (Turing Complete style) — this game is about real parts on a real-looking bench
 
+## Gamification
+
+The simulator is the engine; the game layer is what makes people play it and come back.
+
+- **Stars:** each phase has 3 stars. The first is always "solve it"; the others reward method — measuring with the right meter scale, keeping the schematic equal to the build, staying within cost or wire count. Never speed, never "no hints".
+- **XP and levels:** 100 XP per new star, 10 levels. Level and XP are always visible.
+- **Growing workshop:** every level unlocks either decor that appears around the bench or a cosmetic (breadboard color, wire palette, mat).
+- **Daily repair:** after the Resistance group, a broken circuit generated from the date; fixed by measuring. Tracks a streak of consecutive days; no ranking.
+- **Best version:** after winning above the lowest known cost, the player can view the cheapest correct solution.
+- **Juice:** celebration on completion, sound effects, reactive 3D parts. A short spotlight tour shows where everything is.
+
+XP, levels and the workshop are extrinsic motivation. They are kept on method (not clicks or speed) and asking for help is never penalised, so they support the intrinsic reward of watching the circuit work rather than replacing it.
+
 ## Design Principles
 
 1. **The simulator is the teacher** — feedback comes from what the circuit actually does, not from a script saying "wrong"
