@@ -3053,3 +3053,20 @@ body.showcase .layout {
 .ws-decor li.on .ws-status {
   color: var(--color-success-text);
 }
+
+/* olhando a solução de menor custo: estrelas e bandeja são do jogador, não da referência */
+body.viewing-best .topbar-stars,
+body.viewing-best .brief-head button {
+  visibility: hidden;
+}
+
+body.viewing-best .brief-goals,
+body.viewing-best .brief-hint {
+  display: none;
+}
+
+body.viewing-best .tray-host,
+body.viewing-best .toolbar-host .tool {
+  opacity: 0.45;
+  pointer-events: none;
+}

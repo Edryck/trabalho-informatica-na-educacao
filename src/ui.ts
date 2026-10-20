@@ -925,9 +925,9 @@ export function createPreviewBanner(el: HTMLElement, onExit: () => void) {
   el.setAttribute("role", "status")
   el.addEventListener("click", onExit)
   return {
-    show(text: string | null) {
+    show(text: string | null, prefix = "Pré-visualizando: ") {
       el.hidden = text === null
-      el.innerHTML = text === null ? "" : `<span>Pré-visualizando: ${text}</span><span class="preview-exit">Esc ou clique pra voltar</span>`
+      el.innerHTML = text === null ? "" : `<span>${prefix}${text}</span><span class="preview-exit">Esc ou clique pra voltar</span>`
     },
   }
 }

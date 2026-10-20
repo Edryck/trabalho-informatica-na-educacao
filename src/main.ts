@@ -191,7 +191,7 @@ const hint = createHint(hintEl)
 const bar = createDivergenceBar(barEl)
 const toggle = createViewToggle(toggleEl, switchView)
 const toasts = createToastHost(toastEl)
-const preview = createPreviewBanner(previewEl, () => setPreview(null))
+const preview = createPreviewBanner(previewEl, () => (bestView ? closeBestVersion() : setPreview(null)))
 const brief = createPhaseBrief(briefEl, {
   onPreview: (index) => {
     if (rewinding) return
@@ -322,7 +322,7 @@ setReducedMotion(reducedMotion)
 
 const callbacks = (name: ViewName) => ({
   onChange: (doc: CircuitDoc, commit: boolean) => {
-    if (rewinding || tour.isOpen()) return
+    if (rewinding || tour.isOpen() || bestView) return
     if (session?.previewIndex !== null && session?.previewIndex !== undefined) return
     update(doc, { commit })
   },
@@ -393,7 +393,7 @@ function queueNewDatasheets(phase: Phase) {
 }
 
 async function pickFromTray(type: string) {
-  if (!session || overlayOpen() || rewinding || tour.isOpen() || session.previewIndex !== null) return
+  if (!session || overlayOpen() || rewinding || tour.isOpen() || bestView || session.previewIndex !== null) return
   const item = type.startsWith("pending:") ? pendingFor("bench").find((p) => `pending:${p.id}` === type) : undefined
   const partType = item?.type ?? type
   const values = activeView === "bench" ? session.phase.trayValues?.[partType] : undefined
@@ -433,7 +433,7 @@ function physicalHtml(type: string, value: number): string {
 }
 
 async function editValue(id: string) {
-  if (rewinding) return
+  if (rewinding || bestView) return
   const instance = view.doc.instances.find((i) => i.id === id)
   const values = instance ? catalog[instance.type]?.values : undefined
   if (!instance || !values || values.length === 0 || !session) return
@@ -520,8 +520,10 @@ function render() {
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
   toolbar.setRewind(history.snapshots.length > 1)
   toolbar.setCurrentView(currentView)
-  stageEl.classList.toggle("previewing", previewResult !== undefined)
-  preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
+  stageEl.classList.toggle("previewing", previewResult !== undefined || bestView !== null)
+  document.body.classList.toggle("viewing-best", bestView !== null)
+  if (bestView) preview.show("Solução de menor custo", "")
+  else preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
   if (phase && ev && session) {
     // estado no meio de um arrasto não conta: só o que o jogador soltou ou desfez
     const settled = renderSound || renderSettled
@@ -613,7 +615,7 @@ function meterAvailable(): boolean {
 }
 
 function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
-  if (!session || rewinding) return
+  if (!session || rewinding || bestView) return
   const doc = structuredClone(view.doc)
   doc.bench.meter.mode = mode
   if (mode !== "off") lastMeterMode = mode
@@ -686,7 +688,7 @@ function switchView(next: ViewName) {
 }
 
 function setPreview(index: number | null) {
-  if (!session) return
+  if (!session || bestView) return
   session.previewIndex = index
   if (index !== null) setTool("select")
   render()
@@ -787,6 +789,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   const phase = synthetic ?? findPhase(phases, phaseId)
   if (!phase) return
   rewinding = false
+  bestView = null
   rewindBar.hide()
   const draft = store.data.draft
   let resumed = draft && draft.phaseId === phaseId && isValidDoc(draft.doc, catalog) ? draft.doc : null
@@ -866,6 +869,10 @@ function cancelRewind() {
 
 function openOverlay(kind: Exclude<Overlay, null>) {
   cancelRewind()
+  if (bestView) {
+    view = compute(bestView.doc)
+    bestView = null
+  }
   hideOverlays()
   overlay = kind
   document.body.classList.add("overlay")
@@ -1043,8 +1050,32 @@ function partsUsed(doc: CircuitDoc, side: "bench" | "blueprint"): { label: strin
   return [...counts].map(([type, count]) => ({ label: PART_LABELS[type] ?? type, count }))
 }
 
-function showComplete(reward: Pick<CompleteSummary, "stars" | "xpGained" | "levelBefore" | "levelAfter" | "unlocked">) {
+type CompleteReward = Pick<CompleteSummary, "stars" | "xpGained" | "levelBefore" | "levelAfter" | "unlocked">
+let lastReward: CompleteReward | null = null
+let bestView: AppView | null = null
+
+function showBestVersion() {
+  const reference = session?.phase.referenceSolution
+  if (!session || !reference || bestView) return
+  // guarda o circuito do jogador; a referência só é olhada, nunca vira documento editável
+  bestView = view
+  hideOverlays()
+  setTool("select")
+  view = compute(structuredClone(reference))
+  render()
+}
+
+function closeBestVersion() {
+  if (!bestView || !lastReward) return
+  view = compute(bestView.doc)
+  bestView = null
+  render()
+  showComplete(lastReward, true)
+}
+
+function showComplete(reward: CompleteReward, instant = false) {
   if (!session || !evaluation) return
+  lastReward = reward
   const phase = session.phase
   const order = phaseOrder(phases)
   const nextId = isDaily(phase.id) ? undefined : order[order.indexOf(phase.id) + 1]
@@ -1070,10 +1101,12 @@ function showComplete(reward: Pick<CompleteSummary, "stars" | "xpGained" | "leve
         store.data = startAttempt(store.data, session.phase.id, new Date())
         closeOverlay()
       },
+      onBest: phase.referenceSolution && !isDaily(phase.id) ? showBestVersion : null,
       onRetry: () => restartPhase(true),
       onMap: showPhaseList,
       play: (name, pitch) => audio.play(name, pitch),
     },
+    instant,
   )
 }
 
@@ -1106,7 +1139,7 @@ function startSandbox() {
 }
 
 function onToolbar(id: ToolId) {
-  if (overlayOpen() || !session || rewinding) return
+  if (overlayOpen() || !session || rewinding || bestView) return
   if (session?.previewIndex !== null && session?.previewIndex !== undefined && id !== "currentView") return
   if (id === "select" || id === "wire") setTool(id)
   else if (id === "meter") toggleMeter()
@@ -1131,6 +1164,16 @@ window.addEventListener("keydown", (event) => {
     return
   }
   if (rewinding) return
+  if (bestView) {
+    const key = event.key.toLowerCase()
+    if (event.key === "Escape") closeBestVersion()
+    else if (key === "v" || key === "f") {
+      if (key === "v") switchView(activeView === "bench" ? "blueprint" : "bench")
+      else bench.frame()
+    } else return
+    event.preventDefault()
+    return
+  }
   if (overlayOpen()) {
     if (event.key === "Escape" && session && overlay === "map") {
       event.preventDefault()

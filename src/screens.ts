@@ -21,6 +21,7 @@ export type CompleteSummary = {
 export type CompleteHandlers = {
   onNext: (() => void) | null
   onCheaper(): void
+  onBest: (() => void) | null
   onRetry(): void
   onMap(): void
   play(name: SfxName, pitch?: number): void
@@ -61,11 +62,12 @@ export function createCompleteScreen(el: HTMLElement) {
     if (!handlers) return
     if (action === "next") handlers.onNext?.()
     if (action === "cheaper") handlers.onCheaper()
+    if (action === "best") handlers.onBest?.()
     if (action === "retry") handlers.onRetry()
     if (action === "map") handlers.onMap()
   })
   return {
-    async show(summary: CompleteSummary, next: CompleteHandlers): Promise<void> {
+    async show(summary: CompleteSummary, next: CompleteHandlers, instant = false): Promise<void> {
       handlers = next
       el.hidden = false
       const before = summary.levelBefore
@@ -115,6 +117,7 @@ export function createCompleteScreen(el: HTMLElement) {
             ${next.onNext ? '<button type="button" class="btn-primary" data-action="next">Próxima fase</button>' : ""}
             <button type="button" class="btn-secondary" data-action="retry">Tentar de novo</button>
             ${cheaper ? '<button type="button" class="btn-secondary" data-action="cheaper">Tentar versão mais barata</button>' : ""}
+            ${cheaper && next.onBest ? '<button type="button" class="btn-secondary" data-action="best">Ver solução de menor custo</button>' : ""}
             <button type="button" class="btn-secondary" data-action="map">Mapa de fases</button>
           </div>
           <p class="complete-skip" aria-hidden="true">Clique ou Esc pra pular</p>
@@ -130,10 +133,12 @@ export function createCompleteScreen(el: HTMLElement) {
       const stale = () => runId !== seq
       const quiet = () => skipped || stale() || motionReduced()
       animating = true
-      skipped = false
+      skipped = instant
+      // voltando da solução de menor custo: mostra o estado final sem refazer a festa
+      if (instant) requestSkip(true)
       window.addEventListener("keydown", onKey)
       card.focus({ preventScroll: true })
-      next.play("win")
+      if (!skipped) next.play("win")
       await fadeSlide(card, { duration: 300 })
       // cada estrela cai um pouco depois da anterior, sem esperar a outra quicar até o fim
       let earnedIndex = 0
