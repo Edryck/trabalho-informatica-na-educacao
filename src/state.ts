@@ -125,6 +125,7 @@ export type SaveData = {
   cosmetics: Cosmetics
   daily: Daily
   tutorialSeen: boolean
+  seenGroups: string[]
 }
 export type StorageLike = Pick<Storage, "getItem" | "setItem">
 export type Store = {
@@ -147,6 +148,7 @@ export function defaultSave(): SaveData {
     cosmetics: { board: "default", wires: "default", mat: "default" },
     daily: { lastWonDate: null, streak: 0, wonDates: [] },
     tutorialSeen: false,
+    seenGroups: [],
   }
 }
 
@@ -256,6 +258,7 @@ export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | nu
     cosmetics: fromV1 ? base.cosmetics : cleanCosmetics(raw.cosmetics),
     daily: fromV1 ? base.daily : cleanDaily(raw.daily),
     tutorialSeen: raw.tutorialSeen === true,
+    seenGroups: Array.isArray(raw.seenGroups) ? raw.seenGroups.filter((g): g is string => isString(g)) : [],
   }
 }
 

@@ -433,13 +433,13 @@ export type PhaseMapGroup = {
   title: string
   concept: string
   comingSoon: boolean
-  phases: { id: string; goal: string; type: string; available: boolean; won: boolean; bestCost: number | null; budget: number | null }[]
+  justUnlocked: boolean
+  phases: { id: string; goal: string; type: string; available: boolean; won: boolean; stars: number[]; bestCost: number | null; budget: number | null }[]
 }
 
-const LOCK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
-const OPEN_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="6"/></svg>'
+const LOCK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
 
-export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => void, nav: { onSettings(): void; onHome(): void }) {
+export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => void, nav: { onSettings(): void; onHome(): void; onUnlockSeen?(groupId: string): void }) {
   el.className = "phase-map"
   el.hidden = true
   let backAction: { label: string; run(): void } | null = null
@@ -452,27 +452,47 @@ export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => voi
     if (button && !button.disabled) onPick(button.dataset.phase!)
   })
   return {
-    show(groups: PhaseMapGroup[], back: { label: string; run(): void } | null = null) {
+    show(groups: PhaseMapGroup[], badge: BadgeData, back: { label: string; run(): void } | null = null): { unlockedGroups: HTMLElement[] } {
       el.hidden = false
       backAction = back
       const columns = groups
-        .map((g) => {
+        .map((g, gi) => {
           if (g.comingSoon)
-            return `<section class="map-group soon" aria-label="${g.title}, em breve"><h3>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-soon">em breve</p></section>`
-          const done = g.phases.filter((p) => p.won).length
+            return `<section class="map-group soon" aria-label="${g.title}, em breve"><h3><span class="map-group-index">${gi + 1}</span>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-soon">${LOCK_ICON} em breve</p></section>`
+          const earned = g.phases.reduce((n, p) => n + p.stars.length, 0)
+          const locked = g.phases.every((p) => !p.available && !p.won)
           const nodes = g.phases
-            .map((p) => {
+            .map((p, i) => {
               const state = p.won ? "won" : p.available ? "available" : "locked"
-              const status = p.won ? "concluída" : p.available ? "disponível" : "bloqueada"
-              const icon = p.won ? CHECK_ICON : p.available ? OPEN_ICON : LOCK_ICON
-              const cost = p.won && p.budget !== null && p.bestCost !== null ? `<span class="map-cost mono">${p.bestCost}/${p.budget}</span>` : ""
-              return `<li><button type="button" class="map-node ${state}" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="${p.id}, ${p.goal}, ${PHASE_TAGS[p.type] ?? p.type}, ${status}"><span class="map-dot">${icon}</span><span class="map-text"><span class="map-goal">${p.goal}</span><span class="map-meta"><span class="mono">${p.id}</span> \u00b7 ${PHASE_TAGS[p.type] ?? p.type}</span></span>${cost}</button></li>`
+              const status = p.won ? `concluída, ${p.stars.length} de 3 estrelas` : p.available ? "disponível" : "bloqueada"
+              const stars = [0, 1, 2].map((k) => starIcon(p.stars.includes(k) ? "met" : "unmet", 14)).join("")
+              const inner = state === "locked" ? LOCK_ICON : `<span class="map-node-number">${i + 1}</span>`
+              const cost = p.won && p.budget !== null && p.bestCost !== null ? `<span class="map-cost">${p.bestCost}/${p.budget} créditos</span>` : ""
+              return `<li class="map-step ${state}"><button type="button" class="map-node" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="Fase ${i + 1}: ${p.goal}, ${PHASE_TAGS[p.type] ?? p.type}, ${status}"><span class="map-circle">${inner}</span><span class="map-text"><span class="map-goal">${p.goal}</span><span class="map-meta">${PHASE_TAGS[p.type] ?? p.type}${cost ? " · " + cost : ""}</span><span class="map-stars">${stars}</span></span></button></li>`
             })
             .join("")
-          return `<section class="map-group"><h3>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-progress mono">${done}/${g.phases.length}</p><ol>${nodes}</ol></section>`
+          return `<section class="map-group ${locked ? "locked" : ""} ${g.justUnlocked ? "just-unlocked" : ""}" data-group="${g.id}"><h3><span class="map-group-index">${locked ? LOCK_ICON : gi + 1}</span>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-progress">${starIcon("met", 14)} ${earned}/${g.phases.length * 3}</p><ol class="map-path">${nodes}</ol></section>`
         })
         .join("")
-      el.innerHTML = `<header class="phase-list-head"><h2 class="phase-list-title">Mapa de fases</h2><button type="button" class="phase-back" data-action="home">Início</button><button type="button" class="phase-back" data-action="settings">Configurações</button>${back ? `<button type="button" class="phase-back primary" data-action="back">${back.label}</button>` : ""}</header><div class="map-columns">${columns}</div>`
+      el.innerHTML = `
+        <header class="map-head">
+          <h2 class="map-title">Mapa de fases</h2>
+          <div class="map-badge"></div>
+          <div class="map-nav">
+            <button type="button" class="btn-secondary" data-action="home">Início</button>
+            <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
+            ${back ? `<button type="button" class="btn-primary" data-action="back">${back.label}</button>` : ""}
+          </div>
+        </header>
+        <div class="map-columns">${columns}</div>`
+      void createPlayerBadge(el.querySelector<HTMLElement>(".map-badge")!).render(badge)
+      void stagger([...el.querySelectorAll<HTMLElement>(".map-step, .map-group.soon")], (node, delay) => fadeSlide(node, { delay, y: 12, duration: 600 }), 25)
+      const unlockedGroups = [...el.querySelectorAll<HTMLElement>(".map-group.just-unlocked")]
+      for (const group of unlockedGroups) {
+        void bloom(group)
+        nav.onUnlockSeen?.(group.dataset.group!)
+      }
+      return { unlockedGroups }
     },
     hide() {
       el.hidden = true
@@ -480,7 +500,81 @@ export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => voi
   }
 }
 
-export type TitleActions = { canContinue: boolean; onContinue(): void; onNew(): void; onSandbox(): void; onSettings(): void; sandboxAvailable: boolean }
+export type BadgeData = { level: number; xp: number; floor: number; next: number | null; progress: number; stars: { earned: number; max: number } }
+
+const STAR_PATH = "M12 2.8l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.8l-5.4 2.9 1-6.1L3.2 9.3l6.1-.9z"
+
+export function starIcon(state: "met" | "unmet" | "neutral", size = 18): string {
+  const fill = state === "met" ? "var(--color-star)" : "none"
+  const stroke = state === "neutral" ? "var(--color-text-muted)" : "var(--color-text)"
+  const dash = state === "neutral" ? ' stroke-dasharray="2.5 2"' : ""
+  return `<svg class="star-icon star-${state}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="${STAR_PATH}" fill="${fill}" stroke="${stroke}" stroke-width="1.6" stroke-linejoin="round"${dash}/></svg>`
+}
+
+export function createPlayerBadge(el: HTMLElement) {
+  el.classList.add("player-badge")
+  el.innerHTML = `
+    <div class="badge-level" aria-hidden="true"><span class="badge-level-number"></span></div>
+    <div class="badge-body">
+      <div class="badge-row"><span class="badge-title"></span><span class="badge-stars"></span></div>
+      <div class="xp-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="xp-fill"></div></div>
+      <span class="badge-xp"></span>
+    </div>`
+  const number = el.querySelector<HTMLElement>(".badge-level-number")!
+  const title = el.querySelector<HTMLElement>(".badge-title")!
+  const stars = el.querySelector<HTMLElement>(".badge-stars")!
+  const track = el.querySelector<HTMLElement>(".xp-track")!
+  const fill = el.querySelector<HTMLElement>(".xp-fill")!
+  const xp = el.querySelector<HTMLElement>(".badge-xp")!
+  return {
+    async render(data: BadgeData, from?: BadgeData) {
+      number.textContent = String(data.level)
+      title.textContent = `Nível ${data.level}`
+      stars.innerHTML = `${starIcon("met", 16)}<span>${data.stars.earned}/${data.stars.max}</span>`
+      const pct = Math.round(data.progress * 100)
+      track.setAttribute("aria-valuenow", String(pct))
+      track.setAttribute("aria-label", data.next === null ? "Nível máximo" : `${data.xp - data.floor} de ${data.next - data.floor} XP até o próximo nível`)
+      const xpText = (value: number) => (data.next === null ? `${Math.round(value)} XP · nível máximo` : `${Math.round(value)} / ${data.next} XP`)
+      fill.style.width = `${pct}%`
+      xp.textContent = xpText(data.xp)
+      if (from) {
+        const fromPct = from.level === data.level ? Math.round(from.progress * 100) : 0
+        await Promise.all([springTo(fill, "width", `${fromPct}%`, `${pct}%`), countUp(xp, from.xp, data.xp, 1200, xpText)])
+      }
+    },
+  }
+}
+
+export type DailyCard = { unlocked: boolean; done: boolean; streak: number }
+
+export type TitleActions = {
+  canContinue: boolean
+  sandboxAvailable: boolean
+  workshopAvailable: boolean
+  badge: BadgeData
+  daily: DailyCard
+  onContinue(): void
+  onNew(): void
+  onSandbox(): void
+  onSettings(): void
+  onWorkshop(): void
+  onDaily(): void
+}
+
+const FLAME_ICON =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 3.2 4.5 4.8 4.5 9.3A4.5 4.5 0 0112 17a4.5 4.5 0 01-4.5-4.7c0-2 1-3.3 2-4.3.2 1.6 1 2.5 2 2.5 0-2.6-.4-5 .5-7.5z"/><path d="M12 21a6.5 6.5 0 006.5-6.5"/></svg>'
+const LOCK_SMALL =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
+const WRENCH_ICON =
+  '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 00-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 005.2-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/></svg>'
+
+function dailyCardHtml(daily: DailyCard): string {
+  if (!daily.unlocked)
+    return `<div class="daily-card locked">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>${LOCK_SMALL} Libera ao concluir Resistência</span></div></div>`
+  if (daily.done)
+    return `<div class="daily-card done">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>${CHECK_ICON} Feito hoje · volta amanhã</span></div>${daily.streak > 0 ? `<span class="daily-streak">${FLAME_ICON}${daily.streak}</span>` : ""}</div>`
+  return `<button type="button" class="daily-card available" data-action="daily">${WRENCH_ICON}<div><strong>Conserto do dia</strong><span>Um circuito quebrado te esperando</span></div>${daily.streak > 0 ? `<span class="daily-streak">${FLAME_ICON}${daily.streak}</span>` : ""}</button>`
+}
 
 export function createTitleScreen(el: HTMLElement) {
   el.className = "title-screen"
@@ -493,6 +587,8 @@ export function createTitleScreen(el: HTMLElement) {
     if (action === "continue") actions.onContinue()
     if (action === "sandbox") actions.onSandbox()
     if (action === "settings") actions.onSettings()
+    if (action === "workshop") actions.onWorkshop()
+    if (action === "daily") actions.onDaily()
     if (action === "new") {
       if (actions.canContinue && !confirming) {
         confirming = true
@@ -509,22 +605,32 @@ export function createTitleScreen(el: HTMLElement) {
   })
   function render() {
     if (!actions) return
+    const a = actions
     el.innerHTML = `
-      <div class="title-inner">
+      <div class="title-panel">
         <h1 class="title-name">Fio Contínuo</h1>
-        <p class="title-tagline">A corrente dá a volta inteira. Desenha, monta, mede e conserta.</p>
+        <p class="title-tagline">Desenha, monta, mede e conserta. A corrente dá a volta inteira.</p>
+        <div class="title-badge"></div>
+        ${dailyCardHtml(a.daily)}
         <div class="title-actions">
-          ${actions.canContinue ? '<button type="button" class="btn-primary" data-action="continue">Continuar</button>' : ""}
+          ${a.canContinue ? '<button type="button" class="btn-primary" data-action="continue">Continuar</button>' : ""}
           ${
             confirming
               ? '<p class="title-confirm">Começar de novo apaga o progresso salvo neste navegador.</p><button type="button" class="btn-danger" data-action="new">Apagar e começar</button><button type="button" class="btn-secondary" data-action="cancel">Manter progresso</button>'
-              : `<button type="button" class="${actions.canContinue ? "btn-secondary" : "btn-primary"}" data-action="new">Nova partida</button>`
+              : `<button type="button" class="${a.canContinue ? "btn-secondary" : "btn-primary"}" data-action="new">Nova partida</button>`
           }
-          ${actions.sandboxAvailable ? '<button type="button" class="btn-secondary" data-action="sandbox">Sandbox</button>' : ""}
-          <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
+          <div class="title-row">
+            <button type="button" class="btn-secondary" data-action="workshop" ${a.workshopAvailable ? "" : 'disabled title="Em breve"'}>Oficina</button>
+            ${a.sandboxAvailable ? '<button type="button" class="btn-secondary" data-action="sandbox">Sandbox</button>' : ""}
+            <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
+          </div>
         </div>
       </div>`
-    el.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true })
+    const badge = createPlayerBadge(el.querySelector<HTMLElement>(".title-badge")!)
+    void badge.render(a.badge)
+    const blocks = [...el.querySelectorAll<HTMLElement>(".title-panel > *")]
+    void stagger(blocks, (block, delay) => fadeSlide(block, { delay, duration: 600 }), 60)
+    el.querySelector<HTMLButtonElement>(".title-actions button")?.focus({ preventScroll: true })
   }
   return {
     show(next: TitleActions) {

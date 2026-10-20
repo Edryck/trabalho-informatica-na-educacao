@@ -10,6 +10,9 @@ import "./style.css"
 import partsJson from "../data/parts.json"
 import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
+import rewardsJson from "../data/rewards.json"
+import { createAudio } from "./audio"
+import { levelFor, starsTotal, type Rewards } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -77,6 +80,8 @@ import {
 } from "./ui"
 
 const catalog = partsJson as unknown as PartsCatalog
+const rewards = rewardsJson as unknown as Rewards
+const audio = createAudio({ volume: 0.8 })
 const phases = loadPhases(phasesJson)
 
 const PART_LABELS: Record<string, string> = {
@@ -223,7 +228,14 @@ const titleEl = document.createElement("div")
 const completeEl = document.createElement("div")
 const settingsEl = document.createElement("div")
 app.append(titleEl, completeEl, settingsEl)
-const phaseMap = createPhaseMap(listEl, startPhase, { onSettings: () => showSettings("map"), onHome: showTitle })
+const phaseMap = createPhaseMap(listEl, startPhase, {
+  onSettings: () => showSettings("map"),
+  onHome: showTitle,
+  onUnlockSeen: (groupId) => {
+    if (!store.data.seenGroups.includes(groupId)) store.data.seenGroups.push(groupId)
+    store.save()
+  },
+})
 const titleScreen = createTitleScreen(titleEl)
 const completeScreen = createCompleteScreen(completeEl)
 const settingsScreen = createSettingsScreen(settingsEl, {
@@ -704,6 +716,8 @@ function startPhase(phaseId: string, synthetic?: Phase) {
 }
 
 function hideOverlays() {
+  document.body.classList.remove("showcase")
+  bench.setShowcase(false)
   phaseMap.hide()
   titleScreen.hide()
   completeScreen.hide()
@@ -745,32 +759,61 @@ function nextAvailablePhase(): string | undefined {
 function showPhaseList() {
   const won = progressWon()
   openOverlay("map")
-  phaseMap.show(
-    phases.groups.map((g) => ({
+  const groups = phases.groups.map((g) => {
+    const firstAvailable = g.phases.some((p) => won.has(p.id) || isPhaseAvailable(phases, won, p.id))
+    return {
       id: g.id,
       title: g.title,
       concept: g.concept,
       comingSoon: !g.demo,
+      // grupo recém-liberado (não o primeiro) ganha a cena de desbloqueio uma vez só
+      justUnlocked: g.demo && firstAvailable && g.id !== phases.groups[0].id && !store.data.seenGroups.includes(g.id),
       phases: g.phases.map((p) => ({
         id: p.id,
         goal: p.goal,
         type: p.type,
         won: won.has(p.id),
         available: isPhaseAvailable(phases, won, p.id),
+        stars: store.data.progress[p.id]?.stars ?? [],
         bestCost: store.data.progress[p.id]?.bestCost ?? null,
         budget: p.budget,
       })),
-    })),
+    }
+  })
+  const result = phaseMap.show(
+    groups,
+    badgeData(),
     session && session.phase.id !== "sandbox" ? { label: `Voltar pra ${session.phase.id}`, run: closeOverlay } : session ? { label: "Voltar pro sandbox", run: closeOverlay } : null,
   )
+  if (result.unlockedGroups.length > 0) audio.play("unlock")
 }
+
+function badgeData() {
+  return { ...levelFor(store.data.xp, rewards), stars: starsTotal(store.data.progress, phases) }
+}
+
+const SHOWCASE_PHASE = "g2p3"
 
 function showTitle() {
   openOverlay("title")
+  document.body.classList.add("showcase")
+  if (!session) {
+    const showcase = findPhase(phases, SHOWCASE_PHASE)?.referenceSolution
+    if (showcase) {
+      view = compute(structuredClone(showcase))
+      render()
+    }
+  }
+  bench.setShowcase(true)
   const hasProgress = Object.keys(store.data.progress).length > 0 || store.data.draft !== null
   titleScreen.show({
     canContinue: hasProgress,
     sandboxAvailable: progressWon().size > 0,
+    workshopAvailable: false,
+    badge: badgeData(),
+    daily: { unlocked: false, done: false, streak: store.data.daily.streak },
+    onWorkshop: () => undefined,
+    onDaily: () => undefined,
     onContinue: () => {
       const draft = store.data.draft?.phaseId
       startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
@@ -779,6 +822,7 @@ function showTitle() {
       store.data.progress = {}
       store.data.draft = null
       store.data.seenDatasheets = []
+      store.data.xp = 0
       store.flush()
       session = null
       startPhase(phaseOrder(phases)[0])
@@ -945,6 +989,13 @@ stageEl.addEventListener(
   },
   { capture: true },
 )
+
+document.addEventListener("click", (event) => {
+  const button = (event.target as HTMLElement).closest("button")
+  if (button && !button.disabled) audio.play("click")
+})
+audio.setVolume(store.data.settings.volume)
+audio.preload()
 
 window.addEventListener("pagehide", () => {
   store.data = finishAttempt(store.data, false, new Date())

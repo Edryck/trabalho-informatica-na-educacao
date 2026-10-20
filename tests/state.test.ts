@@ -307,3 +307,13 @@ describe("save v2", () => {
     expect(d.sessionLog[0]).toMatchObject({ starsEarned: [], xpEarned: 0 })
   })
 })
+
+describe("seen groups", () => {
+  it("defaults and validates", () => {
+    expect(defaultSave().seenGroups).toEqual([])
+    const s = memory()
+    s.setItem(STORAGE_KEY, JSON.stringify({ ...defaultSave(), seenGroups: [1, "g1", null] }))
+    expect(createStore(s, catalog).data.seenGroups).toEqual(["g1"])
+    expect(migrateSave({ version: 1, progress: {}, settings: {} })!.seenGroups).toEqual([])
+  })
+})

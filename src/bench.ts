@@ -279,12 +279,22 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   }
   frame()
 
+  let showcase = false
+  function applyViewOffset() {
+    // no título a cena vai pra direita pra não ficar atrás do painel
+    const w = container.clientWidth
+    const h = Math.max(container.clientHeight, 1)
+    if (showcase && w > 900) camera.setViewOffset(w, h, -w * 0.2, 0, w, h)
+    else camera.clearViewOffset()
+  }
+
   function resize() {
     const w = container.clientWidth
     const h = Math.max(container.clientHeight, 1)
     renderer.setSize(w, h, false)
     camera.aspect = w / h
     camera.updateProjectionMatrix()
+    applyViewOffset()
   }
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container)
@@ -1372,6 +1382,15 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     },
     setTool,
     currentTool: () => tool,
+    setShowcase(on: boolean) {
+      // vitrine do título: câmera gira sozinha e o jogador não mexe
+      controls.autoRotate = on
+      controls.autoRotateSpeed = 0.6
+      controls.enabled = !on
+      showcase = on
+      applyViewOffset()
+      if (on) frame()
+    },
     frame,
     handleKey,
     setWireColor,

@@ -1,4 +1,4 @@
-import type { Evaluation, Star } from "./phases"
+import type { Evaluation, PhaseData, Star } from "./phases"
 import type { CircuitDoc, SaveData } from "./state"
 
 export type RewardItem = { level: number; id: string; kind: "decor" | "board" | "wires" | "mat"; name: string; model?: string; value?: string }
@@ -67,4 +67,10 @@ export function applyPhaseReward(save: SaveData, phaseId: string, earned: boolea
     levelAfter,
     unlocked,
   }
+}
+
+export function starsTotal(progress: SaveData["progress"], data: PhaseData): { earned: number; max: number } {
+  const phases = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
+  const earned = phases.reduce((sum, p) => sum + (progress[p.id]?.stars.length ?? 0), 0)
+  return { earned, max: phases.reduce((sum, p) => sum + p.stars.length, 0) }
 }
