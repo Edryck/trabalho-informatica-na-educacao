@@ -13,7 +13,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { applyDailyReward, applyPhaseReward, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type StarContext } from "./game"
+import { applyDailyReward, applyPhaseReward, buildRewards, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -25,6 +25,7 @@ import {
   referenceCost,
   isPhaseAvailable,
   loadPhases,
+  meterGroups,
   phaseOrder,
   shouldOfferHint,
   type Evaluation,
@@ -86,9 +87,9 @@ import {
 } from "./ui"
 
 const catalog = partsJson as unknown as PartsCatalog
-const rewards = rewardsJson as unknown as Rewards
 const audio = createAudio({ volume: 0.8 })
 const phases = loadPhases(phasesJson)
+const rewards = buildRewards(rewardsJson as RewardsData, phases)
 
 const PART_LABELS: Record<string, string> = {
   battery: "Bateria",
@@ -614,9 +615,8 @@ function activeEditor() {
 function meterAvailable(): boolean {
   if (!session) return false
   if (isDaily(session.phase.id)) return true
-  const groupIndex = phases.groups.findIndex((g) => g.phases.some((p) => p.id === session!.phase.id))
-  const unlockIndex = phases.groups.findIndex((g) => g.unlocks.includes("multimeter"))
-  return unlockIndex >= 0 && groupIndex >= unlockIndex
+  const group = phases.groups.find((g) => g.phases.some((p) => p.id === session!.phase.id))
+  return !!group && meterGroups(phases).has(group.id)
 }
 
 function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
@@ -965,7 +965,7 @@ function badgeData() {
   return { ...levelFor(store.data.xp, rewards), stars: starsTotal(store.data.progress, phases) }
 }
 
-const SHOWCASE_PHASE = "g2p3"
+const SHOWCASE_PHASE = "g1p6"
 
 function today(): string {
   return new Date().toLocaleDateString("sv-SE")

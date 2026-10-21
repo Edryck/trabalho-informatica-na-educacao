@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { claimableId, docCost, evaluate, evaluateScenarios, isPhaseAvailable, loadPhases, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
+import { claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
 import { benchToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -198,7 +198,7 @@ describe("hints and progression", () => {
     const data = loadPhases({
       groups: [
         { id: "a", title: "a", demo: true, concept: "", unlocks: [], phases: [{ id: "a1", type: "build", goal: "" }, { id: "a2", type: "build", goal: "" }] },
-        { id: "b", title: "b", demo: true, concept: "", unlocks: [], phases: [{ id: "b1", type: "build", goal: "" }] },
+        { id: "b", title: "b", demo: true, concept: "", unlocks: [], requires: "a", phases: [{ id: "b1", type: "build", goal: "" }] },
       ],
       future: [],
     })
@@ -320,7 +320,7 @@ describe("game copy", () => {
 
 describe("logic references need their ground wires", () => {
   const data = loadPhases(phasesRaw)
-  const logic = data.groups.filter((g) => g.id === "g2").flatMap((g) => g.phases).filter((p) => p.referenceSolution)
+  const logic = data.groups.filter((g) => g.id === "g7").flatMap((g) => g.phases).filter((p) => p.referenceSolution)
   for (const p of logic)
     it(`${p.id} loses without any single ground wire`, () => {
       const ref = p.referenceSolution!
@@ -369,8 +369,8 @@ describe("phase stars", () => {
   })
 
   it("tutorials do not reward an action their steps already require", () => {
-    const g3p3 = findPhase(data, "g3p3")!
-    expect(g3p3.stars.some((s) => s.kind === "usedMeter")).toBe(false)
+    for (const p of data.groups.filter((g) => g.demo).flatMap((g) => g.phases).filter((p) => (p.steps ?? []).some((s) => "event" in s.until && s.until.event.startsWith("meterRead"))))
+      expect(p.stars.some((s) => s.kind === "usedMeter"), p.id).toBe(false)
   })
 })
 
@@ -496,5 +496,90 @@ describe("claimableId", () => {
 
   it("returns undefined for a type that is not a key part", () => {
     expect(claimableId(emptyDoc(), "bench", "buzzer", keys)).toBeUndefined()
+  })
+})
+
+describe("group requirements", () => {
+  const fixture = () =>
+    loadPhases({
+      groups: [
+        { id: "a", title: "a", demo: true, concept: "", unlocks: ["multimeter"], phases: [{ id: "a1", type: "build", goal: "" }, { id: "a2", type: "build", goal: "" }] },
+        { id: "b", title: "b", demo: true, concept: "", unlocks: [], requires: "a", phases: [{ id: "b1", type: "build", goal: "" }] },
+        { id: "c", title: "c", demo: true, concept: "", unlocks: [], requires: "b", phases: [] },
+        { id: "d", title: "d", demo: true, concept: "", unlocks: [], requires: "c", phases: [{ id: "d1", type: "build", goal: "" }] },
+      ],
+      future: [],
+    })
+
+  it("first phase of a group needs the required group complete", () => {
+    const data = fixture()
+    expect(isPhaseAvailable(data, new Set(["a1"]), "b1")).toBe(false)
+    expect(isPhaseAvailable(data, new Set(["a1", "a2"]), "b1")).toBe(true)
+  })
+
+  it("phases inside a group stay linear", () => {
+    const data = fixture()
+    expect(isPhaseAvailable(data, new Set(), "a2")).toBe(false)
+    expect(isPhaseAvailable(data, new Set(["a1"]), "a2")).toBe(true)
+  })
+
+  it("empty group is never complete", () => {
+    const data = fixture()
+    const all = new Set(["a1", "a2", "b1", "d1"])
+    expect(groupComplete(data.groups[2], all)).toBe(false)
+  })
+
+  it("group after an empty group unlocks when the empty one's requirement is met", () => {
+    const data = fixture()
+    expect(isPhaseAvailable(data, new Set(["a1", "a2"]), "d1")).toBe(false)
+    expect(isPhaseAvailable(data, new Set(["a1", "a2", "b1"]), "d1")).toBe(true)
+  })
+
+  it("rejects requires cycles and unknown groups", () => {
+    const cyc = loadPhases({
+      groups: [
+        { id: "x", title: "x", demo: true, concept: "", unlocks: [], requires: "y", phases: [] },
+        { id: "y", title: "y", demo: true, concept: "", unlocks: [], requires: "x", phases: [] },
+        { id: "z", title: "z", demo: true, concept: "", unlocks: [], requires: "nope", phases: [] },
+      ],
+      future: [],
+    })
+    const errors = validatePhases(cyc, catalog, datasheets)
+    expect(errors.some((e) => e.includes("ciclo"))).toBe(true)
+    expect(errors.some((e) => e.includes('"nope"'))).toBe(true)
+  })
+
+  it("meter groups follow the requires chain", () => {
+    expect([...meterGroups(fixture())].sort()).toEqual(["a", "b", "c", "d"])
+    const data = loadPhases({
+      groups: [
+        { id: "a", title: "a", demo: true, concept: "", unlocks: [], phases: [] },
+        { id: "b", title: "b", demo: true, concept: "", unlocks: ["multimeter"], requires: "a", phases: [] },
+        { id: "c", title: "c", demo: true, concept: "", unlocks: [], requires: "b", phases: [] },
+      ],
+      future: [],
+    })
+    expect([...meterGroups(data)].sort()).toEqual(["b", "c"])
+  })
+})
+
+describe("shipped group structure", () => {
+  const data = loadPhases(phasesRaw)
+
+  it("demo groups in order", () => {
+    expect(data.groups.filter((g) => g.demo).map((g) => g.id)).toEqual(["g0", "g1", "g2", "g3", "g6"])
+    expect(data.groups.find((g) => g.id === "g6")!.block).toBe("eletronica")
+  })
+
+  it("every group declares requires except g0", () => {
+    for (const g of data.groups) expect(g.requires === null, g.id).toBe(g.id === "g0")
+  })
+
+  it("only g5 and g8 burn", () => {
+    expect(data.groups.filter((g) => g.burns).map((g) => g.id)).toEqual(["g5", "g8"])
+  })
+
+  it("old LED phases moved", () => {
+    expect(findPhase(data, "g6p4")!.goal).toBe("escolher R pra corrente do datasheet do LED")
   })
 })

@@ -11,6 +11,9 @@
         "lamp",
         "breadboard"
       ],
+      "requires": null,
+      "block": "eletrica",
+      "burns": false,
       "phases": [
         {
           "id": "g0p1",
@@ -1081,6 +1084,9 @@
         "dc_motor",
         "current_view"
       ],
+      "requires": "g0",
+      "block": "eletrica",
+      "burns": false,
       "phases": [
         {
           "id": "g1p1",
@@ -2619,8 +2625,674 @@
     },
     {
       "id": "g2",
-      "title": "Circuitos lógicos",
+      "title": "Resistência",
       "demo": true,
+      "concept": "resistor limita corrente, lei de Ohm, código de cores, multímetro",
+      "unlocks": [
+        "resistor",
+        "multimeter"
+      ],
+      "phases": [],
+      "requires": "g1",
+      "block": "eletrica",
+      "burns": false
+    },
+    {
+      "id": "g3",
+      "title": "Série e paralelo",
+      "demo": true,
+      "concept": "resistência equivalente, divisor de tensão, corrente conservada nos ramos",
+      "unlocks": [],
+      "phases": [],
+      "requires": "g2",
+      "block": "eletrica",
+      "burns": false
+    },
+    {
+      "id": "g4",
+      "title": "Capacitância",
+      "demo": false,
+      "concept": "capacitor armazena carga, carga/descarga RC, tempo",
+      "unlocks": [
+        "capacitor"
+      ],
+      "requires": "g3",
+      "block": "eletrica",
+      "burns": false,
+      "phases": [
+        {
+          "id": "g4p1",
+          "type": "tutorial",
+          "goal": "carregar e descarregar um capacitor"
+        },
+        {
+          "id": "g4p2",
+          "type": "build",
+          "goal": "LED que apaga devagar"
+        },
+        {
+          "id": "g4p3",
+          "type": "build",
+          "goal": "mudar R e C e comparar o tempo"
+        },
+        {
+          "id": "g4p4",
+          "type": "repair",
+          "goal": "capacitor eletrolítico invertido"
+        },
+        {
+          "id": "g4p5",
+          "type": "order",
+          "goal": "luz de cortesia que apaga sozinha"
+        }
+      ]
+    },
+    {
+      "id": "g5",
+      "title": "Limites elétricos",
+      "demo": false,
+      "concept": "potência, curto-circuito, componentes queimando, fusível",
+      "unlocks": [
+        "fuse"
+      ],
+      "requires": "g4",
+      "block": "eletrica",
+      "burns": true,
+      "phases": [
+        {
+          "id": "g5p1",
+          "type": "build",
+          "goal": "o que acontece com LED sem resistor"
+        },
+        {
+          "id": "g5p2",
+          "type": "build",
+          "goal": "potência do resistor: escolher o certo"
+        },
+        {
+          "id": "g5p3",
+          "type": "build",
+          "goal": "fusível protegendo o circuito"
+        },
+        {
+          "id": "g5p4",
+          "type": "repair",
+          "goal": "achar o curto antes de ligar"
+        },
+        {
+          "id": "g5p5",
+          "type": "order",
+          "goal": "circuito com proteção, orçamento fixo"
+        }
+      ]
+    },
+    {
+      "id": "g6",
+      "title": "Diodo e LED",
+      "demo": true,
+      "concept": "diodo conduz num sentido só, LED é um diodo que acende, resistor de proteção",
+      "unlocks": [
+        "led"
+      ],
+      "phases": [
+        {
+          "id": "g6p4",
+          "type": "build",
+          "goal": "escolher R pra corrente do datasheet do LED",
+          "brief": "O datasheet do LED pede uns 20 mA. Escolhe o resistor certo entre os da bandeja e monta.",
+          "tray": {
+            "battery": 1,
+            "resistor": 2,
+            "led": 1
+          },
+          "trayValues": {
+            "resistor": [
+              100,
+              330,
+              1000,
+              2200
+            ]
+          },
+          "keyParts": [
+            {
+              "id": "LED1",
+              "part": "led"
+            }
+          ],
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "LED1": {
+                  "current": [
+                    0.012,
+                    0.025
+                  ]
+                }
+              }
+            }
+          ],
+          "hints": [
+            "Lei de Ohm: R = tensão que sobra / corrente. Sobra 9 − 2 = 7 V pro resistor.",
+            "7 V dividido por 0,02 A dá 350 Ω. Pega o mais próximo disso."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "R1",
+                "type": "resistor",
+                "value": 330,
+                "actualValue": 330
+              },
+              {
+                "id": "LED1",
+                "type": "led",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "R1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "LED1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "LED1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "D14",
+                    "k": "D17"
+                  }
+                },
+                {
+                  "id": "R1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C10",
+                    "b": "C14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B17",
+                  "b": "T-17",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "A"
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ]
+        },
+        {
+          "id": "g6p5",
+          "type": "repair",
+          "goal": "LED fraco: resistor errado, achar pelo multímetro",
+          "brief": "Esse LED acende fraquinho. O esquema está certo. Usa o multímetro pra achar a peça que não bate e troca.",
+          "tray": {
+            "resistor": 1
+          },
+          "trayValues": {
+            "resistor": [
+              22,
+              330,
+              2200
+            ]
+          },
+          "showDivergence": false,
+          "keyParts": [
+            {
+              "id": "LED1",
+              "part": "led"
+            }
+          ],
+          "expect": [
+            {
+              "when": {},
+              "then": {
+                "LED1": {
+                  "current": [
+                    0.012,
+                    0.025
+                  ]
+                }
+              }
+            }
+          ],
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "R1",
+                "type": "resistor",
+                "value": 330,
+                "actualValue": 2200
+              },
+              {
+                "id": "LED1",
+                "type": "led",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "R1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "LED1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "LED1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "D14",
+                    "k": "D17"
+                  }
+                },
+                {
+                  "id": "R1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C10",
+                    "b": "C14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B17",
+                  "b": "T-17",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "hints": [
+            "Mede a corrente: se está bem abaixo de 20 mA, tem resistência demais no caminho.",
+            "Compara as faixas do resistor da bancada com o valor do esquema. Tira ele e põe outro da bandeja."
+          ],
+          "referenceSolution": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "R1",
+                "type": "resistor",
+                "value": 330,
+                "actualValue": 330
+              },
+              {
+                "id": "LED1",
+                "type": "led",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "R1",
+                  "x": 0,
+                  "y": -4,
+                  "rotation": 0
+                },
+                {
+                  "id": "LED1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": -2,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 2,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F7",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "LED1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "D14",
+                    "k": "D17"
+                  }
+                },
+                {
+                  "id": "R1",
+                  "rotation": 0,
+                  "holes": {
+                    "a": "C10",
+                    "b": "C14"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+10",
+                  "b": "B10",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B17",
+                  "b": "T-17",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "usedMeter",
+              "mode": "A"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            }
+          ]
+        }
+      ],
+      "requires": "g3",
+      "block": "eletronica",
+      "burns": false
+    },
+    {
+      "id": "g7",
+      "title": "Circuitos lógicos",
+      "demo": false,
       "concept": "níveis 0/1, tabela-verdade, portas como CIs na protoboard",
       "unlocks": [
         "logic_switch",
@@ -2635,7 +3307,7 @@
       ],
       "phases": [
         {
-          "id": "g2p1",
+          "id": "g7p1",
           "type": "tutorial",
           "goal": "alimentar um CI (VCC/GND) e ler a saída",
           "brief": "O CI inversor já está na placa, mas sem energia. Liga o VCC (pino 14) no + e o GND (pino 7) no −, e põe a ponta lógica na saída 1Y.",
@@ -2925,7 +3597,7 @@
           "showDivergence": false
         },
         {
-          "id": "g2p2",
+          "id": "g7p2",
           "type": "build",
           "goal": "NOT: luz acende quando a chave está desligada",
           "brief": "Monta uma luz que acende quando a chave lógica está em 0 e apaga quando está em 1.",
@@ -3116,7 +3788,7 @@
           "showDivergence": false
         },
         {
-          "id": "g2p3",
+          "id": "g7p3",
           "type": "build",
           "goal": "AND e OR: duas chaves, uma saída",
           "brief": "Com duas chaves lógicas, faz a ponta P1 mostrar o AND das duas e a ponta P2 mostrar o OR.",
@@ -3442,7 +4114,7 @@
           "showDivergence": false
         },
         {
-          "id": "g2p4",
+          "id": "g7p4",
           "type": "build",
           "goal": "XOR: interruptor de escada",
           "brief": "Interruptor de escada: a luz troca de estado sempre que qualquer uma das duas chaves muda.",
@@ -3691,7 +4363,7 @@
           "showDivergence": false
         },
         {
-          "id": "g2p5",
+          "id": "g7p5",
           "type": "build",
           "goal": "montar AND usando só NAND",
           "brief": "Só tem CI NAND na bandeja. Monta um AND com ele: a ponta P1 tem que mostrar 1 só quando as duas chaves estão em 1.",
@@ -3952,7 +4624,7 @@
           "showDivergence": false
         },
         {
-          "id": "g2p6",
+          "id": "g7p6",
           "type": "repair",
           "goal": "CI sem alimentação / pino trocado",
           "brief": "Esse AND não responde às chaves: a ponta lógica só mostra ?. Descobre o que falta.",
@@ -4351,7 +5023,7 @@
           ]
         },
         {
-          "id": "g2p7",
+          "id": "g7p7",
           "type": "order",
           "goal": "alarme: porta aberta E sistema armado",
           "brief": "Encomenda: um alarme que toca só quando a porta está aberta (SW1 em 1) e o sistema está armado (SW2 em 1). Orçamento de 10 créditos.",
@@ -4600,1290 +5272,9 @@
             }
           ],
           "showDivergence": false
-        }
-      ]
-    },
-    {
-      "id": "g3",
-      "title": "Resistência",
-      "demo": true,
-      "concept": "resistor limita corrente, lei de Ohm, código de cores, multímetro",
-      "unlocks": [
-        "resistor",
-        "led",
-        "multimeter"
-      ],
-      "phases": [
-        {
-          "id": "g3p1",
-          "type": "tutorial",
-          "goal": "ler o resistor pelas faixas de cor",
-          "brief": "O esquema pede um resistor de 220 Ω. Na bandeja tem três resistores que só dá pra diferenciar pelas faixas. Pega o certo e monta.",
-          "trayValues": {
-            "resistor": [
-              22,
-              220,
-              2200
-            ]
-          },
-          "keyParts": [
-            {
-              "id": "LED1",
-              "part": "led"
-            },
-            {
-              "id": "R1",
-              "part": "resistor"
-            }
-          ],
-          "expect": [
-            {
-              "when": {},
-              "then": {
-                "LED1": "lit"
-              }
-            }
-          ],
-          "initial": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 220,
-                "actualValue": 220
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "hints": [
-            "As duas primeiras faixas são os dígitos e a terceira diz quantos zeros vêm depois.",
-            "220 Ω é vermelho, vermelho e marrom: 2, 2 e um zero."
-          ],
-          "referenceSolution": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 220,
-                "actualValue": 220
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "stars": [
-            {
-              "kind": "solved"
-            },
-            {
-              "kind": "usedMeter",
-              "mode": "ohm"
-            },
-            {
-              "kind": "maxWires",
-              "value": 2
-            }
-          ]
         },
         {
-          "id": "g3p2",
-          "type": "build",
-          "goal": "LED com resistor (polaridade do LED)",
-          "brief": "Acende o LED sem passar da corrente que ele aguenta. Desenha no esquema e monta na protoboard.",
-          "tray": {
-            "battery": 1,
-            "resistor": 1,
-            "led": 1
-          },
-          "keyParts": [
-            {
-              "id": "LED1",
-              "part": "led"
-            }
-          ],
-          "expect": [
-            {
-              "when": {},
-              "then": {
-                "LED1": {
-                  "current": [
-                    0.001,
-                    0.03
-                  ]
-                }
-              }
-            }
-          ],
-          "hints": [
-            "O LED só conduz num sentido: a perna comprida (ânodo) vai pro lado do +.",
-            "Sem resistor a corrente dispara. Um de algumas centenas de ohms resolve com 9 V."
-          ],
-          "referenceSolution": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 330,
-                "actualValue": 330
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "stars": [
-            {
-              "kind": "solved"
-            },
-            {
-              "kind": "usedMeter",
-              "mode": "V"
-            },
-            {
-              "kind": "maxWires",
-              "value": 2
-            }
-          ]
-        },
-        {
-          "id": "g3p3",
-          "type": "tutorial",
-          "goal": "medir tensão e corrente com o multímetro",
-          "brief": "Liga o multímetro (M), mede a tensão no LED e depois a corrente do circuito.",
-          "initial": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 330,
-                "actualValue": 330
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "steps": [
-            {
-              "text": "Aperta M e encosta as duas pontas em furos do circuito.",
-              "until": {
-                "event": "meterPlaced"
-              }
-            },
-            {
-              "text": "Na escala V, encosta as pontas nas duas pernas do LED. Tensão se mede por fora, em paralelo.",
-              "until": {
-                "event": "meterReadVoltage"
-              }
-            },
-            {
-              "text": "Agora a corrente: tira um fio, põe o multímetro em A e fecha o caminho pelas pontas. Corrente se mede por dentro, em série.",
-              "until": {
-                "event": "meterReadCurrent"
-              }
-            }
-          ],
-          "hints": [
-            "Pra medir tensão o circuito continua igual: só encosta as pontas nos dois lados da peça.",
-            "Pra medir corrente a corrente tem que passar pelo multímetro. Abre o circuito e liga as pontas onde estava o fio."
-          ],
-          "stars": [
-            {
-              "kind": "solved"
-            },
-            {
-              "kind": "maxWires",
-              "value": 2
-            },
-            {
-              "kind": "maxCost",
-              "value": 4
-            }
-          ],
-          "showDivergence": false
-        },
-        {
-          "id": "g3p4",
-          "type": "build",
-          "goal": "escolher R pra corrente do datasheet do LED",
-          "brief": "O datasheet do LED pede uns 20 mA. Escolhe o resistor certo entre os da bandeja e monta.",
-          "tray": {
-            "battery": 1,
-            "resistor": 2,
-            "led": 1
-          },
-          "trayValues": {
-            "resistor": [
-              100,
-              330,
-              1000,
-              2200
-            ]
-          },
-          "keyParts": [
-            {
-              "id": "LED1",
-              "part": "led"
-            }
-          ],
-          "expect": [
-            {
-              "when": {},
-              "then": {
-                "LED1": {
-                  "current": [
-                    0.012,
-                    0.025
-                  ]
-                }
-              }
-            }
-          ],
-          "hints": [
-            "Lei de Ohm: R = tensão que sobra / corrente. Sobra 9 − 2 = 7 V pro resistor.",
-            "7 V dividido por 0,02 A dá 350 Ω. Pega o mais próximo disso."
-          ],
-          "referenceSolution": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 330,
-                "actualValue": 330
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "stars": [
-            {
-              "kind": "solved"
-            },
-            {
-              "kind": "usedMeter",
-              "mode": "A"
-            },
-            {
-              "kind": "maxCost",
-              "value": 4
-            }
-          ]
-        },
-        {
-          "id": "g3p5",
-          "type": "repair",
-          "goal": "LED fraco: resistor errado, achar pelo multímetro",
-          "brief": "Esse LED acende fraquinho. O esquema está certo. Usa o multímetro pra achar a peça que não bate e troca.",
-          "tray": {
-            "resistor": 1
-          },
-          "trayValues": {
-            "resistor": [
-              22,
-              330,
-              2200
-            ]
-          },
-          "showDivergence": false,
-          "keyParts": [
-            {
-              "id": "LED1",
-              "part": "led"
-            }
-          ],
-          "expect": [
-            {
-              "when": {},
-              "then": {
-                "LED1": {
-                  "current": [
-                    0.012,
-                    0.025
-                  ]
-                }
-              }
-            }
-          ],
-          "initial": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 330,
-                "actualValue": 2200
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "hints": [
-            "Mede a corrente: se está bem abaixo de 20 mA, tem resistência demais no caminho.",
-            "Compara as faixas do resistor da bancada com o valor do esquema. Tira ele e põe outro da bandeja."
-          ],
-          "referenceSolution": {
-            "version": 1,
-            "instances": [
-              {
-                "id": "B1",
-                "type": "battery",
-                "value": 9,
-                "actualValue": 9
-              },
-              {
-                "id": "R1",
-                "type": "resistor",
-                "value": 330,
-                "actualValue": 330
-              },
-              {
-                "id": "LED1",
-                "type": "led",
-                "value": 0,
-                "actualValue": 0
-              }
-            ],
-            "blueprint": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "x": -6,
-                  "y": 0,
-                  "rotation": 0
-                },
-                {
-                  "id": "R1",
-                  "x": 0,
-                  "y": -4,
-                  "rotation": 0
-                },
-                {
-                  "id": "LED1",
-                  "x": 6,
-                  "y": 0,
-                  "rotation": 90
-                }
-              ],
-              "segments": [
-                {
-                  "id": "F1",
-                  "x1": -6,
-                  "y1": -2,
-                  "x2": -6,
-                  "y2": -4
-                },
-                {
-                  "id": "F2",
-                  "x1": -6,
-                  "y1": -4,
-                  "x2": -2,
-                  "y2": -4
-                },
-                {
-                  "id": "F3",
-                  "x1": 2,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -4
-                },
-                {
-                  "id": "F4",
-                  "x1": 6,
-                  "y1": -4,
-                  "x2": 6,
-                  "y2": -2
-                },
-                {
-                  "id": "F5",
-                  "x1": 6,
-                  "y1": 2,
-                  "x2": 6,
-                  "y2": 4
-                },
-                {
-                  "id": "F6",
-                  "x1": 6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 4
-                },
-                {
-                  "id": "F7",
-                  "x1": -6,
-                  "y1": 4,
-                  "x2": -6,
-                  "y2": 2
-                }
-              ]
-            },
-            "bench": {
-              "placements": [
-                {
-                  "id": "B1",
-                  "rotation": 0,
-                  "offboard": {
-                    "x": -75,
-                    "z": -10
-                  },
-                  "holes": {
-                    "+": "T+3",
-                    "-": "T-3"
-                  }
-                },
-                {
-                  "id": "LED1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "D14",
-                    "k": "D17"
-                  }
-                },
-                {
-                  "id": "R1",
-                  "rotation": 0,
-                  "holes": {
-                    "a": "C10",
-                    "b": "C14"
-                  }
-                }
-              ],
-              "wires": [
-                {
-                  "id": "W1",
-                  "a": "T+10",
-                  "b": "B10",
-                  "color": "#C62828"
-                },
-                {
-                  "id": "W2",
-                  "a": "B17",
-                  "b": "T-17",
-                  "color": "#202020"
-                }
-              ],
-              "meter": {
-                "mode": "off",
-                "red": null,
-                "black": null
-              }
-            }
-          },
-          "stars": [
-            {
-              "kind": "solved"
-            },
-            {
-              "kind": "usedMeter",
-              "mode": "A"
-            },
-            {
-              "kind": "maxWires",
-              "value": 2
-            }
-          ]
-        },
-        {
-          "id": "g3p6",
+          "id": "g7p8",
           "type": "order",
           "goal": "saída de porta lógica acendendo LED indicador",
           "brief": "Encomenda: um LED indicador que acende só quando as duas chaves lógicas estão em 1, sem passar de 25 mA. Orçamento de 12 créditos.",
@@ -6154,121 +5545,21 @@
           ],
           "showDivergence": false
         }
-      ]
+      ],
+      "requires": "g6",
+      "block": "eletronica",
+      "burns": false
     },
     {
-      "id": "g4",
-      "title": "Série e paralelo",
+      "id": "g8",
+      "title": "Limites eletrônicos",
       "demo": false,
-      "concept": "resistência equivalente, divisor de tensão, corrente conservada nos ramos",
-      "unlocks": [
-        "potentiometer"
-      ],
-      "phases": [
-        {
-          "id": "g4p1",
-          "type": "build",
-          "goal": "2 resistores em série: medir em cada ponto"
-        },
-        {
-          "id": "g4p2",
-          "type": "build",
-          "goal": "2 LEDs em paralelo com resistores próprios"
-        },
-        {
-          "id": "g4p3",
-          "type": "build",
-          "goal": "divisor de tensão com 2 resistores"
-        },
-        {
-          "id": "g4p4",
-          "type": "build",
-          "goal": "dimmer com potenciômetro"
-        },
-        {
-          "id": "g4p5",
-          "type": "repair",
-          "goal": "um ramo apagado: achar o aberto"
-        },
-        {
-          "id": "g4p6",
-          "type": "order",
-          "goal": "painel de 3 LEDs com 1 bateria e peças limitadas"
-        }
-      ]
-    },
-    {
-      "id": "g5",
-      "title": "Capacitância",
-      "demo": false,
-      "concept": "capacitor armazena carga, carga/descarga RC, tempo",
-      "unlocks": [
-        "capacitor"
-      ],
-      "phases": [
-        {
-          "id": "g5p1",
-          "type": "tutorial",
-          "goal": "carregar e descarregar um capacitor"
-        },
-        {
-          "id": "g5p2",
-          "type": "build",
-          "goal": "LED que apaga devagar"
-        },
-        {
-          "id": "g5p3",
-          "type": "build",
-          "goal": "mudar R e C e comparar o tempo"
-        },
-        {
-          "id": "g5p4",
-          "type": "repair",
-          "goal": "capacitor eletrolítico invertido"
-        },
-        {
-          "id": "g5p5",
-          "type": "order",
-          "goal": "luz de cortesia que apaga sozinha"
-        }
-      ]
-    },
-    {
-      "id": "g6",
-      "title": "Limites",
-      "demo": false,
-      "concept": "potência, curto-circuito, componentes queimando, fusível",
-      "unlocks": [
-        "fuse",
-        "burn_enabled"
-      ],
-      "phases": [
-        {
-          "id": "g6p1",
-          "type": "build",
-          "goal": "o que acontece com LED sem resistor"
-        },
-        {
-          "id": "g6p2",
-          "type": "build",
-          "goal": "potência do resistor: escolher o certo"
-        },
-        {
-          "id": "g6p3",
-          "type": "build",
-          "goal": "fusível protegendo o circuito"
-        },
-        {
-          "id": "g6p4",
-          "type": "repair",
-          "goal": "achar o curto antes de ligar"
-        },
-        {
-          "id": "g6p5",
-          "type": "order",
-          "goal": "circuito com proteção, orçamento fixo"
-        }
-      ]
+      "concept": "potência, curto-circuito e componentes queimando em circuitos com semicondutores",
+      "unlocks": [],
+      "phases": [],
+      "requires": "g7",
+      "block": "eletronica",
+      "burns": true
     }
   ],
   "future": [

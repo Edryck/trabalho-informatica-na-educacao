@@ -275,7 +275,7 @@ describe("save v2", () => {
     const s = memory()
     s.setItem(STORAGE_KEY, JSON.stringify(v1()))
     const data = createStore(s, catalog).data
-    expect(data.version).toBe(2)
+    expect(data.version).toBe(3)
     expect(data.progress.g0p1).toEqual({ won: true, bestCost: null, stars: [0] })
     expect(data.progress.g1p2).toEqual({ won: false, bestCost: null, stars: [] })
     expect(data.xp).toBe(300)
@@ -331,5 +331,68 @@ describe("recordReward", () => {
     expect(recordReward(closed, [0], 100)).toBe(closed)
     const empty = defaultSave()
     expect(recordReward(empty, [0], 100)).toBe(empty)
+  })
+})
+
+describe("save v3", () => {
+  const attempt = (phaseId: string) => ({ phaseId, startedAt: new Date(0).toISOString(), endedAt: new Date(1).toISOString(), won: true, durationMs: 1, changes: 2, hintsOffered: 0, hintsOpened: 0, divergences: { pending: 0, wiring: 0, value: 0 }, meterPlacements: 0, meterModes: [], starsEarned: [0], xpEarned: 100 })
+  const v2 = (draftPhase = "g2p3") => ({
+    ...defaultSave(),
+    version: 2,
+    progress: {
+      g2p3: { won: true, bestCost: 7, stars: [0, 1] },
+      g3p4: { won: true, bestCost: 3, stars: [0] },
+      g3p1: { won: true, bestCost: 2, stars: [0, 2] },
+    },
+    draft: { phaseId: draftPhase, doc: docWithType("lamp") },
+    sessionLog: [attempt("g2p3"), attempt("g3p1")],
+    seenGroups: ["g0", "g2", "g3"],
+    xp: 900,
+  })
+
+  it("moves progress of relocated phases with stars and best cost", () => {
+    const data = migrateSave(v2())!
+    expect(data.version).toBe(3)
+    expect(data.progress.g7p3).toEqual({ won: true, bestCost: 7, stars: [0, 1] })
+    expect(data.progress.g6p4).toEqual({ won: true, bestCost: 3, stars: [0] })
+    expect(data.progress.g2p3).toBeUndefined()
+  })
+
+  it("keeps rewritten phases as legacy", () => {
+    const data = migrateSave(v2())!
+    expect(data.progress["legacy:g3p1"]).toEqual({ won: true, bestCost: 2, stars: [0, 2] })
+    expect(data.progress.g3p1).toBeUndefined()
+  })
+
+  it("remaps the draft", () => {
+    expect(migrateSave(v2())!.draft?.phaseId).toBe("g7p3")
+  })
+
+  it("drops the draft of a rewritten phase", () => {
+    expect(migrateSave(v2("g3p1"))!.draft).toBeNull()
+  })
+
+  it("remaps the session log", () => {
+    const log = migrateSave(v2())!.sessionLog
+    expect(log.map((a) => a.phaseId)).toEqual(["g7p3", "legacy:g3p1"])
+    expect(log[0]).toMatchObject({ changes: 2, starsEarned: [0], xpEarned: 100 })
+  })
+
+  it("remaps seen groups", () => {
+    expect(migrateSave(v2())!.seenGroups).toEqual(["g0", "g7", "g2"])
+  })
+
+  it("keeps xp", () => {
+    expect(migrateSave(v2())!.xp).toBe(900)
+  })
+
+  it("v3 passes through untouched", () => {
+    const v3 = { ...defaultSave(), progress: { g2p3: { won: true, bestCost: 7, stars: [0] } }, seenGroups: ["g2"], xp: 40 }
+    expect(migrateSave(v3)).toEqual(v3)
+  })
+
+  it("migrates v1 through to v3 ids", () => {
+    const data = migrateSave({ version: 1, progress: { g2p1: { won: true, bestCost: 1 } }, settings: {} })!
+    expect(data.progress.g7p1).toEqual({ won: true, bestCost: 1, stars: [0] })
   })
 })

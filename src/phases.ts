@@ -42,7 +42,18 @@ export type Phase = {
   hints: string[]
   referenceSolution: CircuitDoc | null
 }
-export type Group = { id: string; title: string; demo: boolean; concept: string; unlocks: string[]; phases: Phase[] }
+export type Block = "eletrica" | "eletronica"
+export type Group = {
+  id: string
+  title: string
+  demo: boolean
+  concept: string
+  unlocks: string[]
+  phases: Phase[]
+  requires: string | null
+  block: Block
+  burns: boolean
+}
 export type PhaseData = { groups: Group[]; future: string[] }
 export type Failure = { partId: string; reason: "missing" | "state" | "range" | "unstable" | "undefinedInput" }
 export type ScenarioResult = { when: Record<string, string>; ok: boolean; isCurrent: boolean; failures: Failure[]; result: SolveResult }
@@ -54,13 +65,13 @@ export type Evaluation = {
   won: boolean
 }
 
-export const FEATURES = ["current_view", "multimeter", "burn_enabled", "breadboard", "jumper_wire"] as const
+export const FEATURES = ["current_view", "multimeter", "breadboard", "jumper_wire"] as const
 
 const HINT_CHANGES = 15
 const HINT_MS = 180_000
 
 type RawPhase = Partial<Phase> & { id: string; type: PhaseType; goal: string }
-type RawGroup = Omit<Group, "phases"> & { phases: RawPhase[] }
+type RawGroup = Omit<Group, "phases" | "requires" | "block" | "burns"> & Partial<Pick<Group, "requires" | "block" | "burns">> & { phases: RawPhase[] }
 
 function fillPhase(raw: RawPhase): Phase {
   return {
@@ -83,6 +94,9 @@ function fillPhase(raw: RawPhase): Phase {
 export function loadPhases(raw: unknown): PhaseData {
   const data = raw as { groups?: RawGroup[]; future?: string[] }
   const groups = (data.groups ?? []).map((g) => ({
+    requires: null,
+    block: "eletrica" as Block,
+    burns: false,
     ...g,
     phases: g.phases.filter((p) => g.demo || (p.expect?.length ?? 0) > 0).map(fillPhase),
   }))
@@ -188,11 +202,40 @@ export function phaseOrder(data: PhaseData): string[] {
   return data.groups.flatMap((g) => g.phases.map((p) => p.id))
 }
 
+export function groupComplete(group: Group, won: Set<string>): boolean {
+  return group.phases.length > 0 && group.phases.every((p) => won.has(p.id))
+}
+
+function groupUnlocked(data: PhaseData, won: Set<string>, group: Group, seen: Set<string> = new Set()): boolean {
+  if (group.requires === null) return true
+  if (seen.has(group.id)) return false
+  seen.add(group.id)
+  const required = data.groups.find((g) => g.id === group.requires)
+  if (!required) return false
+  // grupo vazio não bloqueia: vale o requires dele
+  return required.phases.length > 0 ? groupComplete(required, won) : groupUnlocked(data, won, required, seen)
+}
+
 export function isPhaseAvailable(data: PhaseData, won: Set<string>, phaseId: string): boolean {
-  const order = phaseOrder(data)
-  const index = order.indexOf(phaseId)
-  if (index < 0) return false
-  return index === 0 || won.has(order[index - 1])
+  const group = data.groups.find((g) => g.phases.some((p) => p.id === phaseId))
+  if (!group) return false
+  const index = group.phases.findIndex((p) => p.id === phaseId)
+  return index === 0 ? groupUnlocked(data, won, group) : won.has(group.phases[index - 1].id)
+}
+
+export function meterGroups(data: PhaseData): Set<string> {
+  const result = new Set(data.groups.filter((g) => g.unlocks.includes("multimeter")).map((g) => g.id))
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const g of data.groups) {
+      if (!result.has(g.id) && g.requires !== null && result.has(g.requires)) {
+        result.add(g.id)
+        grew = true
+      }
+    }
+  }
+  return result
 }
 
 export function claimableId(doc: CircuitDoc, side: "bench" | "blueprint", type: string, keyParts: Phase["keyParts"]): string | undefined {
@@ -208,6 +251,7 @@ export function findPhase(data: PhaseData, phaseId: string): Phase | undefined {
 export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheets: Record<string, unknown>): string[] {
   const errors: string[] = []
   const groupIds = new Set<string>()
+  const meters = meterGroups(data)
   const phaseIds = new Set<string>()
   for (const [key, def] of Object.entries(catalog)) {
     if (def.datasheet && !(def.datasheet in datasheets)) errors.push(`peça ${key}: datasheet "${def.datasheet}" não existe`)
@@ -215,6 +259,8 @@ export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheet
   for (const group of data.groups) {
     if (groupIds.has(group.id)) errors.push(`grupo duplicado: ${group.id}`)
     groupIds.add(group.id)
+    if (group.requires !== null && !data.groups.some((g) => g.id === group.requires)) errors.push(`grupo ${group.id}: requires "${group.requires}" não existe`)
+    if (hasRequiresCycle(data, group)) errors.push(`grupo ${group.id}: requires forma um ciclo`)
     for (const unlock of group.demo ? group.unlocks : []) {
       if (!(unlock in catalog) && !(FEATURES as readonly string[]).includes(unlock)) errors.push(`grupo ${group.id}: unlock "${unlock}" não existe`)
     }
@@ -233,22 +279,31 @@ export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheet
       if (!group.demo) continue
       if (phase.expect.length === 0 && (phase.steps?.length ?? 0) === 0) errors.push(`${where}: sem estado esperado nem passos`)
       if (phase.type !== "tutorial" && !phase.referenceSolution) errors.push(`${where}: sem solução de referência`)
-      errors.push(...validateStars(phase, data, group.id, catalog))
+      errors.push(...validateStars(phase, meters.has(group.id), catalog))
     }
   }
   return errors
 }
 
-function validateStars(phase: Phase, data: PhaseData, groupId: string, catalog: PartsCatalog): string[] {
+function hasRequiresCycle(data: PhaseData, group: Group): boolean {
+  const seen = new Set<string>([group.id])
+  let next = group.requires
+  while (next !== null) {
+    if (seen.has(next)) return true
+    seen.add(next)
+    next = data.groups.find((g) => g.id === next)?.requires ?? null
+  }
+  return false
+}
+
+function validateStars(phase: Phase, meterOk: boolean, catalog: PartsCatalog): string[] {
   const where = `fase ${phase.id}`
   const errors: string[] = []
   if (phase.stars.length !== 3) errors.push(`${where}: precisa de 3 estrelas`)
   if (phase.stars[0]?.kind !== "solved") errors.push(`${where}: a primeira estrela tem que ser solved`)
-  const groupIndex = data.groups.findIndex((g) => g.id === groupId)
-  const meterIndex = data.groups.findIndex((g) => g.unlocks.includes("multimeter"))
   const meterSteps = (phase.steps ?? []).some((s) => "event" in s.until && s.until.event.startsWith("meterRead"))
   for (const star of phase.stars) {
-    if (star.kind === "usedMeter" && (meterIndex < 0 || groupIndex < meterIndex)) errors.push(`${where}: usedMeter antes de liberar o multímetro`)
+    if (star.kind === "usedMeter" && !meterOk) errors.push(`${where}: usedMeter antes de liberar o multímetro`)
     if (star.kind === "usedMeter" && meterSteps) errors.push(`${where}: usedMeter repete um passo obrigatório do tutorial`)
     if (star.kind === "noDivergence" && !phase.showDivergence) errors.push(`${where}: noDivergence precisa dos marcadores de divergência ligados`)
   }

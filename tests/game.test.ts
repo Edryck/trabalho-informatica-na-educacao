@@ -2,12 +2,13 @@ import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
 import parts from "../data/parts.json"
 import phasesJson from "../data/phases.json"
-import { applyDailyReward, applyPhaseReward, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type StarContext } from "../src/game"
+import { applyDailyReward, applyPhaseReward, buildRewards, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext } from "../src/game"
 import type { PartsCatalog } from "../src/netlist"
 import { evaluate, type Evaluation, type PhaseData, type Star } from "../src/phases"
 import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
 
-const rewards = rewardsJson as unknown as Rewards
+const rewardsData = rewardsJson as unknown as RewardsData
+const rewards: Rewards = { ...buildRewards(rewardsData, loadPhases(phasesJson)), levels: [0, 300, 700, 1200, 1800, 2500, 3300, 4200, 5200, 6300] }
 
 function evaluation(partial: Partial<Evaluation> = {}): Evaluation {
   return { scenarios: [], divergences: [], cost: 5, budgetOk: true, won: true, ...partial }
@@ -44,6 +45,32 @@ describe("stars", () => {
     expect(goalState({ kind: "usedMeter", mode: "V" }, ctx({ won: false }), false)).toBe("unmet")
     expect(goalState({ kind: "solved" }, ctx({ won: false }), true)).toBe("unmet")
     expect(goalState({ kind: "solved" }, ctx(), true)).toBe("met")
+  })
+})
+
+describe("buildRewards", () => {
+  const demoData = loadPhases(phasesJson)
+  const maxXp = demoData.groups.filter((g) => g.demo).flatMap((g) => g.phases).reduce((n, p) => n + p.stars.length, 0) * rewardsData.xpPerStar
+
+  it("level 10 sits between 85 and 90 percent of phase xp", () => {
+    const built = buildRewards(rewardsData, demoData)
+    const ratio = built.levels[9] / maxXp
+    expect(ratio).toBeGreaterThanOrEqual(0.85)
+    expect(ratio).toBeLessThanOrEqual(0.9)
+  })
+
+  it("thresholds grow strictly", () => {
+    const built = buildRewards(rewardsData, demoData)
+    for (let i = 1; i < built.levels.length; i++) expect(built.levels[i]).toBeGreaterThan(built.levels[i - 1])
+  })
+
+  it("thresholds follow the demo size", () => {
+    const base = demoData.groups[0].phases[0]
+    const fake: PhaseData = {
+      future: [],
+      groups: [{ id: "g0", title: "t", demo: true, concept: "", unlocks: [], requires: null, block: "eletrica", burns: false, phases: Array.from({ length: 28 }, (_, i) => ({ ...base, id: `p${i}`, stars: [{ kind: "solved" as const }, { kind: "solved" as const }, { kind: "solved" as const }] })) }],
+    }
+    expect(buildRewards(rewardsData, fake).levels).toEqual([0, 300, 750, 1300, 2000, 2800, 3700, 4700, 5900, 7500])
   })
 })
 
@@ -100,13 +127,14 @@ describe("starsTotal", () => {
   it("counts the union of stars over demo phases", () => {
     const data = loadPhases(phasesRaw)
     const progress = { g0p1: { won: true, bestCost: null, stars: [0, 2] }, g1p1: { won: true, bestCost: 5, stars: [0] }, sandbox: { won: true, bestCost: null, stars: [0, 1, 2] } }
-    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 72 })
+    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 39 })
   })
 })
 
 const catalog = parts as unknown as PartsCatalog
 const data = loadPhases(phasesJson)
-const g3Done = new Set(data.groups.filter((g) => ["g0", "g1", "g2", "g3"].includes(g.id)).flatMap((g) => g.phases.map((p) => p.id)))
+const g3Done = new Set(data.groups.filter((g) => g.demo).flatMap((g) => g.phases.map((p) => p.id)))
+const metered: PhaseData = { ...data, groups: data.groups.map((g) => (g.id === "g2" ? { ...g, phases: data.groups.find((x) => x.id === "g6")!.phases } : g)) }
 const DATES = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10"]
 
 describe("daily repair", () => {
@@ -143,14 +171,19 @@ describe("daily repair", () => {
 
   it("returns null when nothing breaks", () => {
     const base = data.groups[1].phases.find((p) => p.type === "build" && p.referenceSolution)!
-    const fake: PhaseData = { future: [], groups: [{ id: "g3", title: "t", demo: true, concept: "", unlocks: [], phases: [{ ...base, id: "x1", expect: [] }] }] }
+    const fake: PhaseData = { future: [], groups: [{ id: "g3", title: "t", demo: true, concept: "", unlocks: [], requires: null, block: "eletrica", burns: false, phases: [{ ...base, id: "x1", expect: [] }] }] }
     expect(dailyRepair("2026-11-01", fake, new Set(["x1"]), catalog)).toBeNull()
   })
 
-  it("locked before finishing g3", () => {
-    const partial = new Set([...g3Done].filter((id) => id !== "g3p6"))
-    expect(dailyUnlocked(partial, data)).toBe(false)
-    expect(dailyUnlocked(g3Done, data)).toBe(true)
+  it("daily stays locked while the meter group is empty", () => {
+    expect(dailyUnlocked(g3Done, data)).toBe(false)
+  })
+
+  it("daily unlocks when the meter group has phases and all are won", () => {
+    const meterPhases = metered.groups.find((g) => g.id === "g2")!.phases.map((p) => p.id)
+    const partial = new Set([...g3Done].filter((id) => id !== meterPhases[0]))
+    expect(dailyUnlocked(partial, metered)).toBe(false)
+    expect(dailyUnlocked(new Set([...g3Done, ...meterPhases]), metered)).toBe(true)
   })
 
   it("streak counts consecutive days, resets on gaps, ignores repeats", () => {

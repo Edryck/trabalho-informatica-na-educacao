@@ -1,7 +1,7 @@
 {
   "xpPerStar": 100,
   "dailyXp": 150,
-  "levels": [0, 300, 700, 1200, 1800, 2500, 3300, 4200, 5200, 6300],
+  "levelCurve": [0, 0.036, 0.089, 0.155, 0.238, 0.333, 0.44, 0.56, 0.70, 0.89],
   "items": [
     { "level": 2, "id": "lamp-desk", "kind": "decor", "name": "Luminária de mesa" },
     { "level": 3, "id": "wires-neon", "kind": "wires", "name": "Fios neon", "value": "#22D3EE,#A3E635,#F472B6,#FACC15" },

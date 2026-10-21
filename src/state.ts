@@ -115,7 +115,7 @@ export type Cosmetics = { board: string; wires: string; mat: string }
 export type Daily = { lastWonDate: string | null; streak: number; wonDates: string[] }
 export type PhaseProgress = { won: boolean; bestCost: number | null; stars: number[] }
 export type SaveData = {
-  version: 2
+  version: 3
   progress: Record<string, PhaseProgress>
   settings: Settings
   draft: { phaseId: string; doc: CircuitDoc } | null
@@ -138,7 +138,7 @@ export type Store = {
 
 export function defaultSave(): SaveData {
   return {
-    version: 2,
+    version: 3,
     progress: {},
     settings: { standard: "IEC", reducedMotion: false, volume: 0.8 },
     draft: null,
@@ -238,27 +238,50 @@ function cleanDaily(raw: unknown): Daily {
   }
 }
 
+export const V3_PHASE_MOVES: Record<string, string> = {
+  g2p1: "g7p1",
+  g2p2: "g7p2",
+  g2p3: "g7p3",
+  g2p4: "g7p4",
+  g2p5: "g7p5",
+  g2p6: "g7p6",
+  g2p7: "g7p7",
+  g3p4: "g6p4",
+  g3p5: "g6p5",
+  g3p6: "g7p8",
+}
+export const V3_LEGACY: string[] = ["g3p1", "g3p2", "g3p3"]
+export const V3_GROUP_MOVES: Record<string, string> = { g2: "g7", g3: "g2", g4: "g3", g5: "g4", g6: "g5" }
+
+function v3PhaseId(id: string): string {
+  return V3_PHASE_MOVES[id] ?? (V3_LEGACY.includes(id) ? `legacy:${id}` : id)
+}
+
 export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | null {
-  if (!isObject(raw) || (raw.version !== 1 && raw.version !== 2) || !isObject(raw.progress) || !isObject(raw.settings)) return null
+  if (!isObject(raw) || (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) || !isObject(raw.progress) || !isObject(raw.settings)) return null
   const fromV1 = raw.version === 1
+  const moves = raw.version !== 3
+  const phaseId = (id: string) => (moves ? v3PhaseId(id) : id)
   const base = defaultSave()
-  const progress = cleanProgress(raw.progress, fromV1)
+  const cleaned = cleanProgress(raw.progress, fromV1)
+  const progress = moves ? Object.fromEntries(Object.entries(cleaned).map(([id, entry]) => [phaseId(id), entry])) : cleaned
   const draft =
     isObject(raw.draft) && typeof raw.draft.phaseId === "string" && (!catalog || isValidDoc(raw.draft.doc, catalog)) && isObject(raw.draft.doc)
-      ? { phaseId: raw.draft.phaseId, doc: raw.draft.doc as CircuitDoc }
+      ? { phaseId: phaseId(raw.draft.phaseId), doc: raw.draft.doc as CircuitDoc }
       : null
+  const seenGroups = Array.isArray(raw.seenGroups) ? raw.seenGroups.filter((g): g is string => isString(g)) : []
   return {
-    version: 2,
+    version: 3,
     progress,
     settings: { ...base.settings, ...(raw.settings as Partial<Settings>) },
-    draft,
-    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt).map(cleanAttempt) : [],
+    draft: draft && draft.phaseId.startsWith("legacy:") ? null : draft,
+    sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt).map(cleanAttempt).map((a) => ({ ...a, phaseId: phaseId(a.phaseId) })) : [],
     seenDatasheets: Array.isArray(raw.seenDatasheets) ? raw.seenDatasheets.filter((k): k is string => typeof k === "string") : [],
     xp: fromV1 ? Object.values(progress).filter((p) => p.won).length * 100 : isNumber(raw.xp) && raw.xp > 0 ? raw.xp : 0,
     cosmetics: fromV1 ? base.cosmetics : cleanCosmetics(raw.cosmetics),
     daily: fromV1 ? base.daily : cleanDaily(raw.daily),
     tutorialSeen: raw.tutorialSeen === true,
-    seenGroups: Array.isArray(raw.seenGroups) ? raw.seenGroups.filter((g): g is string => isString(g)) : [],
+    seenGroups: moves ? seenGroups.map((g) => V3_GROUP_MOVES[g] ?? g) : seenGroups,
   }
 }
 

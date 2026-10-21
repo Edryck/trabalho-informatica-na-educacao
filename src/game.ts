@@ -1,8 +1,9 @@
 import type { PartsCatalog } from "./netlist"
-import { evaluate, isPhaseAvailable, type Evaluation, type Phase, type PhaseData, type Star } from "./phases"
+import { evaluate, groupComplete, isPhaseAvailable, type Evaluation, type Phase, type PhaseData, type Star } from "./phases"
 import type { CircuitDoc, Cosmetics, Daily, SaveData } from "./state"
 
 export type RewardItem = { level: number; id: string; kind: "decor" | "board" | "wires" | "mat"; name: string; value?: string }
+export type RewardsData = { xpPerStar: number; dailyXp: number; levelCurve: number[]; items: RewardItem[] }
 export type Rewards = { xpPerStar: number; dailyXp: number; levels: number[]; items: RewardItem[] }
 export type MeterMode = "V" | "A" | "ohm"
 export type StarContext = { won: boolean; evaluation: Evaluation; doc: CircuitDoc; side: "bench" | "blueprint"; meterModesUsed: MeterMode[] }
@@ -34,6 +35,12 @@ export function goalState(star: Star, ctx: StarContext, everAllPassed: boolean):
   // meta de circuito só faz sentido depois que o circuito funcionou pelo menos uma vez
   if (!everAllPassed) return "neutral"
   return circuitMet(star, ctx) ? "met" : "unmet"
+}
+
+export function buildRewards(raw: RewardsData, data: PhaseData): Rewards {
+  const stars = data.groups.filter((g) => g.demo).flatMap((g) => g.phases).reduce((sum, p) => sum + p.stars.length, 0)
+  const maxXp = stars * raw.xpPerStar
+  return { xpPerStar: raw.xpPerStar, dailyXp: raw.dailyXp, levels: raw.levelCurve.map((c) => Math.round((c * maxXp) / 50) * 50), items: raw.items }
 }
 
 export function levelFor(xp: number, rewards: Rewards): LevelInfo {
@@ -101,8 +108,8 @@ function shuffle<T>(list: T[], random: () => number): T[] {
 }
 
 export function dailyUnlocked(won: Set<string>, data: PhaseData): boolean {
-  const g3 = data.groups.find((g) => g.id === "g3")
-  return !!g3 && g3.phases.length > 0 && g3.phases.every((p) => won.has(p.id))
+  const meter = data.groups.find((g) => g.unlocks.includes("multimeter"))
+  return !!meter && groupComplete(meter, won)
 }
 
 type Defect = (doc: CircuitDoc) => boolean
