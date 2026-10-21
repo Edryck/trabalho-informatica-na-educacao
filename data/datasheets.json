@@ -159,6 +159,26 @@
     "breadboard": "A perna comprida é o ânodo (+) e o lado chato da cabeça marca o cátodo (−). Cada perna numa coluna, com o resistor ligado numa delas.",
     "mistake": "Ligar o LED sem resistor. Ele acende forte demais e o jogo avisa que a corrente passou do limite. Na vida real ele não aguentaria."
   },
+  "diode": {
+    "title": "Diodo",
+    "does": "Deixa a corrente passar do ânodo pro cátodo e trava no outro sentido. Quando conduz, perde uns 0,7 V no caminho.",
+    "values": [
+      [
+        "Queda de tensão",
+        "0,7 V"
+      ],
+      [
+        "Sentido",
+        "ânodo (+) → cátodo (−)"
+      ],
+      [
+        "Corrente típica",
+        "até 100 mA"
+      ]
+    ],
+    "breadboard": "A faixa prateada marca o cátodo (−). Cada perna numa coluna, com a faixa virada pro lado do negativo.",
+    "mistake": "Montar ao contrário e achar que a peça estragou. Ela só está bloqueando: vira o diodo e testa de novo."
+  },
   "chip_not": {
     "title": "CI 7404 (NOT)",
     "does": "Seis inversores num chip. Cada saída mostra o contrário da sua entrada: entrou 0, sai 1.",

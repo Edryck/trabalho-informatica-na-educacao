@@ -122,6 +122,8 @@ const PART_ART: Record<string, string> = {
   push_button: '<rect x="11" y="15" width="26" height="11" rx="2.5" fill="#1F2937"/><circle cx="24" cy="13.5" r="7.5" fill="#22C55E" stroke="#15803D" stroke-width="1.4"/><circle cx="21.5" cy="11" r="2" fill="#86EFAC"/>',
   dc_motor:
     '<rect x="8" y="9" width="23" height="15" rx="7" fill="#A8A29E" stroke="#78716C" stroke-width="1.2"/><rect x="12" y="9" width="3" height="15" fill="#78716C" opacity=".5"/><rect x="31" y="14.5" width="5" height="4" fill="#78716C"/><ellipse cx="39" cy="16.5" rx="2.4" ry="10" fill="#3B82F6"/>',
+  diode:
+    '<path d="M21 26v5M27 26v5" stroke="#A8A29E" stroke-width="1.6" stroke-linecap="round"/><rect x="14" y="14" width="20" height="11" rx="3" fill="#1F2937"/><rect x="28" y="14" width="3.5" height="11" fill="#D6D3D1"/>',
   buzzer:
     '<circle cx="21" cy="16" r="10" fill="#1F2937"/><circle cx="21" cy="16" r="2.6" fill="#4B5563"/><path d="M34 10.5a8 8 0 010 11M38 7.5a12.5 12.5 0 010 17" fill="none" stroke="#EC4899" stroke-width="1.8" stroke-linecap="round"/>',
   resistor:
@@ -347,6 +349,8 @@ const STATE_WORDS: Record<string, string> = {
   cw: "girando no sentido horário",
   ccw: "girando no sentido anti-horário",
   sounding: "tocando",
+  conducting: "conduzindo",
+  blocking: "bloqueando",
   "1": "em 1",
   "0": "em 0",
 }

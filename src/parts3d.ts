@@ -610,6 +610,17 @@ export function makeLedHead(color: number, glowLevel: number): Group {
   return g
 }
 
+export function makeDiodeBody(length: number): Group {
+  const g = new Group()
+  const h = length / 2
+  const profile: [number, number][] = [[0, -h], [0.8, -h], [0.95, -h + 0.2], [0.95, h - 0.2], [0.8, h], [0, h]]
+  g.add(named(new Mesh(lathe(profile, 24), satin(0x16181d, { roughness: 0.4 })), "body"))
+  const band = new Mesh(new CylinderGeometry(0.99, 0.99, 0.55, 24, 1, true), satin(0xd6d3d1, { roughness: 0.3, metalness: 0.6 }))
+  band.position.y = h - 0.75
+  g.add(band)
+  return g
+}
+
 export function makeResistorBody(bands: string[], length: number): Group {
   const g = new Group()
   const h = length / 2

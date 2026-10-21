@@ -11,6 +11,7 @@ export type PartModel =
   | { kind: "motor"; resistance: number }
   | { kind: "buzzer"; resistance: number }
   | { kind: "led"; vf: number; rs: number }
+  | { kind: "diode"; vf: number; rs: number }
   | { kind: "switch" }
   | { kind: "pushButton" }
   | { kind: "logicSwitch" }

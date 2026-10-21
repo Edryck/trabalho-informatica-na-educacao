@@ -72,6 +72,10 @@ export const SYMBOLS: Record<string, (state: PartState | undefined, input: strin
     const high = input === "1"
     return `${lead(0, -40, 0, -20)}${lead(0, 20, 0, 40)}${lead(20, 0, 40, 0)}<circle class="node" cx="0" cy="-20" r="2.5"/><circle class="node" cx="0" cy="20" r="2.5"/><circle class="node" cx="20" cy="0" r="2.5"/><line x1="20" y1="0" x2="${high ? 3 : 3}" y2="${high ? -17 : 17}"/><text class="pole" x="-12" y="-16">1</text><text class="pole" x="-12" y="26">0</text>`
   },
+  diode: (state) => {
+    const on = state?.kind === "diode" && state.conducting
+    return `${lead(-40, 0, -10, 0)}${lead(10, 0, 40, 0)}<path class="${on ? "lit" : ""}" d="M-10 -12L10 0L-10 12Z"/><line x1="10" y1="-12" x2="10" y2="12"/>`
+  },
   led: (state) => {
     const on = state?.kind === "led" && state.lit
     return `${lead(-40, 0, -10, 0)}${lead(10, 0, 40, 0)}<path class="${on ? "lit" : ""}" d="M-10 -12L10 0L-10 12Z"/><line x1="10" y1="-12" x2="10" y2="12"/><path d="M2 -16l8 -8M6 -24h4v4M10 -12l8 -8M14 -20h4v4"/>`

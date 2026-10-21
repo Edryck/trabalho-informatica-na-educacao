@@ -13,6 +13,7 @@ export type DiscreteState = { leds: Record<string, "on" | "off">; outputs: Recor
 
 export type PartState =
   | { kind: "lamp" | "led"; lit: boolean; brightness: number }
+  | { kind: "diode"; conducting: boolean }
   | { kind: "motor"; spinning: boolean; direction: 1 | -1 | 0 }
   | { kind: "buzzer"; sounding: boolean }
   | { kind: "logic"; outputs: Record<string, 0 | 1 | "undefined" | "hiz">; powered: boolean }
@@ -99,6 +100,7 @@ function partBranches(part: NetPart, def: PartDef, state: string | undefined, pi
     case "buzzer":
       return branch(def.pins[0], def.pins[1], 1 / model.resistance)
     case "led":
+    case "diode":
       return discrete.leds[part.id] === "on" ? branch("a", "k", 1 / model.rs, model.vf / model.rs) : branch("a", "k", LED_OFF_CONDUCTANCE)
     case "switch":
       return state === "on" ? branch("a", "b", link) : []
@@ -160,7 +162,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     const def = catalog[part.type]
     states.set(part.id, opts.overrides?.[part.id] ?? part.inputState ?? DEFAULT_INPUT_STATE[def.model.kind])
   }
-  const ledParts = known.filter((p) => catalog[p.type].model.kind === "led")
+  const ledParts = known.filter((p) => ["led", "diode"].includes(catalog[p.type].model.kind))
   const chipParts = known.filter((p) => catalog[p.type].model.kind === "logic")
   const nodes = collapse(net)
   const membersByNode = new Map<string, PinRef[]>()
@@ -274,7 +276,7 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
     for (const part of ledParts) {
       const br = run.partBranchList.get(part.id)?.[0]
       const model = catalog[part.type].model
-      if (part.fault !== undefined || br === undefined || model.kind !== "led") {
+      if (part.fault !== undefined || br === undefined || model.kind !== "led" && model.kind !== "diode") {
         leds[part.id] = "off"
       } else if (discrete.leds[part.id] === "on") {
         leds[part.id] = current(br, run.voltages) <= 0 ? "off" : "on"
@@ -366,6 +368,10 @@ export function solve(net: Netlist, catalog: PartsCatalog, opts: SolveOptions = 
         partState[part.id] = { kind: "led", lit, brightness: lit ? Math.min(1, i / (thresholds.nominal ?? Infinity)) : 0 }
         break
       }
+      case "diode":
+        partCurrent[part.id] = i
+        partState[part.id] = { kind: "diode", conducting: i > (thresholds.conduct ?? Infinity) }
+        break
       case "switch":
         if (branches.length > 0) partCurrent[part.id] = i
         break

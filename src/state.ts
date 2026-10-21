@@ -32,6 +32,7 @@ export const ID_PREFIX: Record<string, string> = {
   buzzer: "Z",
   resistor: "R",
   led: "LED",
+  diode: "D",
   logic_switch: "SW",
   logic_probe: "P",
 }

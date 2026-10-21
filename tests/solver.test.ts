@@ -522,3 +522,35 @@ describe("driven lines", () => {
     expect(s.partState.P1).toEqual({ kind: "probe", level: "undefined" })
   })
 })
+
+describe("diode", () => {
+  function diodeCircuit(opts: { reversed?: boolean; load: NetPart }): Netlist {
+    const pinAt: Record<string, string> = { "B1.+": "p", "B1.-": "n", [`${opts.load.id}.a`]: "q", [`${opts.load.id}.b`]: "n" }
+    pinAt["D1.a"] = opts.reversed ? "q" : "p"
+    pinAt["D1.k"] = opts.reversed ? "p" : "q"
+    return net([bat("B1"), { id: "D1", type: "diode", value: 0 }, opts.load], pinAt)
+  }
+
+  it("diode conducts forward with a 0.7 V drop", () => {
+    const s = solve(diodeCircuit({ load: r("R1", 1000) }), catalog)
+    expect(Math.abs(s.partCurrent.D1)).toBeGreaterThan(0.0082)
+    expect(Math.abs(s.partCurrent.D1)).toBeLessThan(0.0084)
+    const drop = s.voltages.p - s.voltages.q
+    expect(drop).toBeGreaterThan(0.69)
+    expect(drop).toBeLessThan(0.72)
+    expect(s.partState.D1).toMatchObject({ kind: "diode", conducting: true })
+  })
+
+  it("diode blocks reverse", () => {
+    const s = solve(diodeCircuit({ reversed: true, load: r("R1", 1000) }), catalog)
+    expect(Math.abs(s.partCurrent.D1)).toBeLessThan(1e-6)
+    expect(s.partState.D1).toMatchObject({ kind: "diode", conducting: false })
+  })
+
+  it("diode in series with a lamp", () => {
+    const forward = solve(diodeCircuit({ load: lamp("L1") }), catalog)
+    const reverse = solve(diodeCircuit({ reversed: true, load: lamp("L1") }), catalog)
+    expect(isLit(forward.partState.L1)).toBe(true)
+    expect(isLit(reverse.partState.L1)).toBe(false)
+  })
+})

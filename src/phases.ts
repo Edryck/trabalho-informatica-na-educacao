@@ -108,6 +108,8 @@ function stateMatches(state: PartState, expected: string): boolean {
     case "lamp":
     case "led":
       return expected === "lit" ? state.lit : expected === "off" ? !state.lit : false
+    case "diode":
+      return expected === "conducting" ? state.conducting : expected === "blocking" ? !state.conducting : false
     case "motor":
       if (expected === "spinning") return state.spinning
       if (expected === "cw") return state.spinning && state.direction === 1

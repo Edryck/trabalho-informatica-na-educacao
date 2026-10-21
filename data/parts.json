@@ -259,6 +259,33 @@
     },
     "datasheet": "led"
   },
+  "diode": {
+    "pins": [
+      "a",
+      "k"
+    ],
+    "placement": "flexible",
+    "cost": 1,
+    "model": {
+      "kind": "diode",
+      "vf": 0.7,
+      "rs": 1
+    },
+    "thresholds": {
+      "conduct": 0.0005
+    },
+    "symbolPins": {
+      "a": [
+        -2,
+        0
+      ],
+      "k": [
+        2,
+        0
+      ]
+    },
+    "datasheet": "diode"
+  },
   "chip_nand": {
     "pins": [
       "1A",

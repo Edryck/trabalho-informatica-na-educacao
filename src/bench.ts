@@ -48,6 +48,7 @@ import {
   makeCuttingMat,
   makeDecor,
   makeLampBody,
+  makeDiodeBody,
   makeLedHead,
   makeMotor,
   makeResistorBody,
@@ -653,7 +654,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const mid = a.clone().add(b).multiplyScalar(0.5)
     const sel = selectedEmissive(placement.id, "part")
     const legMat = std(0xb8bcc2, { metalness: 0.8, roughness: 0.3 })
-    if (type === "resistor") {
+    if (type === "resistor" || type === "diode") {
       const top = 3.2
       for (const p of [a, b]) {
         const leg = new Mesh(new CylinderGeometry(0.22, 0.22, top), legMat)
@@ -663,7 +664,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const span = new Mesh(new TubeGeometry(new LineCurve3(a.clone().setY(top), b.clone().setY(top)), 2, 0.22, 6), legMat)
       g.add(span)
       const length = Math.min(6.2, Math.max(2.2, a.distanceTo(b) - 1.2))
-      const body = makeResistorBody(resistorBands(instanceValue), length)
+      const body = type === "diode" ? makeDiodeBody(Math.min(length, 5)) : makeResistorBody(resistorBands(instanceValue), length)
       body.position.copy(mid).setY(top)
       body.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), b.clone().sub(a).normalize())
       dress(body, placement.id, sel)
@@ -929,6 +930,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         return `Espete o cabinho ${pinName(m.pins[m.index] ?? "")} num furo · Esc deixa solto`
       case "flexible":
         if (m.type === "led") return m.first ? "Agora o furo da perna curta (cátodo, −) · Esc cancela" : "Primeiro clique: perna comprida (ânodo, +)"
+        if (m.type === "diode") return m.first ? "Agora o furo do cátodo (lado da faixa, −) · Esc cancela" : "Primeiro clique: o ânodo (+)"
         return m.first ? "Clique no furo da outra perna · Esc cancela" : "Clique no furo da primeira perna"
       case "probes":
         return m.next === "red" ? "Encoste a ponta vermelha num furo" : "Agora a ponta preta · Esc deixa como está"
@@ -1405,7 +1407,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       }
       if (selection?.kind === "part" && view) {
         const instance = view.doc.instances.find((i) => i.id === selection!.id)
-        if (instance?.type !== "led") return false
+        if (instance?.type !== "led" && instance?.type !== "diode") return false
         const d = doc()
         const placement = d.bench.placements.find((p) => p.id === instance.id)
         if (!placement) return false

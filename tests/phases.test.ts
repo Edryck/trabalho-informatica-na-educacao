@@ -583,3 +583,23 @@ describe("shipped group structure", () => {
     expect(findPhase(data, "g6p4")!.goal).toBe("escolher R pra corrente do datasheet do LED")
   })
 })
+
+describe("diode states in expect", () => {
+  const diodeNet = (reversed: boolean) => ({
+    parts: [
+      { id: "B1", type: "battery", value: 9 },
+      { id: "D1", type: "diode", value: 0 },
+      { id: "R1", type: "resistor", value: 1000 },
+    ],
+    links: [],
+    pinAt: { "B1.+": "p", "B1.-": "n", "D1.a": reversed ? "q" : "p", "D1.k": reversed ? "p" : "q", "R1.a": "q", "R1.b": "n" },
+  })
+
+  it("stateMatches understands conducting and blocking", () => {
+    for (const [reversed, want, other] of [[false, "conducting", "blocking"], [true, "blocking", "conducting"]] as const) {
+      const nets = { bench: diodeNet(reversed), blueprint: diodeNet(reversed) }
+      expect(evaluateScenarios([{ when: {}, then: { D1: want } }], nets, "bench", catalog)[0].ok).toBe(true)
+      expect(evaluateScenarios([{ when: {}, then: { D1: other } }], nets, "bench", catalog)[0].ok).toBe(false)
+    }
+  })
+})

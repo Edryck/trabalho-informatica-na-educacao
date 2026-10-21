@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { createHistory, current, emptyDoc, nextInstanceId, pushSnapshot, redo, rewindTo, undo } from "../src/state"
+import { createHistory, current, emptyDoc, nextInstanceId, prefixFor, pushSnapshot, redo, rewindTo, undo } from "../src/state"
 import type { CircuitDoc, Instance } from "../src/state"
 
 const inst = (id: string, type = "lamp"): Instance => ({ id, type, value: 0, actualValue: 0 })
@@ -394,5 +394,14 @@ describe("save v3", () => {
   it("migrates v1 through to v3 ids", () => {
     const data = migrateSave({ version: 1, progress: { g2p1: { won: true, bestCost: 1 } }, settings: {} })!
     expect(data.progress.g7p1).toEqual({ won: true, bestCost: 1, stars: [0] })
+  })
+})
+
+describe("id prefixes", () => {
+  it("every part type has a distinct id prefix", () => {
+    const keys = Object.keys(catalog).filter((k) => !k.startsWith("chip_"))
+    const prefixes = [...keys.map(prefixFor), prefixFor("chip_and")].filter((p) => p !== "X")
+    expect(new Set(prefixes).size).toBe(prefixes.length)
+    expect(prefixFor("diode")).toBe("D")
   })
 })

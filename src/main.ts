@@ -100,6 +100,7 @@ const PART_LABELS: Record<string, string> = {
   buzzer: "Buzzer",
   resistor: "Resistor",
   led: "LED",
+  diode: "Diodo",
   logic_switch: "Chave lógica",
   logic_probe: "Ponta lógica",
   chip_not: "CI NOT 7404",
