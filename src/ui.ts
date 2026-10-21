@@ -166,10 +166,10 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
         button.className = "tray-item"
         button.disabled = item.count <= 0
         button.classList.toggle("active", item.type === active)
-        button.setAttribute("aria-label", `${item.label}, ${item.count} disponível`)
+        button.setAttribute("aria-label", `${item.label}, ${item.count === Infinity ? "sem limite" : item.count + " disponível"}`)
         button.title = item.label
         button.classList.toggle("pending", item.type.startsWith("pending:"))
-        button.innerHTML = `<span class="tray-art">${partArt(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${item.count}</span>`
+        button.innerHTML = `<span class="tray-art">${partArt(item.icon ?? item.type)}</span><span class="tray-name">${item.label}</span><span class="tray-count" aria-hidden="true">${trayCount(item.count)}</span>`
         button.addEventListener("click", () => onPick(item.type))
         wrap.appendChild(button)
         const infoType = item.icon ?? item.type
@@ -234,6 +234,20 @@ export function createHint(el: HTMLElement) {
       el.textContent = text ?? ""
     },
   }
+}
+
+export function trayCount(count: number): string {
+  return count === Infinity ? "∞" : String(count)
+}
+
+export function divergencesApply(phase: { id: string; showDivergence: boolean; stars: Star[] }, blueprintParts: number): boolean {
+  if (phase.stars.some((s) => s.kind === "noDivergence")) return true
+  if (!phase.showDivergence) return false
+  return !(phase.id === "sandbox" && blueprintParts === 0)
+}
+
+export function shownDivergences(phase: { id: string; showDivergence: boolean; stars: Star[] }, blueprintParts: number, list: Divergence[]): Divergence[] {
+  return divergencesApply(phase, blueprintParts) ? list : []
 }
 
 export function visibleDivergences(list: Divergence[]): { shown: Divergence[]; more: number } {

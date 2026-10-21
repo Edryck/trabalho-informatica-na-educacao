@@ -405,3 +405,36 @@ describe("id prefixes", () => {
     expect(prefixFor("diode")).toBe("D")
   })
 })
+
+import { loadSandbox, saveSandbox, SANDBOX_KEY } from "../src/state"
+
+describe("sandbox storage", () => {
+  it("sandbox autosave round-trips", () => {
+    const s = memory()
+    const doc = docWithType("lamp")
+    saveSandbox(s, doc)
+    expect(loadSandbox(s, catalog)).toEqual(doc)
+  })
+
+  it("sandbox load ignores corrupt json", () => {
+    const s = memory()
+    s.setItem(SANDBOX_KEY, "{oops")
+    expect(loadSandbox(s, catalog)).toBeNull()
+    s.setItem(SANDBOX_KEY, JSON.stringify({ version: 1, instances: "x" }))
+    expect(loadSandbox(s, catalog)).toBeNull()
+    expect(loadSandbox(memory(), catalog)).toBeNull()
+  })
+
+  it("sandbox load survives a throwing storage", () => {
+    expect(loadSandbox(throwing, catalog)).toBeNull()
+    expect(() => saveSandbox(throwing, docWithType("lamp"))).not.toThrow()
+    expect(loadSandbox(null, catalog)).toBeNull()
+  })
+
+  it("sandbox save never touches the progress key", () => {
+    const s = memory()
+    s.setItem(STORAGE_KEY, "progress-text")
+    saveSandbox(s, docWithType("lamp"))
+    expect(s.getItem(STORAGE_KEY)).toBe("progress-text")
+  })
+})

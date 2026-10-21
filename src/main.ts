@@ -39,6 +39,8 @@ import {
   current,
   emptyDoc,
   isValidDoc,
+  loadSandbox,
+  saveSandbox,
   exportLog,
   finishAttempt,
   recordReward,
@@ -56,6 +58,7 @@ import {
 import {
   createDatasheetCard,
   createDivergenceBar,
+  divergencesApply,
   createHint,
   createMeterHud,
   createValuePicker,
@@ -211,7 +214,11 @@ const SOUND_EVENTS: Record<string, "snap" | "wire" | "toggle"> = { partPlaced: "
 function restartPhase(quiet = false) {
   if (!session) return
   const id = session.phase.id
-  if (id === "sandbox") return startSandbox()
+  if (id === "sandbox") {
+    flushSandbox()
+    saveSandbox(safeLocalStorage(), emptyDoc())
+    return startSandbox()
+  }
   const real = findPhase(phases, id) !== undefined
   // fase gerada não tem rascunho; apagar aqui levaria embora o da fase que ficou pela metade
   if (real) {
@@ -512,7 +519,7 @@ function previewText(index: number): string {
 function render() {
   const phase = session?.phase
   const ev = evaluation
-  const showMarkers = !!phase && phase.showDivergence
+  const showMarkers = !!phase && divergencesApply(phase, view.doc.blueprint.placements.length)
   const divergences = showMarkers && ev ? ev.divergences : []
   const previewResult = session?.previewIndex !== null && session?.previewIndex !== undefined ? ev?.scenarios[session.previewIndex]?.result : undefined
   const evaluatesBench = phase?.evaluateOn !== "blueprint"
@@ -522,7 +529,7 @@ function render() {
   const meter = view.doc.bench.meter
   meterHud.render(meter.mode, (previewResult && evaluatesBench ? previewResult : view.benchResult).meter, !!meter.red && !!meter.black)
   toolbar.setMeterAvailable(meterAvailable())
-  pendingList.update(phase?.showDivergence ? pendingFor("blueprint") : [])
+  pendingList.update(showMarkers ? pendingFor("blueprint") : [])
   tray.update(trayItems(view.doc), activePart)
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
   toolbar.setRewind(history.snapshots.length > 1)
@@ -586,6 +593,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
     lastDivergences = divergences
     if (!session.won && !isDaily(session.phase.id)) store.saveDraftSoon(session.phase.id, doc)
   }
+  if (opts.commit && session?.phase.id === "sandbox") saveSandboxSoon(doc)
   if (opts.commit) noticeMeterAndWarnings()
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
   if (opts.commit) {
@@ -598,9 +606,26 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
   if (opts.commit) maybeOfferHint()
 }
 
+let sandboxTimer: ReturnType<typeof setTimeout> | null = null
+let sandboxPending: CircuitDoc | null = null
+
+function flushSandbox() {
+  if (sandboxTimer !== null) clearTimeout(sandboxTimer)
+  sandboxTimer = null
+  if (sandboxPending) saveSandbox(safeLocalStorage(), sandboxPending)
+  sandboxPending = null
+}
+
+function saveSandboxSoon(doc: CircuitDoc) {
+  sandboxPending = structuredClone(doc)
+  if (sandboxTimer !== null) clearTimeout(sandboxTimer)
+  sandboxTimer = setTimeout(flushSandbox, 1000)
+}
+
 function restore(next: History) {
   history = next
   view = compute(current(history))
+  if (session?.phase.id === "sandbox") saveSandboxSoon(view.doc)
   if (session && !session.won && session.phase.id !== "sandbox" && !isDaily(session.phase.id)) store.saveDraftSoon(session.phase.id, view.doc)
   advanceSteps()
   checkVictory()
@@ -615,7 +640,7 @@ function activeEditor() {
 
 function meterAvailable(): boolean {
   if (!session) return false
-  if (isDaily(session.phase.id)) return true
+  if (isDaily(session.phase.id) || session.phase.id === "sandbox") return true
   const group = phases.groups.find((g) => g.phases.some((p) => p.id === session!.phase.id))
   return !!group && meterGroups(phases).has(group.id)
 }
@@ -791,6 +816,7 @@ function maybeOfferHint() {
 }
 
 function startPhase(phaseId: string, synthetic?: Phase) {
+  flushSandbox()
   const phase = synthetic ?? findPhase(phases, phaseId)
   if (!phase) return
   rewinding = false
@@ -1000,7 +1026,7 @@ function showTitle() {
   const hasProgress = Object.keys(store.data.progress).length > 0 || store.data.draft !== null
   titleScreen.show({
     canContinue: hasProgress,
-    sandboxAvailable: progressWon().size > 0,
+    sandboxAvailable: true,
     workshopAvailable: true,
     badge: badgeData(),
     daily: dailyCard(),
@@ -1117,26 +1143,25 @@ function showComplete(reward: CompleteReward, instant = false) {
 function startSandbox() {
   store.data = finishAttempt(store.data, false, new Date())
   store.save()
-  const won = progressWon()
-  const unlocked = phases.groups.filter((g) => g.demo && g.phases[0] && (isPhaseAvailable(phases, won, g.phases[0].id) || won.has(g.phases[0].id)))
   const tray: Record<string, number> = {}
-  for (const g of unlocked) for (const key of g.unlocks) if (key in catalog) tray[key] = 99
+  for (const key of Object.keys(catalog)) if (key !== "multimeter") tray[key] = Infinity
   const sandbox: Phase = {
     id: "sandbox",
     type: "build",
     goal: "sandbox",
-    brief: "Monta o que quiser com as peças que você já liberou.",
+    brief: "Monta o que quiser, com todas as peças e sem limite. O que você monta aqui fica salvo.",
     tray,
+    trayValues: { battery: catalog.battery.values ?? [], resistor: catalog.resistor.values ?? [] },
     keyParts: [],
     expect: [],
     evaluateOn: "bench",
     showDivergence: true,
     budget: null,
-    initial: null,
+    initial: loadSandbox(safeLocalStorage(), catalog),
     steps: null,
     hints: [],
     referenceSolution: null,
-    stars: [{ kind: "solved" }],
+    stars: [],
   }
   startPhase("sandbox", sandbox)
 }
@@ -1242,6 +1267,7 @@ audio.setVolume(store.data.settings.volume)
 audio.preload()
 
 window.addEventListener("pagehide", () => {
+  flushSandbox()
   store.data = finishAttempt(store.data, false, new Date())
   store.flush()
 })

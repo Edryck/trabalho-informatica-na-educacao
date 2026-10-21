@@ -92,6 +92,7 @@ export type AppView = {
 }
 
 export const STORAGE_KEY = "fio-continuo:v1"
+export const SANDBOX_KEY = "fio-continuo:sandbox"
 const DRAFT_DEBOUNCE_MS = 1000
 
 export type Settings = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number }
@@ -283,6 +284,27 @@ export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | nu
     daily: fromV1 ? base.daily : cleanDaily(raw.daily),
     tutorialSeen: raw.tutorialSeen === true,
     seenGroups: moves ? seenGroups.map((g) => V3_GROUP_MOVES[g] ?? g) : seenGroups,
+  }
+}
+
+export function loadSandbox(storage: StorageLike | null, catalog: PartsCatalog): CircuitDoc | null {
+  if (!storage) return null
+  try {
+    const text = storage.getItem(SANDBOX_KEY)
+    if (!text) return null
+    const doc: unknown = JSON.parse(text)
+    return isValidDoc(doc, catalog) ? doc : null
+  } catch {
+    return null
+  }
+}
+
+export function saveSandbox(storage: StorageLike | null, doc: CircuitDoc): void {
+  if (!storage) return
+  try {
+    storage.setItem(SANDBOX_KEY, JSON.stringify(doc))
+  } catch {
+    return
   }
 }
 

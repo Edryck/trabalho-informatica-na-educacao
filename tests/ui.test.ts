@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import { bounceLand, cssLinear, divergenceLabel, formatValue, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
+import type { Star } from "../src/phases"
 
 const T = " "
 
@@ -226,5 +227,39 @@ describe("phaseLabel", () => {
   it("shows the daily repair by its date", () => {
     expect(phaseLabel("daily-2026-11-03")).toBe("03/11")
     expect(phaseLabel("g1p2")).toBe("g1p2")
+  })
+})
+
+import { shownDivergences, trayCount } from "../src/ui"
+
+describe("sandbox helpers", () => {
+  const div: Divergence = { kind: "pending", partId: "L1", power: false, side: "blueprint" }
+  const sandbox = { id: "sandbox", showDivergence: true, stars: [] as Star[] }
+  const lesson = { id: "g1p1", showDivergence: true, stars: [{ kind: "solved" }] as Star[] }
+
+  it("tray badge shows infinity", () => {
+    expect(trayCount(Infinity)).toBe("∞")
+    expect(trayCount(3)).toBe("3")
+  })
+
+  it("sandbox hides divergences while the blueprint is empty", () => {
+    expect(shownDivergences(sandbox, 0, [div])).toEqual([])
+  })
+
+  it("sandbox shows divergences once the blueprint has a part", () => {
+    expect(shownDivergences(sandbox, 1, [div])).toEqual([div])
+  })
+
+  it("phases with the noDivergence star always show divergences", () => {
+    const phase = { ...lesson, stars: [{ kind: "solved" }, { kind: "noDivergence" }] as Star[] }
+    expect(shownDivergences(phase, 0, [div])).toEqual([div])
+  })
+
+  it("a phase with an empty blueprint still shows divergences", () => {
+    expect(shownDivergences(lesson, 0, [div])).toEqual([div])
+  })
+
+  it("respects phases that turn divergences off", () => {
+    expect(shownDivergences({ ...lesson, showDivergence: false }, 2, [div])).toEqual([])
   })
 })
