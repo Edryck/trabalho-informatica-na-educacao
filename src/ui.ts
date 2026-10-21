@@ -345,7 +345,7 @@ export function createPendingList(el: HTMLElement, title: string, onPick: (item:
   }
 }
 
-const PHASE_TAGS: Record<string, string> = { tutorial: "tutorial", build: "montagem", repair: "conserto", order: "encomenda" }
+export const PHASE_TAGS: Record<string, string> = { tutorial: "tutorial", build: "montagem", repair: "conserto", order: "encomenda" }
 
 const INPUT_WORDS: Record<string, string> = {
   on: "ligada",
@@ -527,77 +527,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
   }
 }
 
-export type PhaseMapGroup = {
-  id: string
-  title: string
-  concept: string
-  comingSoon: boolean
-  justUnlocked: boolean
-  phases: { id: string; goal: string; type: string; available: boolean; won: boolean; stars: number[]; bestCost: number | null; budget: number | null }[]
-}
-
-const LOCK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
-
-export function createPhaseMap(el: HTMLElement, onPick: (phaseId: string) => void, nav: { onSettings(): void; onHome(): void; onUnlockSeen?(groupId: string): void }) {
-  el.className = "phase-map"
-  el.hidden = true
-  let backAction: { label: string; run(): void } | null = null
-  el.addEventListener("click", (event) => {
-    const target = event.target as HTMLElement
-    if (target.closest("[data-action=back]")) return backAction?.run()
-    if (target.closest("[data-action=settings]")) return nav.onSettings()
-    if (target.closest("[data-action=home]")) return nav.onHome()
-    const button = target.closest<HTMLButtonElement>("[data-phase]")
-    if (button && !button.disabled) onPick(button.dataset.phase!)
-  })
-  return {
-    show(groups: PhaseMapGroup[], badge: BadgeData, back: { label: string; run(): void } | null = null): { unlockedGroups: HTMLElement[] } {
-      el.hidden = false
-      backAction = back
-      const columns = groups
-        .map((g, gi) => {
-          if (g.comingSoon)
-            return `<section class="map-group soon" aria-label="${g.title}, em breve"><h3><span class="map-group-index">${gi + 1}</span>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-soon">${LOCK_ICON} em breve</p></section>`
-          const earned = g.phases.reduce((n, p) => n + p.stars.length, 0)
-          const locked = g.phases.every((p) => !p.available && !p.won)
-          const nodes = g.phases
-            .map((p, i) => {
-              const state = p.won ? "won" : p.available ? "available" : "locked"
-              const status = p.won ? `concluída, ${p.stars.length} de 3 estrelas` : p.available ? "disponível" : "bloqueada"
-              const stars = [0, 1, 2].map((k) => starIcon(p.stars.includes(k) ? "met" : "unmet", 14)).join("")
-              const inner = state === "locked" ? LOCK_ICON : `<span class="map-node-number">${i + 1}</span>`
-              const cost = p.won && p.budget !== null && p.bestCost !== null ? `<span class="map-cost">${p.bestCost}/${p.budget} créditos</span>` : ""
-              return `<li class="map-step ${state}"><button type="button" class="map-node" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="Fase ${i + 1}: ${p.goal}, ${PHASE_TAGS[p.type] ?? p.type}, ${status}"><span class="map-circle">${inner}</span><span class="map-text"><span class="map-goal">${p.goal}</span><span class="map-meta">${PHASE_TAGS[p.type] ?? p.type}${cost ? " · " + cost : ""}</span><span class="map-stars">${stars}</span></span></button></li>`
-            })
-            .join("")
-          return `<section class="map-group ${locked ? "locked" : ""} ${g.justUnlocked ? "just-unlocked" : ""}" data-group="${g.id}"><h3><span class="map-group-index">${locked ? LOCK_ICON : gi + 1}</span>${g.title}</h3><p class="map-concept">${g.concept}</p><p class="map-progress">${starIcon("met", 14)} ${earned}/${g.phases.length * 3}</p><ol class="map-path">${nodes}</ol></section>`
-        })
-        .join("")
-      el.innerHTML = `
-        <header class="map-head">
-          <h2 class="map-title">Mapa de fases</h2>
-          <div class="map-badge"></div>
-          <div class="map-nav">
-            <button type="button" class="btn-secondary" data-action="home">Início</button>
-            <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
-            ${back ? `<button type="button" class="btn-primary" data-action="back">${back.label}</button>` : ""}
-          </div>
-        </header>
-        <div class="map-columns">${columns}</div>`
-      void createPlayerBadge(el.querySelector<HTMLElement>(".map-badge")!).render(badge)
-      void stagger([...el.querySelectorAll<HTMLElement>(".map-step, .map-group.soon")], (node, delay) => fadeSlide(node, { delay, y: 12, duration: 600 }), 25)
-      const unlockedGroups = [...el.querySelectorAll<HTMLElement>(".map-group.just-unlocked")]
-      for (const group of unlockedGroups) {
-        void bloom(group)
-        nav.onUnlockSeen?.(group.dataset.group!)
-      }
-      return { unlockedGroups }
-    },
-    hide() {
-      el.hidden = true
-    },
-  }
-}
+export const LOCK_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M9 11V8a3 3 0 016 0v3"/></svg>'
 
 export type BadgeData = { level: number; xp: number; floor: number; next: number | null; progress: number; stars: { earned: number; max: number } }
 

@@ -1,4 +1,4 @@
-import { createCompleteScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
+import { createCompleteScreen, createGroupScreen, createMapScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -13,7 +13,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { applyDailyReward, applyPhaseReward, buildRewards, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
+import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -67,7 +67,6 @@ import {
   warningText,
   createPendingList,
   createPhaseBrief,
-  createPhaseMap,
   createSettingsScreen,
   createTitleScreen,
   type DailyCard,
@@ -172,7 +171,7 @@ let history: History = createHistory(emptyDoc())
 let view: AppView
 let evaluation: Evaluation | null = null
 let session: Session | null = null
-type Overlay = "title" | "map" | "settings" | "complete" | "workshop" | null
+type Overlay = "title" | "map" | "group" | "settings" | "complete" | "workshop" | null
 let overlay: Overlay = null
 let overlayReturn: Overlay = null
 let lastDivergences: import("./netlist").Divergence[] = []
@@ -204,10 +203,10 @@ const brief = createPhaseBrief(briefEl, {
     setPreview(session?.previewIndex === index ? null : index)
   },
   onHint: openHint,
-  onPhases: showPhaseList,
+  onPhases: showCurrentGroup,
   onRestart: () => restartPhase(),
 })
-const topBar = createTopBar(topbarEl, () => showPhaseList())
+const topBar = createTopBar(topbarEl, () => showMap())
 
 const SOUND_EVENTS: Record<string, "snap" | "wire" | "toggle"> = { partPlaced: "snap", partSnapped: "snap", wireDrawn: "wire", inputToggled: "toggle" }
 
@@ -259,13 +258,20 @@ const completeEl = document.createElement("div")
 const settingsEl = document.createElement("div")
 const workshopEl = document.createElement("div")
 app.append(titleEl, completeEl, settingsEl, workshopEl)
-const phaseMap = createPhaseMap(listEl, startPhase, {
+const mapScreen = createMapScreen(listEl, {
+  onGroup: showGroup,
   onSettings: () => showSettings("map"),
   onHome: showTitle,
   onUnlockSeen: (groupId) => {
     if (!store.data.seenGroups.includes(groupId)) store.data.seenGroups.push(groupId)
     store.save()
   },
+})
+const groupEl = document.createElement("div")
+stageEl.append(groupEl)
+const groupScreen = createGroupScreen(groupEl, {
+  onPhase: (id) => startPhase(id),
+  onBack: () => showMap(),
 })
 const titleScreen = createTitleScreen(titleEl)
 const completeScreen = createCompleteScreen(completeEl)
@@ -328,7 +334,7 @@ setReducedMotion(reducedMotion)
   },
   onBack: () => {
     settingsScreen.hide()
-    if (overlayReturn === "map") showPhaseList()
+    if (overlayReturn === "map") showMap()
     else if (overlayReturn === "title" || !session) showTitle()
     else closeOverlay()
   },
@@ -346,7 +352,7 @@ const callbacks = (name: ViewName) => ({
     if (event === "inputToggled" || event === "partSnapped") return
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
-    else if (event === "lightMode") toasts.show("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
+    else if (event === "lightMode") notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
     else record(event as TutorialEvent)
   },
@@ -865,7 +871,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   view = compute(doc)
   setTool("select")
   bench.frame()
-  if (resumed) toasts.show("info", "Continuando de onde você parou.")
+  if (resumed) notify("info", "Continuando de onde você parou.")
   lastDivergences = evaluation?.divergences ?? []
   // fase gerada não entra no log, mas fecha a tentativa anterior pra não herdar os números dela
   store.data = synthetic ? finishAttempt(store.data, false, new Date()) : startAttempt(store.data, phase.id, new Date())
@@ -874,6 +880,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   render()
   renderSettled = false
   if (!synthetic) queueNewDatasheets(phase)
+  flushNotices()
   maybeStartTour()
 }
 
@@ -881,7 +888,8 @@ function hideOverlays() {
   tour.stop()
   document.body.classList.remove("showcase", "overlay")
   bench.setShowcase(false)
-  phaseMap.hide()
+  mapScreen.hide()
+  groupScreen.hide()
   titleScreen.hide()
   completeScreen.hide()
   settingsScreen.hide()
@@ -910,10 +918,22 @@ function openOverlay(kind: Exclude<Overlay, null>) {
   stageEl.classList.add("choosing")
 }
 
+const noticeQueue: { kind: "info" | "warning"; text: string }[] = []
+
+function notify(kind: "info" | "warning", text: string) {
+  if (overlayOpen()) noticeQueue.push({ kind, text })
+  else toasts.show(kind, text)
+}
+
+function flushNotices() {
+  for (const n of noticeQueue.splice(0)) toasts.show(n.kind, n.text)
+}
+
 function closeOverlay() {
   if (!session) return showTitle()
   hideOverlays()
   render()
+  flushNotices()
 }
 
 function progressWon(): Set<string> {
@@ -925,36 +945,45 @@ function nextAvailablePhase(): string | undefined {
   return phaseOrder(phases).find((id) => !won.has(id) && isPhaseAvailable(phases, won, id)) ?? phaseOrder(phases)[0]
 }
 
-function showPhaseList() {
-  const won = progressWon()
+function backToPhase(): { label: string; run(): void } | null {
+  if (!session) return null
+  return { label: session.phase.id === "sandbox" ? "Voltar pro sandbox" : `Voltar pra ${session.phase.id}`, run: closeOverlay }
+}
+
+function showMap() {
   openOverlay("map")
-  const groups = phases.groups.map((g) => {
-    const firstAvailable = g.phases.some((p) => won.has(p.id) || isPhaseAvailable(phases, won, p.id))
-    return {
-      id: g.id,
-      title: g.title,
-      concept: g.concept,
-      comingSoon: !g.demo,
-      // grupo recém-liberado (não o primeiro) ganha a cena de desbloqueio uma vez só
-      justUnlocked: g.demo && firstAvailable && g.id !== phases.groups[0].id && !store.data.seenGroups.includes(g.id),
-      phases: g.phases.map((p) => ({
-        id: p.id,
-        goal: p.goal,
-        type: p.type,
-        won: won.has(p.id),
-        available: isPhaseAvailable(phases, won, p.id),
-        stars: store.data.progress[p.id]?.stars ?? [],
-        bestCost: store.data.progress[p.id]?.bestCost ?? null,
-        budget: p.budget,
-      })),
-    }
-  })
-  const result = phaseMap.show(
-    groups,
+  const list = groupSummaries(phases, store.data.progress)
+  const justUnlocked = list.filter((g) => (g.state === "available" || g.state === "complete") && g.id !== phases.groups[0].id && !store.data.seenGroups.includes(g.id)).map((g) => g.id)
+  mapScreen.show(list, justUnlocked, badgeData(), backToPhase())
+  if (justUnlocked.length > 0) audio.play("unlock")
+}
+
+function showGroup(groupId: string) {
+  const group = phases.groups.find((g) => g.id === groupId)
+  const summary = groupSummaries(phases, store.data.progress).find((g) => g.id === groupId)
+  if (!group || !summary) return showMap()
+  openOverlay("group")
+  const won = progressWon()
+  groupScreen.show(
+    summary,
+    group.phases.map((p) => ({
+      id: p.id,
+      goal: p.goal,
+      type: p.type,
+      stars: store.data.progress[p.id]?.stars.length ?? 0,
+      maxStars: p.stars.length,
+      won: won.has(p.id),
+      available: isPhaseAvailable(phases, won, p.id),
+      cost: p.budget !== null ? store.data.progress[p.id]?.bestCost ?? null : null,
+    })),
     badgeData(),
-    session && session.phase.id !== "sandbox" ? { label: `Voltar pra ${session.phase.id}`, run: closeOverlay } : session ? { label: "Voltar pro sandbox", run: closeOverlay } : null,
   )
-  if (result.unlockedGroups.length > 0) audio.play("unlock")
+}
+
+function showCurrentGroup() {
+  const group = session ? phases.groups.find((g) => g.phases.some((p) => p.id === session!.phase.id)) : undefined
+  if (group) showGroup(group.id)
+  else showMap()
 }
 
 const NEON_NAMES = ["Ciano", "Verde-limão", "Rosa", "Amarelo"]
@@ -1133,7 +1162,7 @@ function showComplete(reward: CompleteReward, instant = false) {
       },
       onBest: phase.referenceSolution && !isDaily(phase.id) ? showBestVersion : null,
       onRetry: () => restartPhase(true),
-      onMap: showPhaseList,
+      onMap: showCurrentGroup,
       play: (name, pitch) => audio.play(name, pitch),
     },
     instant,
@@ -1203,7 +1232,10 @@ window.addEventListener("keydown", (event) => {
     return
   }
   if (overlayOpen()) {
-    if (event.key === "Escape" && session && overlay === "map") {
+    if (event.key === "Escape" && overlay === "group") {
+      event.preventDefault()
+      showMap()
+    } else if (event.key === "Escape" && session && overlay === "map") {
       event.preventDefault()
       closeOverlay()
     }

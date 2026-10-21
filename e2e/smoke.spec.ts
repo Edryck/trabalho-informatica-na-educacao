@@ -19,7 +19,7 @@ test("boots, opens the first phase and switches views without console errors", a
   await page.keyboard.press("v")
   await expect(page.locator("svg.blueprint").first()).toBeVisible()
   await page.getByRole("button", { name: "Fases" }).click()
-  await expect(page.locator(".phase-map")).toBeVisible()
+  await expect(page.locator(".group-screen")).toBeVisible()
   expect(errors).toEqual([])
 })
 

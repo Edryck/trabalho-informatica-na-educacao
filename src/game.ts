@@ -1,5 +1,5 @@
 import type { PartsCatalog } from "./netlist"
-import { evaluate, groupComplete, isPhaseAvailable, type Evaluation, type Phase, type PhaseData, type Star } from "./phases"
+import { evaluate, groupComplete, isPhaseAvailable, type Block, type Evaluation, type Phase, type PhaseData, type Star } from "./phases"
 import type { CircuitDoc, Cosmetics, Daily, SaveData } from "./state"
 
 export type RewardItem = { level: number; id: string; kind: "decor" | "board" | "wires" | "mat"; name: string; value?: string }
@@ -75,6 +75,41 @@ export function applyPhaseReward(save: SaveData, phaseId: string, earned: boolea
     levelAfter,
     unlocked,
   }
+}
+
+export type GroupSummary = {
+  id: string
+  title: string
+  concept: string
+  block: Block
+  demo: boolean
+  stars: number
+  maxStars: number
+  done: number
+  total: number
+  state: "locked" | "available" | "complete" | "soon"
+  requiresTitle: string | null
+}
+
+export function groupSummaries(data: PhaseData, progress: SaveData["progress"]): GroupSummary[] {
+  const won = new Set(Object.entries(progress).filter(([, p]) => p.won).map(([id]) => id))
+  return data.groups.map((g) => {
+    const first = g.phases[0]
+    const state: GroupSummary["state"] = !g.demo ? "soon" : groupComplete(g, won) ? "complete" : first && isPhaseAvailable(data, won, first.id) ? "available" : "locked"
+    return {
+      id: g.id,
+      title: g.title,
+      concept: g.concept,
+      block: g.block,
+      demo: g.demo,
+      stars: g.phases.reduce((n, p) => n + (progress[p.id]?.stars.length ?? 0), 0),
+      maxStars: g.phases.reduce((n, p) => n + p.stars.length, 0),
+      done: g.phases.filter((p) => won.has(p.id)).length,
+      total: g.phases.length,
+      state,
+      requiresTitle: data.groups.find((x) => x.id === g.requires)?.title ?? null,
+    }
+  })
 }
 
 export function starsTotal(progress: SaveData["progress"], data: PhaseData): { earned: number; max: number } {

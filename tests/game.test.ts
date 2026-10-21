@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
 import parts from "../data/parts.json"
 import phasesJson from "../data/phases.json"
-import { applyDailyReward, applyPhaseReward, buildRewards, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext } from "../src/game"
+import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext } from "../src/game"
 import type { PartsCatalog } from "../src/netlist"
 import { evaluate, type Evaluation, type PhaseData, type Star } from "../src/phases"
 import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
@@ -260,5 +260,51 @@ describe("daily repair uses the same win rule", () => {
       const wire = ref.bench.wires[0]
       if (wire) expect(evaluate(phase, withoutWire(ref, wire.id), catalog).won, `${date} without ${wire.id}`).toBe(false)
     }
+  })
+})
+
+describe("groupSummaries", () => {
+  const real = loadPhases(phasesJson)
+  const wonAll = (ids: string[], stars = [0]) => Object.fromEntries(ids.map((id) => [id, { won: true, bestCost: null, stars }]))
+  const ids = (g: string) => real.groups.find((x) => x.id === g)!.phases.map((p) => p.id)
+
+  it("empty save: first group available, others locked with the required title", () => {
+    const list = groupSummaries(real, {})
+    expect(list.map((g) => g.id)).toEqual(real.groups.map((g) => g.id))
+    expect(list[0].state).toBe("available")
+    expect(list[1]).toMatchObject({ state: "locked", requiresTitle: "Bancada" })
+  })
+
+  it("partial group shows done/total and stars", () => {
+    const g0 = ids("g0")
+    const list = groupSummaries(real, wonAll(g0.slice(0, 2), [0, 1]))
+    expect(list[0]).toMatchObject({ done: 2, total: g0.length, stars: 4, maxStars: g0.length * 3, state: "available" })
+  })
+
+  it("complete means every phase won regardless of stars", () => {
+    const list = groupSummaries(real, wonAll(ids("g0"), [0]))
+    expect(list[0].state).toBe("complete")
+    expect(list[1].state).toBe("available")
+  })
+
+  it("group with no phases is never complete", () => {
+    const everything = wonAll(real.groups.flatMap((g) => g.phases.map((p) => p.id)))
+    for (const id of ["g2", "g3"]) expect(groupSummaries(real, everything).find((g) => g.id === id)!.state).not.toBe("complete")
+  })
+
+  it("non-demo groups are soon", () => {
+    const list = groupSummaries(real, {})
+    expect(list.filter((g) => !g.demo).every((g) => g.state === "soon")).toBe(true)
+    expect(list.filter((g) => !g.demo)).toHaveLength(4)
+  })
+
+  it("legacy progress keys are ignored", () => {
+    const legacy = { "legacy:g3p1": { won: true, bestCost: 2, stars: [0, 1, 2] } }
+    const base = wonAll(ids("g0"))
+    const withLegacy = { ...base, ...legacy }
+    expect(groupSummaries(real, withLegacy)).toEqual(groupSummaries(real, base))
+    expect(starsTotal(withLegacy, real)).toEqual(starsTotal(base, real))
+    const all = new Set(Object.keys(withLegacy))
+    expect(dailyUnlocked(all, real)).toBe(dailyUnlocked(new Set(Object.keys(base)), real))
   })
 })

@@ -1,7 +1,8 @@
-import type { LevelInfo, RewardItem } from "./game"
+import type { GroupSummary, LevelInfo, RewardItem } from "./game"
+import type { PhaseType } from "./phases"
 import type { Cosmetics } from "./state"
 import type { SfxName } from "./audio"
-import { bloom, CHECK_ICON, createPlayerBadge, LOCK_SMALL, phaseLabel, pop, stagger, type BadgeData, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
+import { bloom, CHECK_ICON, createPlayerBadge, LOCK_ICON, LOCK_SMALL, PHASE_TAGS, phaseLabel, pop, stagger, type BadgeData, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
 
 export type CompleteSummary = {
   phaseId: string
@@ -448,3 +449,130 @@ export function createWorkshopScreen(el: HTMLElement, handlers: WorkshopHandlers
   }
 }
 
+
+export type MapHandlers = { onGroup(id: string): void; onHome(): void; onSettings(): void; onDatasheets?(): void; onUnlockSeen(id: string): void }
+
+const BLOCKS: { id: GroupSummary["block"]; title: string }[] = [
+  { id: "eletrica", title: "Elétrica" },
+  { id: "eletronica", title: "Eletrônica" },
+]
+
+const STATE_TEXT: Record<GroupSummary["state"], string> = { locked: "bloqueado", available: "disponível", complete: "concluído", soon: "em breve" }
+
+function groupAria(g: GroupSummary): string {
+  const unlock = g.state === "locked" && g.requiresTitle ? `, conclua ${g.requiresTitle} pra liberar` : ""
+  const progress = g.state === "soon" ? "" : `, ${g.stars} de ${g.maxStars} estrelas, ${g.done} de ${g.total} fases`
+  return `${g.title}, ${STATE_TEXT[g.state]}${unlock}${progress}`
+}
+
+function groupCard(g: GroupSummary, index: number, justUnlocked: boolean): string {
+  const open = g.state === "available" || g.state === "complete"
+  const mark = g.state === "complete" ? CHECK_ICON : g.state === "available" ? String(index) : LOCK_ICON
+  const foot =
+    g.state === "soon"
+      ? `<span class="group-foot">${LOCK_ICON} Em breve</span>`
+      : g.state === "locked"
+        ? `<span class="group-foot">${g.requiresTitle ? `Conclua ${g.requiresTitle} pra liberar` : "Bloqueado"}</span>`
+        : `<span class="group-foot">${g.done}/${g.total} fases<span class="group-stars">${starIcon("met", 14)}${g.stars}/${g.maxStars}</span></span>`
+  return `<li><button type="button" class="group-card ${g.state} ${justUnlocked ? "just-unlocked" : ""}" data-group="${g.id}" ${open ? "" : "disabled"} aria-label="${groupAria(g)}"><span class="group-mark">${mark}</span><span class="group-title">${g.title}</span><span class="group-concept">${g.concept}</span>${foot}</button></li>`
+}
+
+export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
+  el.className = "phase-map"
+  el.hidden = true
+  let backAction: { label: string; run(): void } | null = null
+  el.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement
+    const action = target.closest<HTMLElement>("[data-action]")?.dataset.action
+    if (action === "back") return backAction?.run()
+    if (action === "home") return handlers.onHome()
+    if (action === "settings") return handlers.onSettings()
+    if (action === "datasheets") return handlers.onDatasheets?.()
+    const card = target.closest<HTMLButtonElement>("[data-group]")
+    if (card && !card.disabled) handlers.onGroup(card.dataset.group!)
+  })
+  return {
+    show(groups: GroupSummary[], justUnlocked: string[], badge: BadgeData, back: { label: string; run(): void } | null = null) {
+      backAction = back
+      el.hidden = false
+      const bands = BLOCKS.map((block) => {
+        const cards = groups
+          .map((g, i) => ({ g, i }))
+          .filter(({ g }) => g.block === block.id)
+          .map(({ g, i }) => groupCard(g, i + 1, justUnlocked.includes(g.id)))
+          .join("")
+        return `<section class="map-block" aria-labelledby="block-${block.id}"><h3 id="block-${block.id}" class="map-block-title">${block.title}</h3><ol class="group-grid">${cards}</ol></section>`
+      }).join("")
+      el.innerHTML = `
+        <header class="map-head">
+          <h2 class="map-title">Mapa de fases</h2>
+          <div class="map-badge"></div>
+          <div class="map-nav">
+            ${handlers.onDatasheets ? '<button type="button" class="btn-secondary" data-action="datasheets">Datasheets</button>' : ""}
+            <button type="button" class="btn-secondary" data-action="home">Início</button>
+            <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
+            ${back ? `<button type="button" class="btn-primary" data-action="back">${back.label}</button>` : ""}
+          </div>
+        </header>
+        ${bands}`
+      void createPlayerBadge(el.querySelector<HTMLElement>(".map-badge")!).render(badge)
+      void stagger([...el.querySelectorAll<HTMLElement>(".group-card")], (node, delay) => fadeSlide(node, { delay, y: 12, duration: 600 }), 40)
+      for (const id of justUnlocked) {
+        const card = el.querySelector<HTMLElement>(`[data-group="${id}"]`)
+        if (card) void bloom(card)
+        handlers.onUnlockSeen(id)
+      }
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}
+
+export type GroupPhaseRow = { id: string; goal: string; type: PhaseType; stars: number; maxStars: number; won: boolean; available: boolean; cost: number | null }
+export type GroupHandlers = { onPhase(id: string): void; onBack(): void }
+
+export function createGroupScreen(el: HTMLElement, handlers: GroupHandlers) {
+  el.className = "phase-map group-screen"
+  el.hidden = true
+  el.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement
+    if (target.closest("[data-action=back]")) return handlers.onBack()
+    const node = target.closest<HTMLButtonElement>("[data-phase]")
+    if (node && !node.disabled) handlers.onPhase(node.dataset.phase!)
+  })
+  return {
+    show(summary: GroupSummary, phases: GroupPhaseRow[], badge: BadgeData) {
+      el.hidden = false
+      const nodes = phases
+        .map((p, i) => {
+          const state = p.won ? "won" : p.available ? "available" : "locked"
+          const status = p.won ? `concluída, ${p.stars} de ${p.maxStars} estrelas` : p.available ? "disponível" : "bloqueada"
+          const stars = Array.from({ length: p.maxStars }, (_, k) => starIcon(k < p.stars ? "met" : "unmet", 14)).join("")
+          const inner = state === "locked" ? LOCK_ICON : `<span class="map-node-number">${i + 1}</span>`
+          const cost = p.won && p.cost !== null ? ` · ${p.cost} créditos` : ""
+          return `<li class="map-step ${state}"><button type="button" class="map-node" data-phase="${p.id}" ${p.available || p.won ? "" : "disabled"} aria-label="Fase ${i + 1}: ${p.goal}, ${PHASE_TAGS[p.type] ?? p.type}, ${status}"><span class="map-circle">${inner}</span><span class="map-text"><span class="map-goal">${p.goal}</span><span class="map-meta">${PHASE_TAGS[p.type] ?? p.type}${cost}</span><span class="map-stars">${stars}</span></span></button></li>`
+        })
+        .join("")
+      el.innerHTML = `
+        <header class="map-head">
+          <div class="group-head">
+            <button type="button" class="btn-secondary" data-action="back">Mapa</button>
+            <h2 class="map-title">${summary.title}</h2>
+          </div>
+          <div class="map-badge"></div>
+        </header>
+        <section class="group-body">
+          <p class="group-intro">${summary.concept}</p>
+          <p class="map-progress">${starIcon("met", 14)} ${summary.stars}/${summary.maxStars} · ${summary.done}/${summary.total} fases</p>
+          ${nodes ? `<ol class="map-path group-path">${nodes}</ol>` : `<p class="group-empty">As fases deste grupo ainda estão sendo montadas.</p>`}
+        </section>`
+      void createPlayerBadge(el.querySelector<HTMLElement>(".map-badge")!).render(badge)
+      void stagger([...el.querySelectorAll<HTMLElement>(".map-step")], (node, delay) => fadeSlide(node, { delay, y: 12, duration: 600 }), 40)
+      ;(el.querySelector<HTMLElement>(".map-step.available .map-node") ?? el.querySelector<HTMLElement>(".map-node:not(:disabled)"))?.focus({ preventScroll: true })
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}

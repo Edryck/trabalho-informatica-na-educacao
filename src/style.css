@@ -1550,56 +1550,129 @@ body.reduce-motion *::after {
   padding: 0 16px;
 }
 
-.map-columns {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(230px, 1fr));
-  gap: 18px;
-  align-items: start;
+.map-block {
+  margin-bottom: 28px;
 }
 
-.map-group {
+.map-block-title {
+  margin: 0 0 12px;
+  font: 600 22px/1.2 var(--font-display);
+}
+
+.group-grid {
   display: grid;
-  gap: 6px;
-  align-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group-card {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-areas: "mark title" "concept concept" "foot foot";
+  gap: 8px 12px;
+  align-items: center;
   padding: 16px;
+  text-align: left;
+  color: var(--color-text);
   background: var(--color-panel);
   border: 1px solid var(--color-border);
   border-radius: 18px;
-  box-shadow: var(--shadow-panel);
+  box-shadow: 0 4px 0 var(--color-border);
+  cursor: pointer;
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out;
 }
 
-.map-group h3 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font: 700 18px/1.2 var(--font-display);
+.group-card:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--color-border);
 }
 
-.map-group-index {
-  width: 30px;
-  height: 30px;
+.group-card:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.group-card:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.group-card:disabled {
+  cursor: default;
+  box-shadow: none;
+}
+
+.group-card.locked,
+.group-card.soon {
+  background: var(--color-panel-soft);
+}
+
+.group-card.soon {
+  opacity: 0.75;
+}
+
+.group-mark {
+  grid-area: mark;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  flex: none;
-  border-radius: 10px;
-  font: 700 15px var(--font-display);
+  border-radius: 12px;
+  font: 700 18px var(--font-display);
   color: var(--color-on-fill);
   background: var(--color-accent-deep);
+  box-shadow: 0 3px 0 var(--color-accent-shadow);
 }
 
-.map-group.locked .map-group-index,
-.map-group.soon .map-group-index {
+.group-card.complete .group-mark {
+  background: var(--color-success);
+  box-shadow: 0 3px 0 #0f6b30;
+}
+
+.group-card.locked .group-mark,
+.group-card.soon .group-mark {
   color: var(--color-text-muted);
-  background: var(--color-panel-soft);
-  border: 1px solid var(--color-border);
+  background: var(--color-panel);
+  border: 2px dashed var(--color-border);
+  box-shadow: none;
 }
 
-.map-concept {
-  margin: 0;
+.group-title {
+  grid-area: title;
+  font: 600 18px/1.2 var(--font-display);
+}
+
+.group-concept {
+  grid-area: concept;
   min-height: 3.9em;
   font: 400 13px/1.3 var(--font-ui);
   color: var(--color-text-muted);
+}
+
+.group-foot {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: 600 13px var(--font-display);
+  color: var(--color-text-muted);
+}
+
+.group-card.available .group-foot,
+.group-card.complete .group-foot {
+  color: var(--color-text);
+}
+
+.group-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .map-progress {
@@ -1608,6 +1681,48 @@ body.reduce-motion *::after {
   gap: 4px;
   margin: 0 0 6px;
   font: 600 13px var(--font-display);
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.group-head .btn-secondary {
+  padding: 0 16px;
+}
+
+.group-screen .map-head {
+  grid-template-columns: 1fr minmax(260px, 380px);
+}
+
+.group-body {
+  max-width: 560px;
+}
+
+.group-intro {
+  margin: 0 0 4px;
+  font: 400 15px/1.45 var(--font-ui);
+  color: var(--color-text-muted);
+}
+
+.group-body .map-progress {
+  margin-bottom: 16px;
+}
+
+.group-path .map-goal {
+  font-size: 15px;
+}
+
+.group-empty {
+  margin: 12px 0 0;
+  padding: 16px;
+  font: 400 14px/1.4 var(--font-ui);
+  color: var(--color-text-muted);
+  background: var(--color-panel-soft);
+  border: 1px dashed var(--color-border);
+  border-radius: 14px;
 }
 
 .map-path {
@@ -1726,21 +1841,6 @@ body.reduce-motion *::after {
 
 .map-cost {
   color: var(--color-success-text);
-}
-
-.map-group.soon {
-  opacity: 0.7;
-  box-shadow: none;
-  background: var(--color-panel-soft);
-}
-
-.map-soon {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 0 0;
-  font: 600 13px var(--font-display);
-  color: var(--color-text-muted);
 }
 
 .btn-primary,
