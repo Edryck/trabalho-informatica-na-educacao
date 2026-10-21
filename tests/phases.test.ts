@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { docCost, evaluate, evaluateScenarios, isPhaseAvailable, loadPhases, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
+import { claimableId, docCost, evaluate, evaluateScenarios, isPhaseAvailable, loadPhases, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
 import { benchToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -24,7 +24,6 @@ const switchLamp = phase({
     { when: { S1: "on" }, then: { L1: "lit" } },
     { when: { S1: "off" }, then: { L1: "off" } },
   ],
-  requireMatch: false,
 })
 
 function circuit(opts: { withSwitch?: boolean; extraSwitch?: string; lamps?: number; inputs?: Record<string, string>; blueprint?: boolean } = {}): CircuitDoc {
@@ -89,7 +88,7 @@ describe("evaluate", () => {
     const second = evaluate(switchLamp, circuit(), catalog)
     expect(first.scenarios.map((s) => s.ok)).toEqual(second.scenarios.map((s) => s.ok))
     const net = benchToNetlist(circuit(), catalog)
-    const results = evaluateScenarios(switchLamp.expect, net, catalog)
+    const results = evaluateScenarios(switchLamp.expect, { bench: net, blueprint: net }, "bench", catalog)
     expect(results.every((r) => r.result.passes >= 1)).toBe(true)
   })
 
@@ -106,18 +105,49 @@ describe("evaluate", () => {
   })
 
   it("checks numeric ranges", () => {
-    const series = phase({ expect: [{ when: {}, then: { L1: { current: [0.03, 0.07] } } }], requireMatch: false })
+    const series = phase({ expect: [{ when: {}, then: { L1: { current: [0.03, 0.07] } } }] })
     expect(evaluate(series, circuit({ withSwitch: false, lamps: 2 }), catalog).won).toBe(true)
     expect(evaluate(series, circuit({ withSwitch: false, lamps: 1 }), catalog).won).toBe(false)
   })
 
-  it("requireMatch blocks win on divergence", () => {
-    const strict = { ...switchLamp, requireMatch: true }
-    const e = evaluate(strict, circuit({ inputs: { S1: "on" } }), catalog)
+  it("wins with a bench that differs from the blueprint", () => {
+    const d = circuit()
+    d.instances.push({ id: "L1", type: "lamp", value: 0, actualValue: 0 })
+    d.blueprint.placements.push({ id: "L1", x: 0, y: 0, rotation: 0 })
+    const e = evaluate(switchLamp, d, catalog)
     expect(e.divergences.length).toBeGreaterThan(0)
-    expect(e.matchOk).toBe(false)
-    expect(e.won).toBe(false)
+    expect(e.won).toBe(true)
     expect(evaluate(switchLamp, circuit(), catalog).won).toBe(true)
+  })
+
+  it("wins with an extra loose part on the bench", () => {
+    const d = circuit()
+    d.instances.push({ id: "L9", type: "lamp", value: 0, actualValue: 0 })
+    d.bench.placements.push({ id: "L9", rotation: 0, offboard: { x: 90, z: 60 }, holes: { a: null, b: null } })
+    expect(evaluate(switchLamp, d, catalog).won).toBe(true)
+  })
+
+  it("scenario on blueprint evaluates the drawing", () => {
+    const drawn = phase({ evaluateOn: "bench", expect: [{ when: {}, then: { L1: "lit" }, on: "blueprint" }] })
+    const benchOnly = circuit({ withSwitch: false })
+    expect(evaluate(drawn, benchOnly, catalog).won).toBe(false)
+    const ref = findPhase(loadPhases(phasesRaw), "g0p2")!.referenceSolution!
+    const blueprintOnly = emptyDoc()
+    blueprintOnly.instances = structuredClone(ref.instances)
+    blueprintOnly.blueprint = structuredClone(ref.blueprint)
+    expect(evaluate(drawn, blueprintOnly, catalog).won).toBe(true)
+  })
+
+  it("evaluation reports only scenarios, divergences, cost, budget and the win", () => {
+    expect(Object.keys(evaluate(switchLamp, circuit(), catalog)).sort()).toEqual(["budgetOk", "cost", "divergences", "scenarios", "won"])
+  })
+
+  it("noDivergence star forces divergence markers", () => {
+    const bad = loadPhases({
+      groups: [{ id: "x", title: "x", demo: true, concept: "", unlocks: [], phases: [{ id: "x1", type: "build", goal: "g", showDivergence: false, stars: [{ kind: "solved" }, { kind: "noDivergence" }, { kind: "maxWires", value: 2 }] }] }],
+      future: [],
+    })
+    expect(validatePhases(bad, catalog, datasheets).some((e) => e.includes("noDivergence"))).toBe(true)
   })
 
   it("budget blocks win", () => {
@@ -135,7 +165,7 @@ describe("evaluate", () => {
   })
 
   it("a phase with no expected state never wins by evaluation", () => {
-    const e = evaluate(phase({ expect: [], requireMatch: false }), circuit(), catalog)
+    const e = evaluate(phase({ expect: [] }), circuit(), catalog)
     expect(e.won).toBe(false)
   })
 })
@@ -150,7 +180,7 @@ describe("loadPhases", () => {
       future: ["diode"],
     })
     const p = data.groups[0].phases[0]
-    expect(p).toMatchObject({ brief: "olhar", tray: {}, keyParts: [], expect: [], evaluateOn: "bench", requireMatch: true, showDivergence: true, budget: null, initial: null, steps: null, hints: [], referenceSolution: null })
+    expect(p).toMatchObject({ brief: "olhar", tray: {}, keyParts: [], expect: [], evaluateOn: "bench", showDivergence: true, budget: null, initial: null, steps: null, hints: [], referenceSolution: null })
     expect(data.groups[1].phases).toEqual([])
     expect(data.future).toEqual(["diode"])
   })
@@ -216,7 +246,6 @@ describe("shipped data", () => {
         it(p.id, () => {
           const e = evaluate(p, p.referenceSolution!, catalog)
           expect(e.scenarios.filter((s) => !s.ok).map((s) => ({ when: s.when, failures: s.failures }))).toEqual([])
-          expect(e.divergences).toEqual(p.requireMatch ? [] : e.divergences)
           expect(e.won).toBe(true)
           expect(referenceCost(p, catalog)).toBeGreaterThan(0)
         })
@@ -239,9 +268,8 @@ describe("shipped data", () => {
 
 describe("divergence defaults", () => {
   it("hides divergence markers when the phase does not require a match", () => {
-    expect(phase({ requireMatch: false }).showDivergence).toBe(false)
+    expect(phase({ showDivergence: false }).showDivergence).toBe(false)
     expect(phase({}).showDivergence).toBe(true)
-    expect(phase({ requireMatch: true, showDivergence: false }).showDivergence).toBe(false)
   })
 })
 
@@ -320,8 +348,8 @@ describe("phase stars", () => {
     expect(errorsFor({ stars: [{ kind: "solved" }, { kind: "usedMeter", mode: "V" }, { kind: "maxWires", value: 9 }] })).toMatch(/multímetro/)
   })
 
-  it("rejects noDivergence when the phase already requires a match", () => {
-    expect(errorsFor({ stars: [{ kind: "solved" }, { kind: "noDivergence" }, { kind: "maxWires", value: 9 }] })).toMatch(/noDivergence/)
+  it("rejects noDivergence when the markers are off", () => {
+    expect(errorsFor({ showDivergence: false, stars: [{ kind: "solved" }, { kind: "noDivergence" }, { kind: "maxWires", value: 9 }] })).toMatch(/noDivergence/)
   })
 
   it("rejects a missing solved first star and wrong count", () => {
@@ -343,5 +371,130 @@ describe("phase stars", () => {
   it("tutorials do not reward an action their steps already require", () => {
     const g3p3 = findPhase(data, "g3p3")!
     expect(g3p3.stars.some((s) => s.kind === "usedMeter")).toBe(false)
+  })
+})
+
+import { flipped, movedWireEnds, resistorAsWire, shiftColumns, withResistor, withoutWire } from "./assembly"
+
+describe("assembly freedom", () => {
+  const data = loadPhases(phasesRaw)
+  const builds = data.groups
+    .filter((g) => g.demo)
+    .flatMap((g) => g.phases)
+    .filter((p) => p.type !== "tutorial" && p.referenceSolution)
+  const onBench = (p: Phase) => p.expect.every((s) => (s.on ?? p.evaluateOn) === "bench")
+  const wins = (p: Phase, doc: CircuitDoc) => evaluate(p, doc, catalog).won
+
+  for (const p of builds) {
+    const ref = p.referenceSolution!
+
+    describe(p.id, () => {
+      it("loses when empty", () => {
+        expect(wins(p, emptyDoc())).toBe(false)
+      })
+
+      if (p.type === "repair" && p.initial)
+        it("starts broken", () => {
+          expect(wins(p, p.initial!)).toBe(false)
+        })
+
+      if (onBench(p)) {
+        it("wins shifted along the board", () => {
+          const shifted = shiftColumns(ref, 2) ?? shiftColumns(ref, -2) ?? shiftColumns(ref, 1) ?? shiftColumns(ref, -1)
+          if (!shifted) return
+          expect(wins(p, shifted)).toBe(true)
+        })
+
+        it("wins with wire ends moved within their strips", () => {
+          expect(wins(p, movedWireEnds(ref))).toBe(true)
+        })
+
+        it("wins with the blueprint cleared", () => {
+          const doc = structuredClone(ref)
+          doc.blueprint = { placements: [], segments: [] }
+          expect(wins(p, doc)).toBe(true)
+        })
+
+        if (p.budget === null)
+          it("wins with an extra loose lamp", () => {
+            const doc = structuredClone(ref)
+            doc.instances.push({ id: "L9", type: "lamp", value: 0, actualValue: 0 })
+            doc.bench.placements.push({ id: "L9", rotation: 0, offboard: { x: 90, z: 60 }, holes: { a: null, b: null } })
+            expect(wins(p, doc)).toBe(true)
+          })
+
+        for (const wire of ref.bench.wires)
+          it(`needs wire ${wire.id}`, () => {
+            expect(wins(p, withoutWire(ref, wire.id))).toBe(false)
+          })
+
+        for (const part of ref.instances.filter((i) => ["led", "diode"].includes(i.type)))
+          it(`loses with ${part.id} flipped`, () => {
+            expect(wins(p, flipped(ref, part.id))).toBe(false)
+          })
+
+        for (const part of ref.instances.filter((i) => i.type === "resistor"))
+          it(`loses with ${part.id} replaced by a wire`, () => {
+            expect(wins(p, resistorAsWire(ref, part.id))).toBe(false)
+          })
+      } else {
+        it("wins with the bench cleared", () => {
+          const doc = structuredClone(ref)
+          doc.bench = emptyDoc().bench
+          expect(wins(p, doc)).toBe(true)
+        })
+
+        it("loses with the blueprint cleared", () => {
+          const doc = structuredClone(ref)
+          doc.blueprint = { placements: [], segments: [] }
+          expect(wins(p, doc)).toBe(false)
+        })
+      }
+
+      const resistors = ref.instances.filter((i) => i.type === "resistor")
+      const hasRange = p.expect.some((s) => Object.values(s.then).some((v) => typeof v !== "string"))
+      if (onBench(p) && hasRange && resistors.length > 0)
+        it("range accepts two catalog values and rejects at least one", () => {
+          const batteries = p.trayValues?.battery ?? catalog.battery.values!
+          const outcomes: boolean[] = []
+          for (const volts of batteries)
+            for (const ohms of catalog.resistor.values!) {
+              let doc = structuredClone(ref)
+              doc.instances.find((i) => i.type === "battery")!.value = volts
+              doc.instances.find((i) => i.type === "battery")!.actualValue = volts
+              for (const r of resistors) doc = withResistor(doc, r.id, ohms)
+              outcomes.push(wins(p, doc))
+            }
+          expect(outcomes.filter(Boolean).length).toBeGreaterThanOrEqual(2)
+          expect(outcomes.some((o) => !o)).toBe(true)
+        })
+    })
+  }
+})
+
+describe("claimableId", () => {
+  const keys = [{ id: "L1", part: "lamp" }]
+  const placed = (side: "bench" | "blueprint") => {
+    const d = emptyDoc()
+    d.instances.push({ id: "L1", type: "lamp", value: 0, actualValue: 0 })
+    if (side === "bench") d.bench.placements.push({ id: "L1", rotation: 0, offboard: { x: 0, z: 0 }, holes: { a: null, b: null } })
+    else d.blueprint.placements.push({ id: "L1", x: 0, y: 0, rotation: 0 })
+    return d
+  }
+
+  it("claims the key id after the part was removed from one side", () => {
+    expect(claimableId(placed("blueprint"), "bench", "lamp", keys)).toBe("L1")
+  })
+
+  it("claims a key id missing from the doc", () => {
+    expect(claimableId(emptyDoc(), "bench", "lamp", keys)).toBe("L1")
+  })
+
+  it("returns undefined when the key part is already placed on that side", () => {
+    expect(claimableId(placed("bench"), "bench", "lamp", keys)).toBeUndefined()
+  })
+
+  it("returns undefined for a type that is not a key part", () => {
+    expect(claimableId(emptyDoc(), "bench", "buzzer", keys)).toBeUndefined()
   })
 })

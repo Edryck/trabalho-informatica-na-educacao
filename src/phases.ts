@@ -4,7 +4,7 @@ import type { CircuitDoc } from "./state"
 import { evaluateStars } from "./game"
 
 export type ThenValue = string | { current?: [number, number]; voltage?: [number, number] }
-export type Scenario = { when: Record<string, string>; then: Record<string, ThenValue> }
+export type Scenario = { when: Record<string, string>; then: Record<string, ThenValue>; on?: "bench" | "blueprint" }
 export type TutorialEvent =
   | "viewSwitched"
   | "cameraOrbited"
@@ -34,7 +34,6 @@ export type Phase = {
   keyParts: { id: string; part: string }[]
   expect: Scenario[]
   evaluateOn: "bench" | "blueprint"
-  requireMatch: boolean
   showDivergence: boolean
   budget: number | null
   initial: CircuitDoc | null
@@ -52,7 +51,6 @@ export type Evaluation = {
   divergences: Divergence[]
   cost: number
   budgetOk: boolean
-  matchOk: boolean
   won: boolean
 }
 
@@ -65,15 +63,13 @@ type RawPhase = Partial<Phase> & { id: string; type: PhaseType; goal: string }
 type RawGroup = Omit<Group, "phases"> & { phases: RawPhase[] }
 
 function fillPhase(raw: RawPhase): Phase {
-  const requireMatch = raw.requireMatch ?? true
   return {
     brief: raw.goal,
     tray: {},
     keyParts: [],
     expect: [],
     evaluateOn: "bench",
-    requireMatch,
-    showDivergence: requireMatch,
+    showDivergence: true,
     budget: null,
     initial: null,
     steps: null,
@@ -131,9 +127,10 @@ function currentInput(net: Netlist, catalog: PartsCatalog, id: string): string |
   return part.inputState ?? DEFAULT_INPUT_STATE[catalog[part.type]?.model.kind ?? ""]
 }
 
-export function evaluateScenarios(scenarios: Scenario[], net: Netlist, catalog: PartsCatalog): ScenarioResult[] {
-  const present = new Set(net.parts.map((p) => p.id))
+export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
   return scenarios.map((scenario) => {
+    const net = nets[scenario.on ?? side]
+    const present = new Set(net.parts.map((p) => p.id))
     const result = solve(net, catalog, { overrides: scenario.when })
     const failures: Failure[] = []
     for (const [id, expected] of Object.entries(scenario.then)) {
@@ -175,14 +172,12 @@ export function referenceCost(phase: Phase, catalog: PartsCatalog): number | nul
 export function evaluate(phase: Phase, doc: CircuitDoc, catalog: PartsCatalog): Evaluation {
   const benchNet = benchToNetlist(doc, catalog)
   const blueprintNet = blueprintToNetlist(doc, catalog)
-  const net = phase.evaluateOn === "bench" ? benchNet : blueprintNet
-  const scenarios = evaluateScenarios(phase.expect, net, catalog)
+  const scenarios = evaluateScenarios(phase.expect, { bench: benchNet, blueprint: blueprintNet }, phase.evaluateOn, catalog)
   const divergences = compare(blueprintNet, benchNet, catalog)
-  const matchOk = !phase.requireMatch || divergences.length === 0
   const cost = docCost(doc, catalog, phase.evaluateOn)
   const budgetOk = phase.budget === null || cost <= phase.budget
-  const won = phase.expect.length > 0 && scenarios.every((s) => s.ok) && matchOk && budgetOk
-  return { scenarios, divergences, cost, budgetOk, matchOk, won }
+  const won = phase.expect.length > 0 && scenarios.every((s) => s.ok) && budgetOk
+  return { scenarios, divergences, cost, budgetOk, won }
 }
 
 export function shouldOfferHint(changes: number, elapsedMs: number, opened: number, total: number): boolean {
@@ -198,6 +193,12 @@ export function isPhaseAvailable(data: PhaseData, won: Set<string>, phaseId: str
   const index = order.indexOf(phaseId)
   if (index < 0) return false
   return index === 0 || won.has(order[index - 1])
+}
+
+export function claimableId(doc: CircuitDoc, side: "bench" | "blueprint", type: string, keyParts: Phase["keyParts"]): string | undefined {
+  const placements = side === "bench" ? doc.bench.placements : doc.blueprint.placements
+  const placed = new Set(placements.map((p) => p.id))
+  return keyParts.find((k) => k.part === type && !placed.has(k.id))?.id
 }
 
 export function findPhase(data: PhaseData, phaseId: string): Phase | undefined {
@@ -249,7 +250,7 @@ function validateStars(phase: Phase, data: PhaseData, groupId: string, catalog: 
   for (const star of phase.stars) {
     if (star.kind === "usedMeter" && (meterIndex < 0 || groupIndex < meterIndex)) errors.push(`${where}: usedMeter antes de liberar o multímetro`)
     if (star.kind === "usedMeter" && meterSteps) errors.push(`${where}: usedMeter repete um passo obrigatório do tutorial`)
-    if (star.kind === "noDivergence" && phase.requireMatch) errors.push(`${where}: noDivergence em fase que já exige esquema igual`)
+    if (star.kind === "noDivergence" && !phase.showDivergence) errors.push(`${where}: noDivergence precisa dos marcadores de divergência ligados`)
   }
   const doc = phase.referenceSolution ?? phase.initial
   if (doc && errors.length === 0) {

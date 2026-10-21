@@ -427,7 +427,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     const wanted = mode.id
     let id = wanted && d.instances.some((i) => i.id === wanted) ? wanted : null
     if (!id) {
-      id = nextInstanceId(d, prefixFor(mode.type))
+      id = wanted ?? nextInstanceId(d, prefixFor(mode.type))
       const value = mode.value ?? catalog[mode.type]?.values?.[0] ?? 0
       d.instances.push({ id, type: mode.type, value, actualValue: value })
     }

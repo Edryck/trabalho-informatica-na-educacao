@@ -17,7 +17,6 @@
           "type": "tutorial",
           "goal": "navegar na bancada e no blueprint",
           "brief": "Dá uma olhada em volta: gira a câmera, troca pro blueprint e passa o mouse nos furos da protoboard.",
-          "requireMatch": false,
           "initial": {
             "version": 1,
             "instances": [
@@ -199,7 +198,6 @@
             }
           ],
           "evaluateOn": "blueprint",
-          "requireMatch": false,
           "hints": [
             "A corrente precisa de um caminho de ida e de volta: sai do + e volta pelo −.",
             "Liga um fio do + da bateria até um lado da lâmpada, e outro do outro lado até o −."
@@ -346,7 +344,6 @@
           "type": "tutorial",
           "goal": "entender quais furos da protoboard são ligados",
           "brief": "Os fios já trazem a energia até a placa. Espeta os cabinhos da lâmpada de um jeito que ela acenda, sem usar fio novo.",
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "L1",
@@ -534,7 +531,8 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g0p4",
@@ -1635,7 +1633,6 @@
               }
             }
           },
-          "requireMatch": false,
           "expect": [
             {
               "when": {},
@@ -2650,7 +2647,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "U1",
@@ -2925,7 +2921,8 @@
               "kind": "maxCost",
               "value": 6
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g2p2",
@@ -2943,7 +2940,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -3116,7 +3112,8 @@
               "kind": "maxCost",
               "value": 8
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g2p3",
@@ -3135,7 +3132,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -3442,7 +3438,8 @@
               "kind": "maxCost",
               "value": 10
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g2p4",
@@ -3460,7 +3457,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -3691,7 +3687,8 @@
               "kind": "maxCost",
               "value": 9
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g2p5",
@@ -3709,7 +3706,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -3952,7 +3948,8 @@
               "kind": "maxCost",
               "value": 7
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g2p6",
@@ -3964,7 +3961,6 @@
               5
             ]
           },
-          "requireMatch": false,
           "showDivergence": false,
           "keyParts": [
             {
@@ -4372,7 +4368,6 @@
             ]
           },
           "budget": 10,
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -4603,7 +4598,8 @@
               "kind": "maxWires",
               "value": 8
             }
-          ]
+          ],
+          "showDivergence": false
         }
       ]
     },
@@ -5151,7 +5147,6 @@
           "type": "tutorial",
           "goal": "medir tensão e corrente com o multímetro",
           "brief": "Liga o multímetro (M), mede a tensão no LED e depois a corrente do circuito.",
-          "requireMatch": false,
           "initial": {
             "version": 1,
             "instances": [
@@ -5335,7 +5330,8 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "showDivergence": false
         },
         {
           "id": "g3p4",
@@ -5367,7 +5363,7 @@
               "then": {
                 "LED1": {
                   "current": [
-                    0.015,
+                    0.012,
                     0.025
                   ]
                 }
@@ -5567,7 +5563,7 @@
               "then": {
                 "LED1": {
                   "current": [
-                    0.015,
+                    0.012,
                     0.025
                   ]
                 }
@@ -5904,7 +5900,6 @@
             ]
           },
           "budget": 12,
-          "requireMatch": false,
           "keyParts": [
             {
               "id": "SW1",
@@ -6156,7 +6151,8 @@
               "kind": "maxCost",
               "value": 9
             }
-          ]
+          ],
+          "showDivergence": false
         }
       ]
     },

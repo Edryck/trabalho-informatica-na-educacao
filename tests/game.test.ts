@@ -10,7 +10,7 @@ import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
 const rewards = rewardsJson as unknown as Rewards
 
 function evaluation(partial: Partial<Evaluation> = {}): Evaluation {
-  return { scenarios: [], divergences: [], cost: 5, budgetOk: true, matchOk: true, won: true, ...partial }
+  return { scenarios: [], divergences: [], cost: 5, budgetOk: true, won: true, ...partial }
 }
 
 function docWithWires(n: number): CircuitDoc {
@@ -210,5 +210,22 @@ describe("cosmetics", () => {
       wireColors: ["#22D3EE", "#A3E635", "#F472B6", "#FACC15"],
       matColor: "#F97316",
     })
+  })
+})
+
+import { shiftColumns, withoutWire } from "./assembly"
+
+describe("daily repair uses the same win rule", () => {
+  it("valid assemblies win, the broken start and near-misses do not", () => {
+    for (const date of DATES) {
+      const phase = dailyRepair(date, data, g3Done, catalog)!
+      const ref = phase.referenceSolution!
+      const shifted = shiftColumns(ref, 2) ?? shiftColumns(ref, -2)
+      if (shifted) expect(evaluate(phase, shifted, catalog).won, `${date} shifted`).toBe(true)
+      expect(evaluate(phase, phase.initial!, catalog).won, `${date} initial`).toBe(false)
+      expect(evaluate(phase, emptyDoc(), catalog).won, `${date} empty`).toBe(false)
+      const wire = ref.bench.wires[0]
+      if (wire) expect(evaluate(phase, withoutWire(ref, wire.id), catalog).won, `${date} without ${wire.id}`).toBe(false)
+    }
   })
 })

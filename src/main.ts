@@ -19,6 +19,7 @@ import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
 import {
   evaluate,
+  claimableId,
   evaluateScenarios,
   findPhase,
   referenceCost,
@@ -422,7 +423,7 @@ async function pickFromTray(type: string) {
       value = chosen
     }
   }
-  setTool(item ? { place: item.type, id: item.id, value } : { place: type, value })
+  setTool(item ? { place: item.type, id: item.id, value } : { place: type, value, id: claimableId(view.doc, activeView, type, session.phase.keyParts) })
   activePart = type
   tray.update(trayItems(view.doc), activePart)
 }
@@ -711,8 +712,7 @@ function stepDone(phase: Phase, index: number): boolean {
   const step = phase.steps?.[index]
   if (!step || !session) return false
   if ("event" in step.until) return session.events.has(step.until.event)
-  const net = phase.evaluateOn === "bench" ? view.benchNet : view.blueprintNet
-  return evaluateScenarios(step.until.expect, net, catalog).every((s) => s.ok)
+  return evaluateScenarios(step.until.expect, { bench: view.benchNet, blueprint: view.blueprintNet }, phase.evaluateOn, catalog).every((s) => s.ok)
 }
 
 function advanceSteps(): boolean {
@@ -1129,7 +1129,6 @@ function startSandbox() {
     keyParts: [],
     expect: [],
     evaluateOn: "bench",
-    requireMatch: false,
     showDivergence: true,
     budget: null,
     initial: null,

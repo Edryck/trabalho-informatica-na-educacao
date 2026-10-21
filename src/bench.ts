@@ -1068,7 +1068,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       delete found.fault
       return found.id
     }
-    const id = nextInstanceId(d, prefixFor(type))
+    // id que a fase confere ainda não existe no documento: nasce com ele em vez de virar L2
+    const id = existing ?? nextInstanceId(d, prefixFor(type))
     const v = value ?? catalog[type]?.values?.[0] ?? 0
     d.instances.push({ id, type, value: v, actualValue: v })
     return id
