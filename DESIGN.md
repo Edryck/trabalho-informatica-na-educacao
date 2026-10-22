@@ -71,11 +71,21 @@ Electrical values keep SI prefixes, Brazilian decimal comma and a thin space bef
 ## Screens
 
 1. **Title** — the player's bench in slow showcase orbit behind a white panel: logo, player badge (level, XP bar, stars), daily repair card, buttons (Continue, New game, Workshop, Sandbox, Settings).
-2. **Phase map** — one path per group with round nodes, 3 stars under each node, padlock on locked groups, player badge on top.
+2. **Map and group screen** — the map shows only group cards, split into Electrical and Electronics. Each card says its state (available, complete, locked with what is missing, or soon), phases done and stars. A click opens the group screen: a single path of round nodes with 3 stars under each, focused on the next available phase. Esc goes group, then map, then back to the phase. Notices that arrive while a screen covers the bench (light mode, "continuing where you left off") wait in a queue and show when the screen closes.
 3. **Phase screen** — top bar (level, XP, the phase's 3 star goals, map button), brief panel (goal, scenario checklist, star goals), tool bar, tray with chunky part cards and mini illustrations, blueprint/bench toggle.
 4. **Phase complete** — celebration: stars drop one by one, XP counts up, level bar fills, unlock scene on level up; skippable with click or Esc.
 5. **Workshop** — bench close-up with unlocked decor, cosmetic cards (breadboard, wires, mat), next reward.
 6. **Settings** — symbol standard, reduced motion, volume, shortcuts, replay tour, export data, reset progress.
+
+## Datasheet screen
+
+A full screen above the bench, the map and the end screen (only the tour sits above it). The bench stays visible and dimmed behind it. Closing returns to the screen it came from.
+
+- Hybrid style: a clean white sheet in the current theme (Rubik and Plex, copper dividers), and only the drawing area looks sketched.
+- Sketch: an SVG filter (`feTurbulence` with fixed seed 7 plus `feDisplacementMap`) over ink-colored strokes, dashed dimension lines, italic Plex pin labels. The filter is off in light mode (`body.lite`).
+- Left column: drawing (side view only for resistor, LED, diode and chips), pinout and the electrical symbol in the chosen IEC/ANSI standard. Right column: description, 3 to 5 key features, a technical table in Plex Mono, a typical application drawn as a read-only blueprint, and notes (breadboard tip and common mistake).
+- Opened from the tray "i", the full-datasheet button on the new-part card, or the Datasheets button on the map and in the sandbox. From the list, a side column lets you move with the arrow keys.
+- Spec numbers come from the solver model (`specRows`), never from the texts.
 
 ## Motion
 
@@ -108,4 +118,4 @@ CC0 effects, volume in settings, silent failure if the browser blocks audio: cli
 
 ## Simulation UI patterns
 
-Unchanged from the original design: every value shown comes from the last solver result, the circuit is solved live on every change, one shared value formatter, nothing burns before the Limits group, rewind restores both views.
+Unchanged from the original design: every value shown comes from the last solver result, the circuit is solved live on every change, one shared value formatter, nothing burns outside groups with `burns: true`, rewind restores both views.

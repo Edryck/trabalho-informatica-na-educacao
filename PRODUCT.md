@@ -26,7 +26,7 @@ A browser game where the simulator is the core. Every phase runs on top of the s
 
 - The player **draws** the circuit on a blueprint using standard symbols (IEC/ANSI toggle).
 - Then **builds** the same circuit on a 3D breadboard, placing parts and wires freely.
-- The game turns both into the same netlist and compares them, so it can tell "your drawing is right, your build isn't".
+- The game turns both into the same netlist and compares them, so it can tell "your drawing is right, your build isn't". The comparison is a warning and a star, never a requirement: a phase is won when the circuit reaches the expected state, whatever the layout.
 - A **current view** toggle shows the flow and its direction, making it visible that current is the same before and after a component.
 - **Repair phases** hand the player a broken circuit and a multimeter. Finding the fault is investigation, not a question.
 - **Orders** give an open spec ("a fan with a switch and a buzzer, one 9V battery") with many valid solutions.
@@ -51,15 +51,29 @@ Success looks like:
 
 ## Journey End-to-End
 
+Groups are split in two blocks, electrical first and electronics after. Each group unlocks through `requires` in the JSON, not through a global phase queue.
+
+| Group | Block | In demo | Requires | Unlocks | Burns |
+|-------|-------|---------|----------|---------|-------|
+| g0 Bancada | electrical | yes | none | battery, jumper wire, lamp, breadboard | no |
+| g1 Circuitos básicos | electrical | yes | g0 | switch, button, buzzer, motor, current view | no |
+| g2 Resistência | electrical | yes | g1 | resistor, multimeter | no |
+| g3 Série e paralelo | electrical | yes | g2 | nothing new | no |
+| g4 Capacitância | electrical | no | g3 | capacitor | no |
+| g5 Limites elétricos | electrical | no | g4 | fuse | yes |
+| g6 Diodo e LED | electronics | yes | g3 | diode, LED | no |
+| g7 Circuitos lógicos | electronics | no | g6 | logic switches, logic probe, chips | no |
+| g8 Limites eletrônicos | electronics | no | g7 | nothing | yes |
+
 1. **Bancada (g0)**: learns the interface, the symbols and how the breadboard is wired inside
 2. **Circuitos básicos (g1)**: closed/open circuit, switches, polarity, lamps in a row with current view on
-3. **Circuitos lógicos (g2)**: logic chips (NOT, AND, OR, XOR, NAND, NOR, XNOR) with VCC/GND on the breadboard
-4. **Resistência (g3)**: resistor, color code, LED, multimeter, Ohm's law
-5. **Série e paralelo (g4)**, **Capacitância (g5)**, **Limites (g6)**: after the demo
-6. Each group ends with a **repair** phase and an **order** phase
-7. Outside the phases: **sandbox** using the same simulator
+3. **Resistência (g2)**: resistor, color code, multimeter, Ohm's law
+4. **Série e paralelo (g3)**: series versus parallel, voltage divider, a lamp that opens
+5. **Diodo e LED (g6)**: the diode passes current one way only, the LED is a diode that lights, protection resistor
+6. Each group ends with a **repair** phase and an **order** phase, except when the group is a short tutorial
+7. Outside the phases: **sandbox** with every supported part, unlimited, saved on its own key
 
-Demo scope = g0 to g3 (24 phases). Phase content lives in JSON.
+Demo scope = g0, g1, g2, g3 and g6 (28 phases, 84 stars). Phase content lives in JSON. A part only burns in a group with `burns: true` (g5 and g8, both outside the demo).
 
 ## Tech Stack (Locked for Demo)
 
@@ -106,7 +120,7 @@ XP, levels and the workshop are extrinsic motivation. They are kept on method (n
 
 1. **The simulator is the teacher** — feedback comes from what the circuit actually does, not from a script saying "wrong"
 2. **Many right answers** — phases check the expected state, never one correct layout
-3. **Mistakes are cheap** — undo/rewind always available, nothing burns until the Limits group
+3. **Mistakes are cheap** — undo/rewind always available, nothing burns outside the groups marked `burns` in the JSON (the Limits groups)
 4. **Drawing and building are the same circuit** — the netlist is the single truth; divergences are shown, not hidden
 5. **Show the invisible** — current view, meter readings and datasheets turn abstract quantities into something you can see
 
