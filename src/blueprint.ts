@@ -244,6 +244,16 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     return parts.join("")
   }
 
+  function withStandard<T>(standard: SymbolStandard, fn: () => T): T {
+    const previous = opts.standard
+    opts = { ...opts, standard }
+    try {
+      return fn()
+    } finally {
+      opts = { ...opts, standard: previous }
+    }
+  }
+
   function symbolGroup(type: string, state: PartState | undefined, input: string | undefined): SVGGElement {
     const g = el("g", { class: `symbol symbol-${type}` })
     if (type.startsWith("chip_")) {
@@ -738,12 +748,10 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     handleKey,
     frame,
     staticMarkup(blueprint: CircuitDoc["blueprint"], instances: Instance[], standard: SymbolStandard): string {
-      const previous = opts.standard
-      opts = { ...opts, standard }
       const types = new Map(instances.map((i) => [i.id, i]))
       const xs: number[] = []
       const ys: number[] = []
-      const parts = blueprint.placements.flatMap((placement) => {
+      const parts = withStandard(standard, () => blueprint.placements.flatMap((placement) => {
         const instance = types.get(placement.id)
         if (!instance) return []
         const chip = instance.type.startsWith("chip_")
@@ -761,7 +769,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
         label.textContent = value ? `${placement.id} · ${value}` : placement.id
         g.appendChild(label)
         return [g.outerHTML]
-      })
+      }))
       const wires = blueprint.segments.map((s) => {
         xs.push(s.x1 * GRID, s.x2 * GRID)
         ys.push(s.y1 * GRID, s.y2 * GRID)
@@ -776,7 +784,6 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
         const pos = parsePoint(point)
         if (pos && count + (pinPoints.has(point) ? 1 : 0) >= 3) dots.push(el("circle", { class: "junction", cx: pos[0] * GRID, cy: pos[1] * GRID, r: 4 }).outerHTML)
       }
-      opts = { ...opts, standard: previous }
       const margin = 20
       const minX = (xs.length ? Math.min(...xs) : 0) - margin
       const minY = (ys.length ? Math.min(...ys) : 0) - margin
@@ -785,10 +792,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       return `<svg class="blueprint sheet-svg" viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Esquema da aplicação típica"><g class="wires">${wires.join("")}</g><g class="junctions">${dots.join("")}</g><g class="parts">${parts.join("")}</g></svg>`
     },
     symbolMarkup(type: string, standard: SymbolStandard): string {
-      const previous = opts.standard
-      opts = { ...opts, standard }
-      const g = symbolGroup(type, undefined, undefined)
-      opts = { ...opts, standard: previous }
+      const g = withStandard(standard, () => symbolGroup(type, undefined, undefined))
       const chip = type.startsWith("chip_")
       const box = chip ? "-80 -150 160 300" : "-50 -50 100 100"
       return `<svg class="blueprint sheet-svg" viewBox="${box}" width="${chip ? 120 : 140}" height="${chip ? 220 : 140}">${g.outerHTML}</svg>`

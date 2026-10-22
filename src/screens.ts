@@ -475,7 +475,7 @@ function groupCard(g: GroupSummary, index: number, justUnlocked: boolean): strin
       : g.state === "locked"
         ? `<span class="group-foot">${g.requiresTitle ? `Conclua ${g.requiresTitle} pra liberar` : "Bloqueado"}</span>`
         : `<span class="group-foot">${g.done}/${g.total} fases<span class="group-stars">${starIcon("met", 14)}${g.stars}/${g.maxStars}</span></span>`
-  return `<li><button type="button" class="group-card ${g.state} ${justUnlocked ? "just-unlocked" : ""}" data-group="${g.id}" ${open ? "" : "disabled"} aria-label="${groupAria(g)}"><span class="group-mark">${mark}</span><span class="group-title">${g.title}</span><span class="group-concept">${g.concept}</span>${foot}</button></li>`
+  return `<li><button type="button" class="group-card ${g.state} ${justUnlocked ? "just-unlocked" : ""}" data-group="${g.id}" data-open="${open}" ${open ? "" : 'aria-disabled="true"'} aria-label="${groupAria(g)}"><span class="group-mark">${mark}</span><span class="group-title">${g.title}</span><span class="group-concept">${g.concept}</span>${foot}</button></li>`
 }
 
 export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
@@ -490,7 +490,7 @@ export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
     if (action === "settings") return handlers.onSettings()
     if (action === "datasheets") return handlers.onDatasheets?.()
     const card = target.closest<HTMLButtonElement>("[data-group]")
-    if (card && !card.disabled) handlers.onGroup(card.dataset.group!)
+    if (card && card.dataset.open === "true") handlers.onGroup(card.dataset.group!)
   })
   return {
     show(groups: GroupSummary[], justUnlocked: string[], badge: BadgeData, back: { label: string; run(): void } | null = null) {
@@ -601,11 +601,14 @@ export function createDatasheetScreen(el: HTMLElement, handlers: { onClose(): vo
   let open = false
   let types: string[] = []
   let current = ""
+  let opener: HTMLElement | null = null
   const close = () => {
     if (!open) return
     open = false
     el.hidden = true
     handlers.onClose()
+    if (opener?.isConnected) opener.focus({ preventScroll: true })
+    opener = null
   }
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
@@ -630,6 +633,7 @@ export function createDatasheetScreen(el: HTMLElement, handlers: { onClose(): vo
     isOpen: () => open,
     close,
     show(state: SheetState) {
+      if (!open) opener = document.activeElement instanceof HTMLElement && !el.contains(document.activeElement) ? document.activeElement : null
       open = true
       current = state.type
       types = state.list?.map((i) => i.type) ?? []

@@ -99,6 +99,7 @@ test("datasheet opens from the sandbox tray and closes with Esc", async ({ page 
   await page.locator('[aria-label="Datasheet: Resistor"]').click()
   await expect(page.locator(".sheet-screen")).toBeVisible()
   await expect(page.locator(".sheet-spec")).toContainText("vermelho")
+  await page.locator(".sheet-columns p").first().click()
   await page.keyboard.press("Escape")
   await expect(page.locator(".sheet-screen")).toBeHidden()
   await page.getByRole("button", { name: "Datasheets" }).click()

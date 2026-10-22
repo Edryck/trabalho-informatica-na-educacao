@@ -325,3 +325,18 @@ describe("groupSummaries", () => {
     expect(dailyUnlocked(all, real)).toBe(dailyUnlocked(new Set(Object.keys(base)), real))
   })
 })
+
+describe("empty demo group", () => {
+  it("is never complete even with its requirement met", () => {
+    const fixture = loadPhases({
+      groups: [
+        { id: "a", title: "a", demo: true, concept: "", unlocks: [], phases: [{ id: "a1", type: "build", goal: "x" }] },
+        { id: "b", title: "b", demo: true, concept: "", unlocks: [], requires: "a", phases: [] },
+      ],
+      future: [],
+    })
+    const list = groupSummaries(fixture, { a1: { won: true, bestCost: null, stars: [0] } })
+    expect(list[1].state).not.toBe("complete")
+    expect(list[1]).toMatchObject({ done: 0, total: 0 })
+  })
+})

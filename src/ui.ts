@@ -1193,24 +1193,24 @@ export type Datasheet = {
   mistake: string
 }
 
-export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => void, onFull?: (key: string) => void) {
+export function createDatasheetCard(el: HTMLElement, onClose: (key: string, viaFull: boolean) => void, onFull?: (key: string) => void) {
   el.className = "datasheet-card"
   el.hidden = true
   el.setAttribute("role", "dialog")
   el.setAttribute("aria-modal", "false")
   let current: string | null = null
-  const close = () => {
+  const close = (viaFull = false) => {
     if (!current) return
     const key = current
     current = null
     el.hidden = true
-    onClose(key)
+    onClose(key, viaFull)
   }
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
     if (target.closest("[data-action=full]") && current) {
       const key = current
-      close()
+      close(true)
       onFull?.(key)
       return
     }

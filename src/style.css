@@ -1587,12 +1587,12 @@ body.reduce-motion *::after {
   transition: transform 140ms ease-out, box-shadow 140ms ease-out;
 }
 
-.group-card:not(:disabled):hover {
+.group-card:not([aria-disabled="true"]):hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 var(--color-border);
 }
 
-.group-card:not(:disabled):active {
+.group-card:not([aria-disabled="true"]):active {
   transform: translateY(3px);
   box-shadow: none;
 }
@@ -1602,7 +1602,7 @@ body.reduce-motion *::after {
   outline-offset: 3px;
 }
 
-.group-card:disabled {
+.group-card[aria-disabled="true"] {
   cursor: default;
   box-shadow: none;
 }

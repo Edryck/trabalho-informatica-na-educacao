@@ -136,8 +136,12 @@ function voltageAcross(net: Netlist, result: SolveResult, id: string, catalog: P
   const b = result.voltages[net.pinAt[`${id}.${pins[1]}`]]
   if (a === undefined || b === undefined) return undefined
   // peça sem polaridade: a faixa vale nos dois sentidos de montagem
-  const kind = catalog[part!.type]?.model.kind
-  return kind === "resistor" || kind === "lamp" ? Math.abs(a - b) : a - b
+  return unsigned(net, catalog, id) ? Math.abs(a - b) : a - b
+}
+
+function unsigned(net: Netlist, catalog: PartsCatalog, id: string): boolean {
+  const kind = catalog[net.parts.find((p) => p.id === id)?.type ?? ""]?.model.kind
+  return kind === "resistor" || kind === "lamp"
 }
 
 function currentInput(net: Netlist, catalog: PartsCatalog, id: string): string | undefined {
@@ -170,7 +174,10 @@ export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist;
         if (!state || !stateMatches(state, expected)) failures.push({ partId: id, reason: "state" })
         continue
       }
-      const currentOk = !expected.current || within(result.partCurrent[id], expected.current)
+      const raw = result.partCurrent[id]
+      // lâmpada e resistor não têm polaridade: o sentido da corrente depende de qual perna o jogador chamou de a
+      const current = raw !== undefined && unsigned(net, catalog, id) ? Math.abs(raw) : raw
+      const currentOk = !expected.current || within(current, expected.current)
       const voltageOk = !expected.voltage || within(voltageAcross(net, result, id, catalog), expected.voltage)
       if (!currentOk || !voltageOk) failures.push({ partId: id, reason: "range" })
     }
@@ -227,7 +234,7 @@ function groupUnlocked(data: PhaseData, won: Set<string>, group: Group, seen: Se
 
 export function isPhaseAvailable(data: PhaseData, won: Set<string>, phaseId: string): boolean {
   const group = data.groups.find((g) => g.phases.some((p) => p.id === phaseId))
-  if (!group) return false
+  if (!group || !group.demo) return false
   const index = group.phases.findIndex((p) => p.id === phaseId)
   return index === 0 ? groupUnlocked(data, won, group) : won.has(group.phases[index - 1].id)
 }

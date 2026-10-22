@@ -457,6 +457,14 @@ describe("assembly freedom", () => {
             expect(wins(p, flipped(ref, part.id))).toBe(false)
           })
 
+        for (const part of ref.instances.filter((i) => i.type === "resistor" || i.type === "lamp"))
+          it(`still wins with ${part.id} mounted the other way round`, () => {
+            const doc = structuredClone(ref)
+            const placement = doc.bench.placements.find((x) => x.id === part.id)!
+            placement.holes = { a: placement.holes.b ?? null, b: placement.holes.a ?? null }
+            expect(wins(p, doc)).toBe(true)
+          })
+
         for (const part of ref.instances.filter((i) => i.type === "resistor"))
           it(`loses with ${part.id} replaced by a wire`, () => {
             expect(wins(p, resistorAsWire(ref, part.id))).toBe(false)
@@ -650,6 +658,19 @@ describe("scenarios that take a part out", () => {
     expect(parallel.parts.every((p) => !("fault" in p))).toBe(true)
   })
 
+  it("current ranges on a lamp ignore which way it was mounted", () => {
+    const net = (flip: boolean) => ({
+      parts: [
+        { id: "B1", type: "battery", value: 9 },
+        { id: "L1", type: "lamp", value: 0 },
+      ],
+      links: [],
+      pinAt: { "B1.+": "p", "B1.-": "n", "L1.a": flip ? "n" : "p", "L1.b": flip ? "p" : "n" },
+    })
+    const scenario = { when: {}, then: { L1: { current: [0.08, 0.2] as [number, number] } } }
+    for (const flip of [false, true]) expect(evaluateScenarios([scenario], { bench: net(flip), blueprint: net(flip) }, "bench", catalog)[0].ok).toBe(true)
+  })
+
   it("voltage ranges on a resistor ignore which way it was mounted", () => {
     const net = (flip: boolean) => ({
       parts: [
@@ -676,5 +697,15 @@ describe("final demo size", () => {
 
   it("every demo group has phases", () => {
     for (const g of data.groups.filter((g) => g.demo)) expect(g.phases.length, g.id).toBeGreaterThan(0)
+  })
+})
+
+describe("groups outside the demo stay closed", () => {
+  const data = loadPhases(phasesRaw)
+
+  it("no phase of a non-demo group is available with the whole demo won", () => {
+    const won = new Set(data.groups.filter((g) => g.demo).flatMap((g) => g.phases.map((p) => p.id)))
+    for (const g of data.groups.filter((g) => !g.demo))
+      for (const phase of g.phases) expect(isPhaseAvailable(data, won, phase.id), phase.id).toBe(false)
   })
 })

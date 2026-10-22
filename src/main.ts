@@ -381,18 +381,19 @@ const sheetScreenEl = document.createElement("div")
 app.append(sheetScreenEl)
 const sheetScreen = createDatasheetScreen(sheetScreenEl, {
   onClose: () => {
-    stageEl.focus({ preventScroll: true })
+    maybeStartTour()
   },
   onPick: (type) => showSheetScreen(type, sheetListOpen),
 })
 let sheetListOpen = false
 const sheetCard = createDatasheetCard(
   sheetEl,
-  (key) => {
+  (key, viaFull) => {
   if (!store.data.seenDatasheets.includes(key)) {
     store.data.seenDatasheets.push(key)
     store.save()
   }
+  if (viaFull) return
   const next = sheetQueue.shift()
   if (next) openDatasheet(next, true)
   else maybeStartTour()
@@ -406,7 +407,7 @@ const tour = createTour(tourEl)
 let tourPending = false
 
 function maybeStartTour() {
-  if (!session || overlayOpen() || tour.isOpen() || sheetCard.isOpen() || sheetQueue.length > 0) return
+  if (!session || overlayOpen() || tour.isOpen() || sheetCard.isOpen() || sheetScreen.isOpen() || sheetQueue.length > 0) return
   const firstTime = session.phase.id === phaseOrder(phases)[0] && !store.data.tutorialSeen
   if (!firstTime && !tourPending) return
   tourPending = false
@@ -1122,7 +1123,7 @@ function showTitle() {
     },
     onContinue: () => {
       const draft = store.data.draft?.phaseId
-      startPhase(draft && findPhase(phases, draft) ? draft : nextAvailablePhase()!)
+      startPhase(draft && findPhase(phases, draft) && (progressWon().has(draft) || isPhaseAvailable(phases, progressWon(), draft)) ? draft : nextAvailablePhase()!)
     },
     onNew: () => {
       store.data.progress = {}
@@ -1193,7 +1194,8 @@ function showComplete(reward: CompleteReward, instant = false) {
   lastReward = reward
   const phase = session.phase
   const order = phaseOrder(phases)
-  const nextId = isDaily(phase.id) ? undefined : order[order.indexOf(phase.id) + 1]
+  const candidate = isDaily(phase.id) ? undefined : order[order.indexOf(phase.id) + 1]
+  const nextId = candidate && isPhaseAvailable(phases, new Set([...progressWon(), phase.id]), candidate) ? candidate : undefined
   openOverlay("complete")
   void completeScreen.show(
     {
@@ -1225,7 +1227,20 @@ function showComplete(reward: CompleteReward, instant = false) {
   )
 }
 
+function safeSandbox(): CircuitDoc | null {
+  const loaded = loadSandbox(safeLocalStorage(), catalog)
+  if (!loaded) return null
+  try {
+    compute(loaded)
+    return loaded
+  } catch {
+    saveSandbox(safeLocalStorage(), emptyDoc())
+    return null
+  }
+}
+
 function startSandbox() {
+  flushSandbox()
   store.data = finishAttempt(store.data, false, new Date())
   store.save()
   const tray: Record<string, number> = {}
@@ -1242,7 +1257,7 @@ function startSandbox() {
     evaluateOn: "bench",
     showDivergence: true,
     budget: null,
-    initial: loadSandbox(safeLocalStorage(), catalog),
+    initial: safeSandbox(),
     steps: null,
     hints: [],
     referenceSolution: null,
@@ -1276,7 +1291,13 @@ window.addEventListener("keydown", (event) => {
     )
     return
   }
-  if (sheetScreen.isOpen()) return
+  if (sheetScreen.isOpen()) {
+    if (event.key === "Escape") {
+      event.preventDefault()
+      sheetScreen.close()
+    }
+    return
+  }
   if (rewinding) return
   if (bestView) {
     const key = event.key.toLowerCase()
