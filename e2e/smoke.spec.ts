@@ -92,3 +92,15 @@ test("workshop opens", async ({ page }) => {
   await page.keyboard.press("Escape")
   await expect(page.getByRole("button", { name: "Nova partida" })).toBeVisible()
 })
+
+test("datasheet opens from the sandbox tray and closes with Esc", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Sandbox" }).click()
+  await page.locator('[aria-label="Datasheet: Resistor"]').click()
+  await expect(page.locator(".sheet-screen")).toBeVisible()
+  await expect(page.locator(".sheet-spec")).toContainText("vermelho")
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".sheet-screen")).toBeHidden()
+  await page.getByRole("button", { name: "Datasheets" }).click()
+  await expect(page.locator(".sheet-list-item")).toHaveCount(19)
+})

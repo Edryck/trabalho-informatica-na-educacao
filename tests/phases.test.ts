@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
 import { claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
-import { benchToNetlist } from "../src/netlist"
+import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
 import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
-import { starLabel } from "../src/ui"
+import { starLabel, type Datasheet } from "../src/ui"
 
 const catalog = parts as unknown as PartsCatalog
 
@@ -276,11 +276,11 @@ describe("divergence defaults", () => {
 describe("game copy", () => {
   const data = loadPhases(phasesRaw)
   const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
-  const sheets = datasheets as unknown as Record<string, { title: string; does: string; values: [string, string][]; breadboard: string; mistake: string }>
+  const sheets = datasheets as unknown as Record<string, Datasheet>
   const daily = dailyRepair("2026-11-03", data, new Set(demo.map((p) => p.id)), catalog)
   const allCopy = () => [
     ...demo.flatMap((p) => [p.brief, ...p.hints, ...(p.steps ?? []).map((s) => s.text)]),
-    ...Object.values(sheets).flatMap((d) => [d.title, d.does, d.breadboard, d.mistake, ...d.values.flat()]),
+    ...Object.values(sheets).flatMap((d) => [d.title, d.category, d.description, ...d.features, d.application.text, d.breadboard, d.mistake]),
     ...TOUR_STEPS.flatMap((step) => [step.title, step.text]),
     ...demo.flatMap((p) => p.stars.map(starLabel)),
     ...(daily ? [daily.brief, ...daily.hints] : []),
@@ -304,13 +304,37 @@ describe("game copy", () => {
     for (const p of demo.filter((p) => p.type !== "tutorial")) expect(p.hints.length, p.id).toBeGreaterThanOrEqual(2)
   })
 
-  it("every datasheet section is filled", () => {
+  it("every part has a complete datasheet", () => {
     for (const key of Object.keys(catalog)) {
       const d = sheets[catalog[key].datasheet ?? key]
       expect(d, key).toBeDefined()
-      for (const field of ["title", "does", "breadboard", "mistake"] as const) expect(d[field], `${key}.${field}`).not.toBe("")
-      expect(d.values.length, `${key}.values`).toBeGreaterThan(0)
+      for (const field of ["title", "category", "description", "breadboard", "mistake"] as const) expect(d[field], `${key}.${field}`).not.toBe("")
+      expect(d.features.length, `${key}.features`).toBeGreaterThanOrEqual(3)
+      expect(d.features.length, `${key}.features`).toBeLessThanOrEqual(5)
+      expect(d.application.text, `${key}.application`).not.toBe("")
     }
+  })
+
+  it("datasheets carry no spec numbers", () => {
+    const spec = /\d+([,.]\d+)?\s*(V|A|mA|Ω|kΩ|MΩ)/
+    for (const [key, d] of Object.entries(sheets)) {
+      expect("values" in d, `${key}.values`).toBe(false)
+      for (const text of [d.description, ...d.features]) expect(text, key).not.toMatch(spec)
+    }
+  })
+
+  it("application circuits are valid", () => {
+    for (const [key, d] of Object.entries(sheets)) {
+      for (const i of d.application.instances) expect(i.type in catalog, `${key}:${i.type}`).toBe(true)
+      const doc = { ...emptyDoc(), instances: d.application.instances, blueprint: d.application.blueprint }
+      expect(() => blueprintToNetlist(doc, catalog), key).not.toThrow()
+      const ids = new Set(d.application.instances.map((i) => i.id))
+      for (const p of d.application.blueprint.placements) expect(ids.has(p.id), `${key}:${p.id}`).toBe(true)
+    }
+  })
+
+  it("mistake never names a repair cause", () => {
+    for (const [key, d] of Object.entries(sheets)) expect(d.mistake, key).not.toMatch(/\b[A-Z]{1,3}\d\b/)
   })
 
   it("every demo brief is filled and different from the goal", () => {

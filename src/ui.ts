@@ -1,4 +1,6 @@
-import type { Divergence, PinRef } from "./netlist"
+import type { Divergence, PartsCatalog, PinRef } from "./netlist"
+import type { BlueprintPlacement, BlueprintSegment, Instance } from "./state"
+import { resistorBands } from "./parts3d"
 import type { Warning } from "./solver"
 import type { Star } from "./phases"
 import type { GoalState, LevelInfo } from "./game"
@@ -29,6 +31,189 @@ export function formatValue(value: number, unit: Unit): string {
   }
   const sign = value < 0 ? MINUS : ""
   return `${sign}${text.replace(".", ",")}${THIN_SPACE}${PREFIXES[exponent]}${unit}`
+}
+
+const BAND_NAMES: Record<string, string> = {
+  black: "preto",
+  brown: "marrom",
+  red: "vermelho",
+  orange: "laranja",
+  yellow: "amarelo",
+  green: "verde",
+  blue: "azul",
+  violet: "violeta",
+  gray: "cinza",
+  white: "branco",
+  gold: "dourado",
+}
+
+export function bandNames(ohms: number): string[] {
+  return resistorBands(ohms).map((band) => BAND_NAMES[band] ?? band)
+}
+
+export function specRows(type: string, catalog: PartsCatalog): [string, string][] {
+  const def = catalog[type]
+  if (!def) return []
+  const t = def.thresholds ?? {}
+  const model = def.model
+  switch (model.kind) {
+    case "led":
+      return [
+        ["Queda de tensão", formatValue(model.vf, "V")],
+        ["Corrente típica", formatValue(t.nominal, "A")],
+        ["Corrente máxima", formatValue(t.maxCurrent, "A")],
+      ]
+    case "diode":
+      return [["Queda de tensão", formatValue(model.vf, "V")]]
+    case "lamp":
+      return [
+        ["Resistência", formatValue(model.resistance, "Ω")],
+        ["Corrente máxima", formatValue(t.maxCurrent, "A")],
+        ["Acende a partir de", formatValue(t.lit, "A")],
+      ]
+    case "motor":
+      return [
+        ["Resistência", formatValue(model.resistance, "Ω")],
+        ["Gira a partir de", formatValue(t.spin, "A")],
+        ["Corrente máxima", formatValue(t.maxCurrent, "A")],
+      ]
+    case "buzzer":
+      return [
+        ["Resistência", formatValue(model.resistance, "Ω")],
+        ["Toca a partir de", formatValue(t.sound, "A")],
+      ]
+    case "battery":
+      return [
+        ["Tensões", (def.values ?? []).map((v) => formatValue(v, "V")).join(" · ")],
+        ["Curto acima de", formatValue(t.shortCurrent, "A")],
+      ]
+    case "resistor": {
+      const values = def.values ?? []
+      return [
+        ["Valores", `${formatValue(values[0], "Ω")} … ${formatValue(values[values.length - 1], "Ω")}`],
+        ...values.map((v): [string, string] => [formatValue(v, "Ω"), bandNames(v).join(" · ")]),
+      ]
+    }
+    case "multimeter":
+      return [
+        ["Escala V", `${formatValue(t.voltmeterResistance, "Ω")} de entrada`],
+        ["Escala A", `${formatValue(t.ammeterResistance, "Ω")} em série`],
+        ["OL", "fora da escala"],
+      ]
+    case "logic":
+      return [
+        ["Alimentação mínima", formatValue(t.minSupply, "V")],
+        ["Entrada 0 até", formatValue(t.vil, "V")],
+        ["Entrada 1 a partir de", formatValue(t.vih, "V")],
+      ]
+    case "logicSwitch":
+      return [["Comportamento", "Entrega 1 ou 0 lógico no pino OUT"]]
+    case "logicProbe":
+      return [["Comportamento", "Mostra 1, 0 ou ? no ponto lido"]]
+    case "switch":
+      return [["Comportamento", "Ligada fecha o caminho, desligada abre"]]
+    case "pushButton":
+      return [["Comportamento", "Fecha o caminho só enquanto apertado"]]
+    default:
+      return []
+  }
+}
+
+
+type Pt = [number, number]
+type SketchDef = { view: string; side?: string; pins: Pt[]; anchors?: ("start" | "middle" | "end")[] }
+
+function dipSketch(count: number): SketchDef {
+  const half = count / 2
+  const gap = 150 / half
+  const pins: Pt[] = []
+  const legs: string[] = []
+  for (let i = 0; i < count; i++) {
+    const left = i < half
+    const row = left ? i : count - 1 - i
+    const y = 30 + gap * row + gap / 2
+    pins.push([left ? 78 : 182, y])
+    legs.push(`<path d="M${left ? 90 : 170} ${y}H${left ? 78 : 182}"/>`)
+  }
+  return {
+    view: `<rect x="90" y="24" width="80" height="162" rx="3"/><path d="M120 24a10 10 0 0020 0"/><circle cx="102" cy="40" r="2.4"/>${legs.join("")}`,
+    side: `<rect x="94" y="204" width="72" height="12" rx="2"/><path d="M106 216v8M154 216v8M106 204v-8M154 204v-8"/>`,
+    pins,
+    anchors: pins.map(([x]) => (x < 130 ? "end" : "start")),
+  }
+}
+
+const SKETCHES: Record<string, SketchDef> = {
+  resistor: {
+    view: '<path d="M30 105H78M182 105H230"/><rect x="78" y="86" width="104" height="38" rx="14"/><path d="M104 86v38M120 86v38M136 86v38M164 86v38" class="sketch-ink-soft"/>',
+    side: '<circle cx="46" cy="40" r="15"/><circle cx="46" cy="40" r="5"/>',
+    pins: [[30, 105], [230, 105]],
+  },
+  led: {
+    view: '<path d="M96 160v-32M164 160v-32"/><rect x="82" y="118" width="100" height="10" rx="2"/><path d="M90 118V70a42 42 0 0184 0v48z"/><path d="M104 70a28 28 0 0128-26" class="sketch-ink-soft"/>',
+    side: '<path d="M200 96V70a18 18 0 0136 0v26z"/><path d="M200 96h36M208 96v14M228 96v14"/>',
+    pins: [[96, 160], [164, 160]],
+  },
+  diode: {
+    view: '<path d="M30 105H78M182 105H230"/><rect x="78" y="88" width="104" height="34" rx="6"/><rect x="158" y="88" width="14" height="34" class="sketch-fill"/>',
+    side: '<circle cx="46" cy="40" r="14"/><path d="M34 46h24" class="sketch-ink-soft"/>',
+    pins: [[30, 105], [230, 105]],
+  },
+  lamp: {
+    view: '<circle cx="130" cy="72" r="34"/><path d="M114 100h32v16h-32z"/><path d="M118 116v14M142 116v14M120 96l5-18 5 14 5-14 5 18" class="sketch-ink-soft"/>',
+    pins: [[118, 130], [142, 130]],
+  },
+  battery: {
+    view: '<rect x="82" y="52" width="96" height="112" rx="8"/><path d="M82 92h96"/><rect x="104" y="36" width="14" height="16"/><circle cx="154" cy="44" r="8"/>',
+    pins: [[111, 36], [154, 36]],
+  },
+  switch: {
+    view: '<rect x="70" y="100" width="120" height="30" rx="6"/><path d="M130 100l16-44"/><circle cx="148" cy="52" r="6"/><path d="M92 130v14M168 130v14"/>',
+    pins: [[92, 144], [168, 144]],
+  },
+  push_button: {
+    view: '<rect x="86" y="70" width="88" height="70" rx="8"/><circle cx="130" cy="105" r="22"/><path d="M86 82H70M86 128H70M174 82h16M174 128h16"/>',
+    pins: [[70, 82], [70, 128], [190, 82], [190, 128]],
+    anchors: ["end", "end", "start", "start"],
+  },
+  dc_motor: {
+    view: '<rect x="64" y="70" width="110" height="64" rx="28"/><path d="M174 102h34"/><rect x="64" y="84" width="22" height="36"/><path d="M80 134v14M104 134v14"/>',
+    pins: [[80, 148], [104, 148]],
+  },
+  buzzer: {
+    view: '<circle cx="130" cy="95" r="46"/><circle cx="130" cy="95" r="9"/><path d="M110 141v14M150 141v14"/>',
+    pins: [[110, 155], [150, 155]],
+  },
+  logic_switch: {
+    view: '<rect x="80" y="64" width="100" height="70" rx="6"/><path d="M130 64l12-30"/><path d="M104 134v14M130 134v14M156 134v14"/>',
+    pins: [[104, 148], [156, 148], [130, 148]],
+  },
+  logic_probe: {
+    view: '<path d="M70 100h60l30-12v24l-30-12"/><rect x="130" y="82" width="64" height="36" rx="6"/><path d="M162 118v28"/>',
+    pins: [[70, 100], [162, 146]],
+    anchors: ["end", "middle"],
+  },
+  multimeter: {
+    view: '<rect x="76" y="30" width="108" height="130" rx="10"/><rect x="90" y="44" width="80" height="34" rx="3"/><circle cx="130" cy="112" r="18"/><path d="M96 160v14M164 160v14"/>',
+    pins: [[96, 174], [164, 174]],
+  },
+}
+
+export function partSketch(type: string, catalog: PartsCatalog): string {
+  const def = catalog[type]
+  const pins = def?.pins ?? []
+  const shape = type.startsWith("chip_") ? dipSketch(pins.length) : SKETCHES[type] ?? { view: '<rect x="80" y="60" width="100" height="60" rx="6"/>', pins: pins.map((_, i): Pt => [60 + i * 30, 140]) }
+  const labels = pins
+    .map((name, i) => {
+      const [x, y] = shape.pins[i] ?? [130, 150]
+      const anchor = shape.anchors?.[i] ?? "middle"
+      const dy = anchor === "middle" ? 14 : 4
+      const dx = anchor === "end" ? -6 : anchor === "start" ? 6 : 0
+      const text = type.startsWith("chip_") ? `${i + 1} ${name}` : name
+      return `<text class="sketch-pin" x="${x + dx}" y="${y + dy}" text-anchor="${anchor}">${text}</text>`
+    })
+    .join("")
+  return `<svg class="part-sketch" viewBox="0 0 260 ${type.startsWith("chip_") ? 236 : 190}" role="img" aria-label="Desenho de ${def?.datasheet ?? type}"><g class="sketch-view">${shape.view}</g>${shape.side ? `<g class="sketch-side">${shape.side}</g>` : ""}<g class="sketch-pins">${labels}</g></svg>`
 }
 
 const SPEED_MIN = 0.5
@@ -392,7 +577,7 @@ export function scenarioLabel(scenario: ScenarioLike): { when: string; then: str
 }
 
 export const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'
-const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+export const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 
 export function phaseLabel(id: string): string {
   // conserto do dia aparece pela data, "daily-2026-11-03" vira "03/11"
@@ -436,7 +621,7 @@ export type BriefState = {
   won: boolean
 }
 
-export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void; onRestart(): void }) {
+export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void; onRestart(): void; onDatasheets?(): void }) {
   el.className = "phase-brief"
   el.setAttribute("aria-label", "Objetivo da fase")
   el.hidden = true
@@ -449,6 +634,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
     if (row) handlers.onPreview(Number(row.dataset.row))
     if (target.closest("[data-action=hint]")) handlers.onHint()
     if (target.closest("[data-action=phases]")) handlers.onPhases()
+    if (target.closest("[data-action=datasheets]")) handlers.onDatasheets?.()
     if (target.closest("[data-action=restart]")) {
       if (confirmingRestart) {
         confirmingRestart = false
@@ -506,6 +692,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
           <span class="brief-tag">${PHASE_TAGS[phase.type] ?? phase.type}</span>
           <span class="brief-id mono">${phaseLabel(phase.id)}</span>
           <button type="button" class="brief-link" data-action="restart" title="Volta a fase pro começo">${confirmingRestart ? "Confirmar recomeço" : "Recomeçar"}</button>
+          ${phase.id === "sandbox" && handlers.onDatasheets ? '<button type="button" class="brief-link" data-action="datasheets">Datasheets</button>' : ""}
           <button type="button" class="brief-link" data-action="phases">Fases</button>
         </header>
         <h2 class="brief-title">${phase.goal.charAt(0).toUpperCase()}${phase.goal.slice(1)}</h2>
@@ -996,9 +1183,17 @@ export function warningText(w: Warning): string | null {
   }
 }
 
-export type Datasheet = { title: string; does: string; values: [string, string][]; breadboard: string; mistake: string }
+export type Datasheet = {
+  title: string
+  category: string
+  description: string
+  features: string[]
+  application: { blueprint: { placements: BlueprintPlacement[]; segments: BlueprintSegment[] }; instances: Instance[]; text: string }
+  breadboard: string
+  mistake: string
+}
 
-export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => void) {
+export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => void, onFull?: (key: string) => void) {
   el.className = "datasheet-card"
   el.hidden = true
   el.setAttribute("role", "dialog")
@@ -1012,7 +1207,14 @@ export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => v
     onClose(key)
   }
   el.addEventListener("click", (event) => {
-    if ((event.target as HTMLElement).closest("[data-action=close]")) close()
+    const target = event.target as HTMLElement
+    if (target.closest("[data-action=full]") && current) {
+      const key = current
+      close()
+      onFull?.(key)
+      return
+    }
+    if (target.closest("[data-action=close]")) close()
   })
   el.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
@@ -1023,7 +1225,7 @@ export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => v
   return {
     isOpen: () => current !== null,
     close,
-    open(key: string, sheet: Datasheet, symbolSvg: string, isNew: boolean) {
+    open(key: string, sheet: Datasheet, symbolSvg: string, isNew: boolean, rows: [string, string][]) {
       current = key
       el.hidden = false
       el.setAttribute("aria-label", `Datasheet: ${sheet.title}`)
@@ -1035,14 +1237,17 @@ export function createDatasheetCard(el: HTMLElement, onClose: (key: string) => v
         </header>
         <div class="sheet-body">
           <div class="sheet-symbol" aria-hidden="true">${symbolSvg}</div>
-          <p class="sheet-does">${sheet.does}</p>
-          <dl class="sheet-values">${sheet.values.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+          <p class="sheet-does">${sheet.description}</p>
+          <dl class="sheet-values">${rows.slice(0, 4).map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
           <h3>Na protoboard</h3>
           <p>${sheet.breadboard}</p>
           <h3>Erro comum</h3>
           <p>${sheet.mistake}</p>
         </div>
-        <button type="button" class="sheet-ok" data-action="close">Entendi</button>`
+        <div class="sheet-actions">
+          ${onFull ? '<button type="button" class="btn-secondary" data-action="full">Ver datasheet completo</button>' : ""}
+          <button type="button" class="sheet-ok" data-action="close">Entendi</button>
+        </div>`
       el.scrollTop = 0
       el.querySelector<HTMLButtonElement>(".sheet-ok")?.focus({ preventScroll: true })
     },

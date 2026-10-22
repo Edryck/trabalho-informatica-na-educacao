@@ -263,3 +263,54 @@ describe("sandbox helpers", () => {
     expect(shownDivergences({ ...lesson, showDivergence: false }, 2, [div])).toEqual([])
   })
 })
+
+import parts from "../data/parts.json"
+import type { PartsCatalog } from "../src/netlist"
+import { formatValue as fmt, specRows, bandNames, partSketch } from "../src/ui"
+
+describe("specRows", () => {
+  const catalog = parts as unknown as PartsCatalog
+
+  it("led rows match the solver model", () => {
+    const led = catalog.led
+    expect(specRows("led", catalog)).toEqual([
+      ["Queda de tensão", fmt((led.model as { vf: number }).vf, "V")],
+      ["Corrente típica", fmt(led.thresholds!.nominal, "A")],
+      ["Corrente máxima", fmt(led.thresholds!.maxCurrent, "A")],
+    ])
+  })
+
+  it("resistor rows list every catalog value with bands", () => {
+    const rows = specRows("resistor", catalog)
+    for (const v of catalog.resistor.values!) expect(rows).toContainEqual([fmt(v, "Ω"), bandNames(v).join(" · ")])
+    expect(bandNames(220)).toEqual(["vermelho", "vermelho", "marrom", "dourado"])
+    expect(rows[0][1]).toBe(`${fmt(22, "Ω")} … ${fmt(10000, "Ω")}`)
+  })
+
+  it("multimeter rows show input resistances and OL", () => {
+    const rows = specRows("multimeter", catalog)
+    expect(rows[0]).toEqual(["Escala V", `${fmt(10_000_000, "Ω")} de entrada`])
+    expect(rows[1]).toEqual(["Escala A", `${fmt(0.1, "Ω")} em série`])
+    expect(rows[2]).toEqual(["OL", "fora da escala"])
+  })
+
+  it("every catalog part has spec rows", () => {
+    for (const type of Object.keys(catalog)) expect(specRows(type, catalog).length, type).toBeGreaterThan(0)
+  })
+})
+
+describe("partSketch", () => {
+  const catalog = parts as unknown as PartsCatalog
+
+  it("sketch has a side view only where the shape changes", () => {
+    for (const type of ["resistor", "led", "diode", "chip_and"]) expect(partSketch(type, catalog), type).toContain("sketch-side")
+    for (const type of ["lamp", "battery"]) expect(partSketch(type, catalog), type).not.toContain("sketch-side")
+  })
+
+  it("sketch labels every pin", () => {
+    for (const type of Object.keys(catalog)) {
+      const group = partSketch(type, catalog).split('<g class="sketch-pins">')[1]
+      expect((group.match(/<text /g) ?? []).length, type).toBe(catalog[type].pins.length)
+    }
+  })
+})

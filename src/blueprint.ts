@@ -1,7 +1,7 @@
 import type { BenchCallbacks, BenchTool } from "./bench"
-import type { Divergence, PartsCatalog, PointId } from "./netlist"
+import { blueprintToNetlist, type Divergence, type PartsCatalog, type PointId } from "./netlist"
 import type { PartState, SolveResult } from "./solver"
-import { nextInstanceId, prefixFor, type AppView, type BlueprintPlacement, type CircuitDoc } from "./state"
+import { emptyDoc, nextInstanceId, prefixFor, type AppView, type BlueprintPlacement, type CircuitDoc, type Instance } from "./state"
 import { formatValue, particleSpeed } from "./ui"
 
 export type SymbolStandard = "IEC" | "ANSI"
@@ -76,6 +76,7 @@ export const SYMBOLS: Record<string, (state: PartState | undefined, input: strin
     const on = state?.kind === "diode" && state.conducting
     return `${lead(-40, 0, -10, 0)}${lead(10, 0, 40, 0)}<path class="${on ? "lit" : ""}" d="M-10 -12L10 0L-10 12Z"/><line x1="10" y1="-12" x2="10" y2="12"/>`
   },
+  logic_probe: () => `${lead(-40, 0, -14, 0)}${lead(0, 14, 0, 40)}<circle r="14"/><text class="glyph" y="5">P</text>`,
   led: (state) => {
     const on = state?.kind === "led" && state.lit
     return `${lead(-40, 0, -10, 0)}${lead(10, 0, 40, 0)}<path class="${on ? "lit" : ""}" d="M-10 -12L10 0L-10 12Z"/><line x1="10" y1="-12" x2="10" y2="12"/><path d="M2 -16l8 -8M6 -24h4v4M10 -12l8 -8M14 -20h4v4"/>`
@@ -736,6 +737,53 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     setTool,
     handleKey,
     frame,
+    staticMarkup(blueprint: CircuitDoc["blueprint"], instances: Instance[], standard: SymbolStandard): string {
+      const previous = opts.standard
+      opts = { ...opts, standard }
+      const types = new Map(instances.map((i) => [i.id, i]))
+      const xs: number[] = []
+      const ys: number[] = []
+      const parts = blueprint.placements.flatMap((placement) => {
+        const instance = types.get(placement.id)
+        if (!instance) return []
+        const chip = instance.type.startsWith("chip_")
+        const [hx, hy] = chip ? [66, 156] : [50, 50]
+        const swap = placement.rotation === 90 || placement.rotation === 270
+        const [w, h] = swap ? [hy, hx] : [hx, hy]
+        xs.push(placement.x * GRID - w, placement.x * GRID + w)
+        ys.push(placement.y * GRID - h, placement.y * GRID + h)
+        const sym = symbolGroup(instance.type, undefined, instance.inputState)
+        sym.setAttribute("transform", `rotate(${placement.rotation})`)
+        const g = el("g", { class: "part", transform: `translate(${placement.x * GRID} ${placement.y * GRID})` })
+        g.appendChild(sym)
+        const value = valueText(instance.type, instance.value)
+        const label = el("text", { class: "label", x: 0, y: chip ? -150 : -26, "text-anchor": "middle" })
+        label.textContent = value ? `${placement.id} · ${value}` : placement.id
+        g.appendChild(label)
+        return [g.outerHTML]
+      })
+      const wires = blueprint.segments.map((s) => {
+        xs.push(s.x1 * GRID, s.x2 * GRID)
+        ys.push(s.y1 * GRID, s.y2 * GRID)
+        return el("line", { class: "wire", x1: s.x1 * GRID, y1: s.y1 * GRID, x2: s.x2 * GRID, y2: s.y2 * GRID }).outerHTML
+      })
+      const net = blueprintToNetlist({ ...emptyDoc(), instances, blueprint }, catalog)
+      const ends = new Map<string, number>()
+      for (const link of net.links) for (const p of [link.a, link.b]) ends.set(p, (ends.get(p) ?? 0) + 1)
+      const pinPoints = new Set(Object.values(net.pinAt))
+      const dots: string[] = []
+      for (const [point, count] of ends) {
+        const pos = parsePoint(point)
+        if (pos && count + (pinPoints.has(point) ? 1 : 0) >= 3) dots.push(el("circle", { class: "junction", cx: pos[0] * GRID, cy: pos[1] * GRID, r: 4 }).outerHTML)
+      }
+      opts = { ...opts, standard: previous }
+      const margin = 20
+      const minX = (xs.length ? Math.min(...xs) : 0) - margin
+      const minY = (ys.length ? Math.min(...ys) : 0) - margin
+      const width = (xs.length ? Math.max(...xs) : 0) + margin - minX
+      const height = (ys.length ? Math.max(...ys) : 0) + margin - minY
+      return `<svg class="blueprint sheet-svg" viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="Esquema da aplicação típica"><g class="wires">${wires.join("")}</g><g class="junctions">${dots.join("")}</g><g class="parts">${parts.join("")}</g></svg>`
+    },
     symbolMarkup(type: string, standard: SymbolStandard): string {
       const previous = opts.standard
       opts = { ...opts, standard }

@@ -1,4 +1,4 @@
-import { createCompleteScreen, createGroupScreen, createMapScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
+import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -57,6 +57,8 @@ import {
 } from "./state"
 import {
   createDatasheetCard,
+  partSketch,
+  specRows,
   createDivergenceBar,
   divergencesApply,
   createHint,
@@ -204,6 +206,7 @@ const brief = createPhaseBrief(briefEl, {
   },
   onHint: openHint,
   onPhases: showCurrentGroup,
+  onDatasheets: () => openSheetList(),
   onRestart: () => restartPhase(),
 })
 const topBar = createTopBar(topbarEl, () => showMap())
@@ -262,6 +265,7 @@ const mapScreen = createMapScreen(listEl, {
   onGroup: showGroup,
   onSettings: () => showSettings("map"),
   onHome: showTitle,
+  onDatasheets: () => openSheetList(),
   onUnlockSeen: (groupId) => {
     if (!store.data.seenGroups.includes(groupId)) store.data.seenGroups.push(groupId)
     store.save()
@@ -352,7 +356,10 @@ const callbacks = (name: ViewName) => ({
     if (event === "inputToggled" || event === "partSnapped") return
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
-    else if (event === "lightMode") notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
+    else if (event === "lightMode") {
+      document.body.classList.add("lite")
+      notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
+    }
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
     else record(event as TutorialEvent)
   },
@@ -366,10 +373,21 @@ const bench = createBench(benchLayer, catalog, { ...callbacks("bench"), onSelect
 const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
 
 const toolbar = createToolbar(toolbarEl, onToolbar)
-const tray = createTray(trayEl, (type) => void pickFromTray(type), (type) => openDatasheet(type, false))
+const tray = createTray(trayEl, (type) => void pickFromTray(type), (type) => showSheetScreen(type, false))
 const datasheets = datasheetsJson as unknown as Record<string, Datasheet>
 let sheetQueue: string[] = []
-const sheetCard = createDatasheetCard(sheetEl, (key) => {
+const sheetScreenEl = document.createElement("div")
+app.append(sheetScreenEl)
+const sheetScreen = createDatasheetScreen(sheetScreenEl, {
+  onClose: () => {
+    stageEl.focus({ preventScroll: true })
+  },
+  onPick: (type) => showSheetScreen(type, sheetListOpen),
+})
+let sheetListOpen = false
+const sheetCard = createDatasheetCard(
+  sheetEl,
+  (key) => {
   if (!store.data.seenDatasheets.includes(key)) {
     store.data.seenDatasheets.push(key)
     store.save()
@@ -377,7 +395,9 @@ const sheetCard = createDatasheetCard(sheetEl, (key) => {
   const next = sheetQueue.shift()
   if (next) openDatasheet(next, true)
   else maybeStartTour()
-})
+  },
+  (key) => showSheetScreen(sheetType(key), false),
+)
 
 const tourEl = document.createElement("div")
 document.body.appendChild(tourEl)
@@ -401,8 +421,42 @@ function openDatasheet(type: string, isNew: boolean) {
   const key = catalog[type]?.datasheet ?? type
   const sheet = datasheets[key]
   if (!sheet) return
-  sheetCard.open(key, sheet, blueprint.symbolMarkup(type, store.data.settings.standard), isNew)
+  sheetCard.open(key, sheet, blueprint.symbolMarkup(type, store.data.settings.standard), isNew, specRows(type, catalog))
   record("datasheetOpened")
+}
+
+function sheetType(key: string): string {
+  return Object.keys(catalog).find((type) => (catalog[type].datasheet ?? type) === key) ?? key
+}
+
+function availableSheetTypes(): string[] {
+  if (session?.phase.id === "sandbox") return Object.keys(catalog)
+  const won = progressWon()
+  const unlocked = phases.groups.filter((g) => g.requires === null || g.phases.some((p) => won.has(p.id) || isPhaseAvailable(phases, won, p.id)))
+  const keys = new Set([...store.data.seenDatasheets.map(sheetType), ...unlocked.flatMap((g) => g.unlocks)])
+  return Object.keys(catalog).filter((type) => keys.has(type) && (catalog[type].datasheet ?? type) in datasheets)
+}
+
+function showSheetScreen(type: string, withList: boolean) {
+  const sheet = datasheets[catalog[type]?.datasheet ?? type]
+  if (!sheet) return
+  sheetListOpen = withList
+  const standard = store.data.settings.standard
+  sheetScreen.show({
+    type,
+    sheet,
+    rows: specRows(type, catalog),
+    sketch: partSketch(type, catalog),
+    symbol: blueprint.symbolMarkup(type, standard),
+    application: blueprint.staticMarkup(sheet.application.blueprint, sheet.application.instances, standard),
+    list: withList ? availableSheetTypes().map((t) => ({ type: t, title: datasheets[catalog[t].datasheet ?? t].title })) : null,
+  })
+  record("datasheetOpened")
+}
+
+function openSheetList() {
+  const first = availableSheetTypes()[0]
+  if (first) showSheetScreen(first, true)
 }
 
 function queueNewDatasheets(phase: Phase) {
@@ -890,6 +944,7 @@ function hideOverlays() {
   bench.setShowcase(false)
   mapScreen.hide()
   groupScreen.hide()
+  sheetScreen.hide()
   titleScreen.hide()
   completeScreen.hide()
   settingsScreen.hide()
@@ -1220,6 +1275,7 @@ window.addEventListener("keydown", (event) => {
     )
     return
   }
+  if (sheetScreen.isOpen()) return
   if (rewinding) return
   if (bestView) {
     const key = event.key.toLowerCase()
@@ -1317,6 +1373,6 @@ showTitle()
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)
 
 // gancho mínimo pro e2e; só existe no build com --mode e2e, o de produção nem carrega isso
-if (import.meta.env.MODE === "e2e") Object.assign(window, { __fioTest: { startPhase, update, reference: (id: string) => findPhase(phases, id)?.referenceSolution } })
+if (import.meta.env.MODE === "e2e") Object.assign(window, { __fioTest: { startPhase, update, notify, reference: (id: string) => findPhase(phases, id)?.referenceSolution } })
 
 if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox, dailyRef: () => session?.phase.referenceSolution } })

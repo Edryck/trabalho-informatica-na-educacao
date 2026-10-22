@@ -1,8 +1,9 @@
 import type { GroupSummary, LevelInfo, RewardItem } from "./game"
 import type { PhaseType } from "./phases"
+import type { Datasheet } from "./ui"
 import type { Cosmetics } from "./state"
 import type { SfxName } from "./audio"
-import { bloom, CHECK_ICON, createPlayerBadge, LOCK_ICON, LOCK_SMALL, PHASE_TAGS, phaseLabel, pop, stagger, type BadgeData, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
+import { bloom, CHECK_ICON, CROSS_ICON, createPlayerBadge, LOCK_ICON, LOCK_SMALL, PHASE_TAGS, phaseLabel, pop, stagger, type BadgeData, bounceLand, burst, countUp, fadeSlide, motionReduced, requestSkip, skipRequestedNow, softRise, spotlight, springTo, starIcon, type Box } from "./ui"
 
 export type CompleteSummary = {
   phaseId: string
@@ -572,6 +573,97 @@ export function createGroupScreen(el: HTMLElement, handlers: GroupHandlers) {
       ;(el.querySelector<HTMLElement>(".map-step.available .map-node") ?? el.querySelector<HTMLElement>(".map-node:not(:disabled)"))?.focus({ preventScroll: true })
     },
     hide() {
+      el.hidden = true
+    },
+  }
+}
+
+export type SheetState = {
+  type: string
+  sheet: Datasheet
+  rows: [string, string][]
+  sketch: string
+  symbol: string
+  application: string
+  list: { type: string; title: string }[] | null
+}
+
+const SKETCH_FILTER =
+  '<svg class="sketch-defs" width="0" height="0" aria-hidden="true"><filter id="sketch"><feTurbulence type="fractalNoise" seed="7" baseFrequency="0.04" numOctaves="2" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="1.6"/></filter></svg>'
+
+export function createDatasheetScreen(el: HTMLElement, handlers: { onClose(): void; onPick(type: string): void }) {
+  el.className = "sheet-screen"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-modal", "true")
+  let open = false
+  let types: string[] = []
+  let current = ""
+  const close = () => {
+    if (!open) return
+    open = false
+    el.hidden = true
+    handlers.onClose()
+  }
+  el.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement
+    if (target.closest("[data-action=close]")) return close()
+    const item = target.closest<HTMLElement>("[data-sheet-type]")
+    if (item) handlers.onPick(item.dataset.sheetType!)
+  })
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault()
+      event.stopPropagation()
+      return close()
+    }
+    if ((event.key === "ArrowDown" || event.key === "ArrowUp") && types.length > 1) {
+      event.preventDefault()
+      const index = types.indexOf(current)
+      const next = types[(index + (event.key === "ArrowDown" ? 1 : types.length - 1)) % types.length]
+      handlers.onPick(next)
+    }
+  })
+  return {
+    isOpen: () => open,
+    close,
+    show(state: SheetState) {
+      open = true
+      current = state.type
+      types = state.list?.map((i) => i.type) ?? []
+      el.hidden = false
+      el.setAttribute("aria-label", `Datasheet: ${state.sheet.title}`)
+      const list = state.list
+        ? `<nav class="sheet-list" aria-label="Peças"><ul>${state.list.map((i) => `<li><button type="button" class="sheet-list-item ${i.type === state.type ? "active" : ""}" data-sheet-type="${i.type}" ${i.type === state.type ? 'aria-current="true"' : ""}>${i.title}</button></li>`).join("")}</ul></nav>`
+        : ""
+      el.innerHTML = `
+        ${SKETCH_FILTER}
+        <div class="sheet-panel ${state.list ? "with-list" : ""}">
+          <header class="sheet-screen-head">
+            <div><h2>${state.sheet.title}</h2><p class="sheet-category">${state.sheet.category}</p></div>
+            <button type="button" class="sheet-close" data-action="close" aria-label="Fechar datasheet">${CROSS_ICON}</button>
+          </header>
+          ${list}
+          <div class="sheet-columns">
+            <div class="sheet-left">
+              <section><h3>Desenho</h3><div class="sheet-drawing">${state.sketch}</div></section>
+              <section><h3>Símbolo elétrico</h3><div class="sheet-symbol-box" aria-hidden="true">${state.symbol}</div></section>
+            </div>
+            <div class="sheet-right">
+              <section><h3>Descrição</h3><p>${state.sheet.description}</p></section>
+              <section><h3>Características principais</h3><ul class="sheet-features">${state.sheet.features.map((f) => `<li>${f}</li>`).join("")}</ul></section>
+              <section><h3>Especificações técnicas</h3><dl class="sheet-spec">${state.rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl></section>
+              <section><h3>Aplicação típica</h3><div class="sheet-application">${state.application}</div><p>${state.sheet.application.text}</p></section>
+              <section><h3>Observações</h3><p><strong>Na protoboard.</strong> ${state.sheet.breadboard}</p><p><strong>Erro comum.</strong> ${state.sheet.mistake}</p></section>
+            </div>
+          </div>
+        </div>`
+      el.scrollTop = 0
+      const active = el.querySelector<HTMLElement>(".sheet-list-item.active")
+      ;(active ?? el.querySelector<HTMLElement>(".sheet-close"))?.focus({ preventScroll: true })
+    },
+    hide() {
+      open = false
       el.hidden = true
     },
   }
