@@ -276,6 +276,7 @@ stageEl.append(groupEl)
 const groupScreen = createGroupScreen(groupEl, {
   onPhase: (id) => startPhase(id),
   onBack: () => showMap(),
+  onDatasheets: () => openSheetList(),
 })
 const titleScreen = createTitleScreen(titleEl)
 const completeScreen = createCompleteScreen(completeEl)

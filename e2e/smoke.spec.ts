@@ -104,3 +104,63 @@ test("datasheet opens from the sandbox tray and closes with Esc", async ({ page 
   await page.getByRole("button", { name: "Datasheets" }).click()
   await expect(page.locator(".sheet-list-item")).toHaveCount(19)
 })
+
+const seeded = (progress: Record<string, { won: boolean; bestCost: number | null; stars: number[] }>) => ({
+  version: 3,
+  progress,
+  settings: { standard: "IEC", reducedMotion: true, volume: 0 },
+  draft: null,
+  sessionLog: [],
+  seenDatasheets: ["battery", "lamp", "resistor", "switch"],
+  xp: 0,
+  cosmetics: { board: "default", wires: "default", mat: "default" },
+  daily: { lastWonDate: null, streak: 0, wonDates: [] },
+  tutorialSeen: true,
+  seenGroups: [],
+})
+const g0Done = Object.fromEntries(["g0p1", "g0p2", "g0p3", "g0p4", "g0p5"].map((id) => [id, { won: true, bestCost: null, stars: [0] }]))
+
+test("map shows groups and opens a group", async ({ page }) => {
+  await page.addInitScript((save) => {
+    if (!localStorage.getItem("fio-continuo:v1")) localStorage.setItem("fio-continuo:v1", JSON.stringify(save))
+  }, seeded(g0Done))
+  await page.goto("/")
+  await page.getByRole("button", { name: "Continuar" }).click()
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Escape")
+  await page.locator(".topbar-map").click()
+  await expect(page.locator(".group-card")).toHaveCount(9)
+  await expect(page.locator(".group-card.soon")).toHaveCount(4)
+  await page.locator('[data-group="g1"]').click()
+  await expect(page.locator(".group-screen .map-step")).toHaveCount(6)
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".group-card")).toHaveCount(9)
+  await expect(page.locator(".group-screen")).toBeHidden()
+})
+
+test("sandbox has every part without limit", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "Sandbox" }).click()
+  const counts = page.locator(".tray-count")
+  await expect(counts.first()).toHaveText("∞")
+  for (const text of await counts.allInnerTexts()) expect(text).toBe("∞")
+  await expect(page.getByRole("button", { name: /ultímetro/ }).first()).toBeVisible()
+})
+
+test("escape closes the datasheet before the group", async ({ page }) => {
+  await page.addInitScript((save) => {
+    if (!localStorage.getItem("fio-continuo:v1")) localStorage.setItem("fio-continuo:v1", JSON.stringify(save))
+  }, seeded(g0Done))
+  await page.goto("/")
+  await page.getByRole("button", { name: "Continuar" }).click()
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Escape")
+  await page.locator(".topbar-map").click()
+  await page.locator('[data-group="g1"]').click()
+  await page.locator(".group-screen").getByRole("button", { name: "Datasheets" }).click()
+  await expect(page.locator(".sheet-screen")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".sheet-screen")).toBeHidden()
+  await expect(page.locator(".group-screen")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.locator(".group-screen")).toBeHidden()
+  await expect(page.locator(".group-card")).toHaveCount(9)
+})

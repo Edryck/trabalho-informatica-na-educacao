@@ -3411,3 +3411,7 @@ body.lite .part-sketch .sketch-side {
 .sheet-svg .value {
   fill: var(--color-blueprint-line);
 }
+
+.group-screen .map-head {
+  grid-template-columns: 1fr minmax(260px, 380px) auto;
+}

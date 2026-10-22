@@ -531,7 +531,7 @@ export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
 }
 
 export type GroupPhaseRow = { id: string; goal: string; type: PhaseType; stars: number; maxStars: number; won: boolean; available: boolean; cost: number | null }
-export type GroupHandlers = { onPhase(id: string): void; onBack(): void }
+export type GroupHandlers = { onPhase(id: string): void; onBack(): void; onDatasheets?(): void }
 
 export function createGroupScreen(el: HTMLElement, handlers: GroupHandlers) {
   el.className = "phase-map group-screen"
@@ -539,6 +539,7 @@ export function createGroupScreen(el: HTMLElement, handlers: GroupHandlers) {
   el.addEventListener("click", (event) => {
     const target = event.target as HTMLElement
     if (target.closest("[data-action=back]")) return handlers.onBack()
+    if (target.closest("[data-action=datasheets]")) return handlers.onDatasheets?.()
     const node = target.closest<HTMLButtonElement>("[data-phase]")
     if (node && !node.disabled) handlers.onPhase(node.dataset.phase!)
   })
@@ -562,6 +563,7 @@ export function createGroupScreen(el: HTMLElement, handlers: GroupHandlers) {
             <h2 class="map-title">${summary.title}</h2>
           </div>
           <div class="map-badge"></div>
+          ${handlers.onDatasheets ? '<button type="button" class="btn-secondary group-sheets" data-action="datasheets">Datasheets</button>' : ""}
         </header>
         <section class="group-body">
           <p class="group-intro">${summary.concept}</p>
