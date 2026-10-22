@@ -127,7 +127,7 @@ describe("starsTotal", () => {
   it("counts the union of stars over demo phases", () => {
     const data = loadPhases(phasesRaw)
     const progress = { g0p1: { won: true, bestCost: null, stars: [0, 2] }, g1p1: { won: true, bestCost: 5, stars: [0] }, sandbox: { won: true, bestCost: null, stars: [0, 1, 2] } }
-    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 39 })
+    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 84 })
   })
 })
 
@@ -175,15 +175,32 @@ describe("daily repair", () => {
     expect(dailyRepair("2026-11-01", fake, new Set(["x1"]), catalog)).toBeNull()
   })
 
-  it("daily stays locked while the meter group is empty", () => {
-    expect(dailyUnlocked(g3Done, data)).toBe(false)
+  it("daily stays locked until the meter group is finished", () => {
+    const meterIds = data.groups.find((g) => g.id === "g2")!.phases.map((p) => p.id)
+    expect(dailyUnlocked(new Set(), data)).toBe(false)
+    expect(dailyUnlocked(new Set(meterIds.slice(1)), data)).toBe(false)
   })
 
-  it("daily unlocks when the meter group has phases and all are won", () => {
-    const meterPhases = metered.groups.find((g) => g.id === "g2")!.phases.map((p) => p.id)
-    const partial = new Set([...g3Done].filter((id) => id !== meterPhases[0]))
-    expect(dailyUnlocked(partial, metered)).toBe(false)
-    expect(dailyUnlocked(new Set([...g3Done, ...meterPhases]), metered)).toBe(true)
+  it("daily unlocks after finishing g2", () => {
+    const meterIds = data.groups.find((g) => g.id === "g2")!.phases.map((p) => p.id)
+    expect(dailyUnlocked(new Set(meterIds), data)).toBe(true)
+  })
+
+  it("daily stays locked while the meter group is empty", () => {
+    const empty: PhaseData = { ...data, groups: data.groups.map((g) => (g.id === "g2" ? { ...g, phases: [] } : g)) }
+    expect(dailyUnlocked(g3Done, empty)).toBe(false)
+  })
+
+  it("daily repair breaks every new build phase at least once across 30 dates", () => {
+    const seen = new Set<string>()
+    for (let day = 1; day <= 30; day++) {
+      const date = `2026-12-${String(day).padStart(2, "0")}`
+      const phase = dailyRepair(date, data, g3Done, catalog)
+      if (phase) seen.add(JSON.stringify(phase.referenceSolution))
+    }
+    const bases = data.groups.flatMap((g) => g.phases).filter((p) => (p.type === "build" || p.type === "order") && p.referenceSolution && ["g2", "g3"].includes(p.id.slice(0, 2)))
+    const covered = bases.filter((p) => seen.has(JSON.stringify(p.referenceSolution)))
+    expect(covered.length).toBeGreaterThanOrEqual(Math.floor(bases.length / 2))
   })
 
   it("streak counts consecutive days, resets on gaps, ignores repeats", () => {
@@ -289,7 +306,7 @@ describe("groupSummaries", () => {
 
   it("group with no phases is never complete", () => {
     const everything = wonAll(real.groups.flatMap((g) => g.phases.map((p) => p.id)))
-    for (const id of ["g2", "g3"]) expect(groupSummaries(real, everything).find((g) => g.id === id)!.state).not.toBe("complete")
+    for (const id of ["g4", "g5", "g8"]) expect(groupSummaries(real, everything).find((g) => g.id === id)!.state).not.toBe("complete")
   })
 
   it("non-demo groups are soon", () => {

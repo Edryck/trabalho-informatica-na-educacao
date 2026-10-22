@@ -627,3 +627,54 @@ describe("diode states in expect", () => {
     }
   })
 })
+
+describe("scenarios that take a part out", () => {
+  const lampNet = (parallel: boolean) => ({
+    parts: [
+      { id: "B1", type: "battery", value: 9 },
+      { id: "L1", type: "lamp", value: 0 },
+      { id: "L2", type: "lamp", value: 0 },
+    ],
+    links: [],
+    pinAt: parallel
+      ? { "B1.+": "p", "B1.-": "n", "L1.a": "p", "L1.b": "n", "L2.a": "p", "L2.b": "n" }
+      : { "B1.+": "p", "B1.-": "n", "L1.a": "p", "L1.b": "m", "L2.a": "m", "L2.b": "n" },
+  })
+
+  it("when can take a part out of the circuit", () => {
+    const scenario = { when: { L2: "removed" }, then: { L1: "lit" } }
+    const parallel = lampNet(true)
+    const series = lampNet(false)
+    expect(evaluateScenarios([scenario], { bench: parallel, blueprint: parallel }, "bench", catalog)[0].ok).toBe(true)
+    expect(evaluateScenarios([scenario], { bench: series, blueprint: series }, "bench", catalog)[0].ok).toBe(false)
+    expect(parallel.parts.every((p) => !("fault" in p))).toBe(true)
+  })
+
+  it("voltage ranges on a resistor ignore which way it was mounted", () => {
+    const net = (flip: boolean) => ({
+      parts: [
+        { id: "B1", type: "battery", value: 9 },
+        { id: "R1", type: "resistor", value: 1000 },
+        { id: "R2", type: "resistor", value: 1000 },
+      ],
+      links: [],
+      pinAt: { "B1.+": "p", "B1.-": "n", "R1.a": "p", "R1.b": "m", "R2.a": flip ? "n" : "m", "R2.b": flip ? "m" : "n" },
+    })
+    const scenario = { when: {}, then: { R2: { voltage: [3.6, 5.4] as [number, number] } } }
+    for (const flip of [false, true]) expect(evaluateScenarios([scenario], { bench: net(flip), blueprint: net(flip) }, "bench", catalog)[0].ok).toBe(true)
+  })
+})
+
+describe("final demo size", () => {
+  const data = loadPhases(phasesRaw)
+  const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
+
+  it("demo has 28 phases and 84 stars", () => {
+    expect(demo).toHaveLength(28)
+    expect(demo.reduce((n, p) => n + p.stars.length, 0)).toBe(84)
+  })
+
+  it("every demo group has phases", () => {
+    for (const g of data.groups.filter((g) => g.demo)) expect(g.phases.length, g.id).toBeGreaterThan(0)
+  })
+})

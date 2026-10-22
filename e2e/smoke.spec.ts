@@ -33,7 +33,7 @@ test("runs without storage and says so", async ({ browser, browserName }) => {
     })
   })
   const page = await context.newPage()
-  await page.goto("/")
+  await page.goto("/", { waitUntil: "domcontentloaded" })
   const blocked = await page.evaluate(() => {
     try {
       void window.localStorage

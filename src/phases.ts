@@ -134,7 +134,10 @@ function voltageAcross(net: Netlist, result: SolveResult, id: string, catalog: P
   if (!pins || pins.length < 2) return undefined
   const a = result.voltages[net.pinAt[`${id}.${pins[0]}`]]
   const b = result.voltages[net.pinAt[`${id}.${pins[1]}`]]
-  return a === undefined || b === undefined ? undefined : a - b
+  if (a === undefined || b === undefined) return undefined
+  // peça sem polaridade: a faixa vale nos dois sentidos de montagem
+  const kind = catalog[part!.type]?.model.kind
+  return kind === "resistor" || kind === "lamp" ? Math.abs(a - b) : a - b
 }
 
 function currentInput(net: Netlist, catalog: PartsCatalog, id: string): string | undefined {
@@ -145,9 +148,13 @@ function currentInput(net: Netlist, catalog: PartsCatalog, id: string): string |
 
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
   return scenarios.map((scenario) => {
-    const net = nets[scenario.on ?? side]
+    const removed = Object.entries(scenario.when).filter(([, v]) => v === "removed").map(([id]) => id)
+    const base = nets[scenario.on ?? side]
+    // peça tirada do circuito só naquele cenário: o documento não muda
+    const net = removed.length === 0 ? base : { ...base, parts: base.parts.map((p) => (removed.includes(p.id) ? { ...p, fault: "open" as const } : p)) }
     const present = new Set(net.parts.map((p) => p.id))
-    const result = solve(net, catalog, { overrides: scenario.when })
+    const overrides = Object.fromEntries(Object.entries(scenario.when).filter(([, v]) => v !== "removed"))
+    const result = solve(net, catalog, { overrides })
     const failures: Failure[] = []
     for (const [id, expected] of Object.entries(scenario.then)) {
       if (!present.has(id)) {

@@ -1076,7 +1076,7 @@ function badgeData() {
   return { ...levelFor(store.data.xp, rewards), stars: starsTotal(store.data.progress, phases) }
 }
 
-const SHOWCASE_PHASE = "g1p6"
+const SHOWCASE_PHASE = "g3p2"
 
 function today(): string {
   return new Date().toLocaleDateString("sv-SE")

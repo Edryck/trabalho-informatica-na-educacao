@@ -564,7 +564,7 @@ function offWord(id: string): string {
 type ScenarioLike = { when: Record<string, string>; then: Record<string, string | { current?: [number, number]; voltage?: [number, number] }> }
 
 export function scenarioLabel(scenario: ScenarioLike): { when: string; then: string } {
-  const when = Object.entries(scenario.when).map(([id, v]) => `${id} ${INPUT_WORDS[v] ?? v}`)
+  const when = Object.entries(scenario.when).map(([id, v]) => (v === "removed" ? `sem ${id}` : `${id} ${INPUT_WORDS[v] ?? v}`))
   const then = Object.entries(scenario.then).map(([id, v]) => {
     if (v === "off") return `${id} ${offWord(id)}`
     if (typeof v === "string") return `${id} ${STATE_WORDS[v] ?? v}`
