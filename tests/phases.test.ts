@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
 import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
 import { starLabel, type Datasheet } from "../src/ui"
+import { solve } from "../src/solver"
 
 const catalog = parts as unknown as PartsCatalog
 
@@ -707,5 +708,31 @@ describe("groups outside the demo stay closed", () => {
     const won = new Set(data.groups.filter((g) => g.demo).flatMap((g) => g.phases.map((p) => p.id)))
     for (const g of data.groups.filter((g) => !g.demo))
       for (const phase of g.phases) expect(isPhaseAvailable(data, won, phase.id), phase.id).toBe(false)
+  })
+})
+
+describe("checkThen", () => {
+  const live = (doc: CircuitDoc) => {
+    const net = benchToNetlist(doc, catalog)
+    return { net, result: solve(net, catalog) }
+  }
+
+  it("passes a state on the live circuit", () => {
+    const { net, result } = live(circuit({ withSwitch: false }))
+    expect(checkThen({ L1: "lit" }, net, result, catalog)).toEqual([])
+  })
+
+  it("reports state, range and missing", () => {
+    const { net, result } = live(circuit({ withSwitch: false }))
+    expect(checkThen({ L1: "off" }, net, result, catalog)).toEqual([{ partId: "L1", reason: "state" }])
+    expect(checkThen({ L1: { current: [1, 2] } }, net, result, catalog)).toEqual([{ partId: "L1", reason: "range" }])
+    expect(checkThen({ L9: "lit" }, net, result, catalog)).toEqual([{ partId: "L9", reason: "missing" }])
+  })
+
+  it("uses the live switch state, not a forced one", () => {
+    const off = live(circuit())
+    expect(checkThen({ L1: "off" }, off.net, off.result, catalog)).toEqual([])
+    const on = live(circuit({ inputs: { S1: "on" } }))
+    expect(checkThen({ L1: "lit" }, on.net, on.result, catalog)).toEqual([])
   })
 })

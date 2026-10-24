@@ -150,37 +150,42 @@ function currentInput(net: Netlist, catalog: PartsCatalog, id: string): string |
   return part.inputState ?? DEFAULT_INPUT_STATE[catalog[part.type]?.model.kind ?? ""]
 }
 
+export function checkThen(then: Record<string, ThenValue>, net: Netlist, result: SolveResult, catalog: PartsCatalog): Failure[] {
+  const present = new Set(net.parts.map((p) => p.id))
+  const failures: Failure[] = []
+  for (const [id, expected] of Object.entries(then)) {
+    if (!present.has(id)) {
+      failures.push({ partId: id, reason: "missing" })
+      continue
+    }
+    if (result.status === "unstable") {
+      failures.push({ partId: id, reason: "unstable" })
+      continue
+    }
+    if (typeof expected === "string") {
+      const state = result.partState[id]
+      if (!state || !stateMatches(state, expected)) failures.push({ partId: id, reason: "state" })
+      continue
+    }
+    const raw = result.partCurrent[id]
+    // lâmpada e resistor não têm polaridade: o sentido da corrente depende de qual perna o jogador chamou de a
+    const current = raw !== undefined && unsigned(net, catalog, id) ? Math.abs(raw) : raw
+    const currentOk = !expected.current || within(current, expected.current)
+    const voltageOk = !expected.voltage || within(voltageAcross(net, result, id, catalog), expected.voltage)
+    if (!currentOk || !voltageOk) failures.push({ partId: id, reason: "range" })
+  }
+  return failures
+}
+
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
   return scenarios.map((scenario) => {
     const removed = Object.entries(scenario.when).filter(([, v]) => v === "removed").map(([id]) => id)
     const base = nets[scenario.on ?? side]
     // peça tirada do circuito só naquele cenário: o documento não muda
     const net = removed.length === 0 ? base : { ...base, parts: base.parts.map((p) => (removed.includes(p.id) ? { ...p, fault: "open" as const } : p)) }
-    const present = new Set(net.parts.map((p) => p.id))
     const overrides = Object.fromEntries(Object.entries(scenario.when).filter(([, v]) => v !== "removed"))
     const result = solve(net, catalog, { overrides })
-    const failures: Failure[] = []
-    for (const [id, expected] of Object.entries(scenario.then)) {
-      if (!present.has(id)) {
-        failures.push({ partId: id, reason: "missing" })
-        continue
-      }
-      if (result.status === "unstable") {
-        failures.push({ partId: id, reason: "unstable" })
-        continue
-      }
-      if (typeof expected === "string") {
-        const state = result.partState[id]
-        if (!state || !stateMatches(state, expected)) failures.push({ partId: id, reason: "state" })
-        continue
-      }
-      const raw = result.partCurrent[id]
-      // lâmpada e resistor não têm polaridade: o sentido da corrente depende de qual perna o jogador chamou de a
-      const current = raw !== undefined && unsigned(net, catalog, id) ? Math.abs(raw) : raw
-      const currentOk = !expected.current || within(current, expected.current)
-      const voltageOk = !expected.voltage || within(voltageAcross(net, result, id, catalog), expected.voltage)
-      if (!currentOk || !voltageOk) failures.push({ partId: id, reason: "range" })
-    }
+    const failures = checkThen(scenario.then, net, result, catalog)
     // CI com entrada solta pode até dar o resultado certo por acaso; isso não conta como solução
     for (const w of result.warnings) {
       if ((w.kind === "floatingInput" || w.kind === "undefinedInput") && w.partId) failures.push({ partId: w.partId, reason: "undefinedInput" })
