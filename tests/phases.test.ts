@@ -691,9 +691,9 @@ describe("final demo size", () => {
   const data = loadPhases(phasesRaw)
   const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
 
-  it("demo has 28 phases and 84 stars", () => {
-    expect(demo).toHaveLength(28)
-    expect(demo.reduce((n, p) => n + p.stars.length, 0)).toBe(84)
+  it("demo has 29 phases and 87 stars", () => {
+    expect(demo).toHaveLength(29)
+    expect(demo.reduce((n, p) => n + p.stars.length, 0)).toBe(87)
   })
 
   it("every demo group has phases", () => {
@@ -910,5 +910,54 @@ describe("phaseLabels", () => {
       future: [],
     })
     expect(phaseLabels(data)).toEqual({ g2p1: "g2p1", g2p7: "g2p2", g2p4: "g2p3" })
+  })
+})
+
+describe("lamp current phase", () => {
+  const data = loadPhases(phasesRaw)
+  const g2 = data.groups.find((g) => g.id === "g2")!
+  const lampPhase = g2.phases.find((p) => p.id === "g2p7")!
+  const swap = (without: string, red: string, black: string) => {
+    const d = structuredClone(lampPhase.initial!)
+    d.bench.wires = d.bench.wires.filter((w) => w.id !== without)
+    d.bench.meter = { mode: "A", red, black }
+    return d
+  }
+  const sideOf = (doc: CircuitDoc) => {
+    const net = benchToNetlist(doc, catalog)
+    return ammeterLampPin(net, solve(net, catalog), catalog)
+  }
+
+  it("comes right after the Ohm tutorial", () => {
+    expect(g2.phases.map((p) => p.id)).toEqual(["g2p1", "g2p2", "g2p3", "g2p7", "g2p4", "g2p5", "g2p6"])
+  })
+
+  it("shows up as the fourth phase of g2", () => {
+    expect(phaseLabels(data).g2p7).toBe("g2p4")
+  })
+
+  it("unlocks right after g2p3 and holds g2p4 back", () => {
+    const before = data.groups.filter((g) => g.id === "g0" || g.id === "g1").flatMap((g) => g.phases.map((p) => p.id))
+    const won = new Set([...before, "g2p1", "g2p2", "g2p3"])
+    expect(isPhaseAvailable(data, won, "g2p7")).toBe(true)
+    expect(isPhaseAvailable(data, won, "g2p4")).toBe(false)
+    expect(isPhaseAvailable(data, new Set([...won, "g2p7"]), "g2p4")).toBe(true)
+  })
+
+  it("ends by measuring both sides of the lamp", () => {
+    expect(lampPhase.steps!.at(-1)!.until).toEqual({ event: "meterReadLampBothSides" })
+  })
+
+  it("never rewards usedMeter", () => {
+    expect(lampPhase.stars.some((s) => s.kind === "usedMeter")).toBe(false)
+  })
+
+  it("the netlist tells the two sides apart on the shipped circuit", () => {
+    expect(sideOf(swap("W1", "T+14", "C14"))).toBe("L1.a")
+    expect(sideOf(swap("W2", "C18", "T-18"))).toBe("L1.b")
+  })
+
+  it("its observation can rise", () => {
+    for (const o of lampPhase.lesson!.observations) expect(observationCanRise(lampPhase, o, catalog), o.say).toBe(true)
   })
 })

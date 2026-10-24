@@ -67,13 +67,13 @@ Groups are split in two blocks, electrical first and electronics after. Each gro
 
 1. **Bancada (g0)**: learns the interface, the symbols and how the breadboard is wired inside
 2. **Circuitos básicos (g1)**: closed/open circuit, switches, polarity, lamps in a row with current view on
-3. **Resistência (g2)**: resistor, color code, multimeter, Ohm's law
+3. **Resistência (g2)**: resistor, color code, multimeter, Ohm's law, and current measured before and after a lamp (it is the same)
 4. **Série e paralelo (g3)**: series versus parallel, voltage divider, a lamp that opens
 5. **Diodo e LED (g6)**: the diode passes current one way only, the LED is a diode that lights, protection resistor
 6. Each group ends with a **repair** phase and an **order** phase, except when the group is a short tutorial
 7. Outside the phases: **sandbox** with every supported part, unlimited, saved on its own key
 
-Demo scope = g0, g1, g2, g3 and g6 (28 phases, 84 stars). Phase content lives in JSON. A part only burns in a group with `burns: true` (g5 and g8, both outside the demo).
+Demo scope = g0, g1, g2, g3 and g6 (29 phases, 87 stars). Phase content lives in JSON. A part only burns in a group with `burns: true` (g5 and g8, both outside the demo).
 
 ## Tech Stack (Locked for Demo)
 

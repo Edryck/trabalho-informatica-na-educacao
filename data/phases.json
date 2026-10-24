@@ -3200,6 +3200,190 @@
           ]
         },
         {
+          "id": "g2p7",
+          "type": "tutorial",
+          "goal": "medir a corrente antes e depois da lâmpada",
+          "brief": "Muita gente acha que a lâmpada gasta um pouco da corrente. Mede dos dois lados dela e tira a dúvida com número.",
+          "initial": {
+            "version": 1,
+            "instances": [
+              {
+                "id": "B1",
+                "type": "battery",
+                "value": 9,
+                "actualValue": 9
+              },
+              {
+                "id": "L1",
+                "type": "lamp",
+                "value": 0,
+                "actualValue": 0
+              }
+            ],
+            "blueprint": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "x": -6,
+                  "y": 0,
+                  "rotation": 0
+                },
+                {
+                  "id": "L1",
+                  "x": 6,
+                  "y": 0,
+                  "rotation": 90
+                }
+              ],
+              "segments": [
+                {
+                  "id": "F1",
+                  "x1": -6,
+                  "y1": -2,
+                  "x2": -6,
+                  "y2": -4
+                },
+                {
+                  "id": "F2",
+                  "x1": -6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -4
+                },
+                {
+                  "id": "F3",
+                  "x1": 6,
+                  "y1": -4,
+                  "x2": 6,
+                  "y2": -2
+                },
+                {
+                  "id": "F4",
+                  "x1": 6,
+                  "y1": 2,
+                  "x2": 6,
+                  "y2": 4
+                },
+                {
+                  "id": "F5",
+                  "x1": 6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 4
+                },
+                {
+                  "id": "F6",
+                  "x1": -6,
+                  "y1": 4,
+                  "x2": -6,
+                  "y2": 2
+                }
+              ]
+            },
+            "bench": {
+              "placements": [
+                {
+                  "id": "B1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": -75,
+                    "z": -10
+                  },
+                  "holes": {
+                    "+": "T+3",
+                    "-": "T-3"
+                  }
+                },
+                {
+                  "id": "L1",
+                  "rotation": 0,
+                  "offboard": {
+                    "x": 0,
+                    "z": -55
+                  },
+                  "holes": {
+                    "a": "A14",
+                    "b": "A18"
+                  }
+                }
+              ],
+              "wires": [
+                {
+                  "id": "W1",
+                  "a": "T+14",
+                  "b": "B14",
+                  "color": "#C62828"
+                },
+                {
+                  "id": "W2",
+                  "a": "B18",
+                  "b": "T-18",
+                  "color": "#202020"
+                }
+              ],
+              "meter": {
+                "mode": "off",
+                "red": null,
+                "black": null
+              }
+            }
+          },
+          "showDivergence": false,
+          "steps": [
+            {
+              "text": "Na escala A, tira um dos fios da lâmpada e fecha o caminho pelas pontas do multímetro. Guarda o valor.",
+              "until": {
+                "event": "meterReadCurrent"
+              }
+            },
+            {
+              "text": "Agora devolve esse fio e faz o mesmo do outro lado da lâmpada. Compara com o primeiro número.",
+              "until": {
+                "event": "meterReadLampBothSides"
+              }
+            }
+          ],
+          "hints": [
+            "O multímetro em A entra no lugar de um fio, em série. Se a lâmpada apagar, o caminho ficou aberto.",
+            "Um lado é o fio que vem do +, o outro é o fio que volta pro −."
+          ],
+          "stars": [
+            {
+              "kind": "solved"
+            },
+            {
+              "kind": "maxWires",
+              "value": 2
+            },
+            {
+              "kind": "maxCost",
+              "value": 4
+            }
+          ],
+          "lesson": {
+            "concept": "Corrente é quanta carga passa por um ponto a cada segundo. Num caminho só, sem desvio, a carga que entra na lâmpada é a mesma que sai dela.",
+            "discovery": "A lâmpada usa a energia, não a corrente: a corrente que sai dela é a mesma que entra.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "off"
+                },
+                "say": "A lâmpada está apagada: com o caminho aberto, não tem corrente em nenhum ponto do circuito, nem antes nem depois dela.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "object": "Lâmpada de teste da bancada",
+            "thanks": "Viu? O número não muda de um lado pro outro. Guarda isso que vai servir em tudo daqui pra frente."
+          }
+        },
+        {
           "id": "g2p4",
           "type": "build",
           "goal": "ler o código de cores e escolher o resistor",
