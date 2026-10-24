@@ -1,4 +1,4 @@
-import { benchToNetlist, blueprintToNetlist, compare, type Divergence, type Netlist, type PartsCatalog } from "./netlist"
+import { benchToNetlist, blueprintToNetlist, collapse, compare, type Divergence, type Netlist, type PartsCatalog } from "./netlist"
 import { DEFAULT_INPUT_STATE, solve, type PartState, type SolveResult } from "./solver"
 import { emptyDoc, type CircuitDoc } from "./state"
 import { evaluateStars } from "./game"
@@ -256,6 +256,37 @@ export function observationCanRise(phase: Phase, observation: Observation, catal
   const witness = witnessDoc(phase, observation.witness)
   // verdadeira já na abertura vira linha de base e nunca aparece
   return witness !== null && observationHolds(phase, observation, witness, catalog) && !observationHolds(phase, observation, phase.initial ?? emptyDoc(), catalog)
+}
+
+const AMMETER_MIN = 1e-4
+
+export function ammeterLampPin(net: Netlist, result: SolveResult, catalog: PartsCatalog): string | null {
+  const meter = result.meter
+  if (!meter || meter.mode !== "A" || meter.display !== "value" || meter.value === null || Math.abs(meter.value) <= AMMETER_MIN) return null
+  const nodes = collapse(net)
+  const red = nodes.get("METER.red")
+  const black = nodes.get("METER.black")
+  if (red === undefined || black === undefined || red === black) return null
+  for (const part of net.parts) {
+    const def = catalog[part.type]
+    if (def?.model.kind !== "lamp") continue
+    const [pinA, pinB] = def.pins
+    const a = nodes.get(`${part.id}.${pinA}`)
+    const b = nodes.get(`${part.id}.${pinB}`)
+    // uma ponta no terminal e nenhuma no outro: o amperímetro está em série com esse lado
+    if ((red === a || black === a) && red !== b && black !== b) return `${part.id}.${pinA}`
+    if ((red === b || black === b) && red !== a && black !== a) return `${part.id}.${pinB}`
+  }
+  return null
+}
+
+export function bothLampSides(measured: string[]): boolean {
+  const pins = new Map<string, Set<string>>()
+  for (const ref of measured) {
+    const [id, pin] = ref.split(".")
+    pins.set(id, (pins.get(id) ?? new Set<string>()).add(pin))
+  }
+  return [...pins.values()].some((set) => set.size >= 2)
 }
 
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {

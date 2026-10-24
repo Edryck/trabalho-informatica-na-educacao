@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick, ammeterLampPin, bothLampSides } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -847,5 +847,58 @@ describe("observation witnesses", () => {
   it("a build phase without initial starts from the empty doc", () => {
     const build = phase({ referenceSolution: circuit({ inputs: { S1: "on" } }) })
     expect(observationCanRise(build, { ...lit, witness: { from: "reference" } }, catalog)).toBe(true)
+  })
+})
+
+describe("ammeter on each side of the lamp", () => {
+  const lampLoop = (): CircuitDoc => {
+    const d = emptyDoc()
+    d.instances.push({ id: "B1", type: "battery", value: 9, actualValue: 9 }, { id: "L1", type: "lamp", value: 0, actualValue: 0 })
+    d.bench.placements.push(
+      { id: "B1", rotation: 0, offboard: { x: -75, z: -10 }, holes: { "+": "T+3", "-": "T-3" } },
+      { id: "L1", rotation: 0, offboard: { x: 0, z: -55 }, holes: { a: "A14", b: "A18" } },
+    )
+    d.bench.wires.push({ id: "W1", a: "T+14", b: "B14", color: "#C62828" }, { id: "W2", a: "B18", b: "T-18", color: "#202020" })
+    return d
+  }
+  const measured = (without: string[], mode: "V" | "A", red: string, black: string) => {
+    const d = lampLoop()
+    d.bench.wires = d.bench.wires.filter((w) => !without.includes(w.id))
+    d.bench.meter = { mode, red, black }
+    return d
+  }
+  const pinOf = (d: CircuitDoc) => {
+    const net = benchToNetlist(d, catalog)
+    return ammeterLampPin(net, solve(net, catalog), catalog)
+  }
+
+  it("finds the side the current comes in", () => {
+    expect(pinOf(measured(["W1"], "A", "T+14", "C14"))).toBe("L1.a")
+  })
+
+  it("finds the side the current goes out", () => {
+    expect(pinOf(measured(["W2"], "A", "C18", "T-18"))).toBe("L1.b")
+  })
+
+  it("ignores the meter across the lamp", () => {
+    expect(pinOf(measured([], "A", "C14", "C18"))).toBeNull()
+  })
+
+  it("ignores the volt scale", () => {
+    expect(pinOf(measured(["W1"], "V", "T+14", "C14"))).toBeNull()
+  })
+
+  it("ignores an open loop with no current", () => {
+    expect(pinOf(measured(["W1", "W2"], "A", "T+14", "C14"))).toBeNull()
+  })
+
+  it("ignores a circuit without the meter", () => {
+    expect(pinOf(lampLoop())).toBeNull()
+  })
+
+  it("needs both pins of the same lamp", () => {
+    expect(bothLampSides(["L1.a"])).toBe(false)
+    expect(bothLampSides(["L1.a", "L2.b"])).toBe(false)
+    expect(bothLampSides(["L1.a", "L2.b", "L1.b"])).toBe(true)
   })
 })
