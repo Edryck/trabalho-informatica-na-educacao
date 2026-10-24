@@ -8,7 +8,7 @@ const catalog = parts as unknown as PartsCatalog
 const data = loadPhases(phasesRaw)
 const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
 
-const COVERED_GROUPS: string[] = []
+const COVERED_GROUPS: string[] = ["g0"]
 const KEY_PHASES = ["g1p4", "g2p3", "g3p3", "g6p2"]
 const LIMITS = { concept: 280, observation: 140, discovery: 140, client: 60, object: 80, thanks: 200 }
 const BANNED = [/ótima pergunta/i, /vamos mergulhar/i, /mergulh/i, /jornada/i, /parabéns!/i, /incrível/i, /\p{Extended_Pictographic}/u, /—/]

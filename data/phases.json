@@ -175,7 +175,16 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "A bancada e o blueprint mostram o mesmo circuito de dois jeitos. Na bancada você vê as peças como são. No desenho, só o que importa pra eletricidade.",
+            "discovery": "O blueprint e a protoboard descrevem o mesmo circuito.",
+            "observations": []
+          },
+          "order": {
+            "object": "Bancada nova da oficina",
+            "thanks": "Bancada é isso: olhar com calma antes de mexer. Amanhã já chega cliente."
+          }
         },
         {
           "id": "g0p2",
@@ -340,7 +349,16 @@
             {
               "kind": "noDivergence"
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Cada peça tem um símbolo combinado, igual pra todo mundo que lê esquema. No desenho, a corrente sai do + da bateria, passa pela lâmpada e volta pelo −.",
+            "discovery": "Um circuito precisa de ida e volta até a bateria.",
+            "observations": []
+          },
+          "order": {
+            "object": "Esquema da lanterna de teste",
+            "thanks": "Esse desenho é a lanterna inteira, só que no papel. Quem sabe ler o esquema já sabe metade do conserto."
+          }
         },
         {
           "id": "g0p3",
@@ -535,7 +553,16 @@
               "value": 4
             }
           ],
-          "showDivergence": false
+          "showDivergence": false,
+          "lesson": {
+            "concept": "Por dentro da protoboard, os cinco furos de cada coluna são uma peça de metal só. Qualquer coisa espetada na mesma coluna fica ligada entre si, sem fio.",
+            "discovery": "Furos da mesma coluna de cinco estão ligados entre si.",
+            "observations": []
+          },
+          "order": {
+            "object": "Protoboard nova da bancada",
+            "thanks": "Agora você sabe o que tem debaixo dos furos. Boa parte dos problemas de bancada nasce aí."
+          }
         },
         {
           "id": "g0p4",
@@ -782,7 +809,16 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Montar é levar cada ligação do desenho pra bancada. Onde o desenho tem um fio, a placa precisa de uma coluna em comum ou de um fio de verdade.",
+            "discovery": "Cada fio do desenho vira uma coluna em comum ou um fio na placa.",
+            "observations": []
+          },
+          "order": {
+            "object": "Lanterna de teste montada na placa",
+            "thanks": "Desenho e placa batendo é o que a gente quer. Daqui pra frente a conversa é essa."
+          }
         },
         {
           "id": "g0p5",
@@ -1068,7 +1104,35 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Na protoboard, uma coluna de diferença já é outra ligação. Uma perna espetada ao lado da coluna certa fica fora do caminho da corrente, mesmo parecendo encostada.",
+            "discovery": "Perna fora da coluna certa é o mesmo que perna solta.",
+            "observations": [
+              {
+                "if": {
+                  "B1": {
+                    "current": [
+                      1,
+                      1000
+                    ]
+                  }
+                },
+                "say": "A bateria está entregando uma corrente enorme: tem um caminho do + ao − sem nada no meio pra segurar.",
+                "witness": {
+                  "from": "initial",
+                  "move": {
+                    "W2.a": "B10"
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Tonico, pescador de fim de semana",
+            "object": "Lanterna de camping que não acende",
+            "thanks": "Acendeu de primeira. Na próxima pescaria eu levo uns lambaris pra vocês."
+          }
         }
       ]
     },
