@@ -283,3 +283,18 @@ describe("compare", () => {
     expect(kinds.indexOf("value")).toBeLessThan(kinds.indexOf("pending"))
   })
 })
+
+describe("wire look", () => {
+  it("never changes the netlist", () => {
+    const d = emptyDoc()
+    d.instances.push({ id: "B1", type: "battery", value: 9, actualValue: 9 }, { id: "L1", type: "lamp", value: 0, actualValue: 0 })
+    d.bench.placements.push(
+      { id: "B1", rotation: 0, offboard: { x: -75, z: -10 }, holes: { "+": "T+3", "-": "T-3" } },
+      { id: "L1", rotation: 0, offboard: { x: 0, z: -55 }, holes: { a: "A14", b: "A18" } },
+    )
+    d.bench.wires.push({ id: "W1", a: "T+14", b: "B14", color: "#C62828" })
+    const styled = structuredClone(d)
+    styled.bench.wires[0] = { ...styled.bench.wires[0], style: "angle", mid: { x: 3, z: -4 }, color: "#22C55E" }
+    expect(benchToNetlist(styled, catalog)).toEqual(benchToNetlist(d, catalog))
+  })
+})

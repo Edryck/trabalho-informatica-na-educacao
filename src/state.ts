@@ -5,7 +5,8 @@ export type Instance = { id: string; type: string; value: number; actualValue: n
 export type BlueprintPlacement = { id: string; x: number; y: number; rotation: 0 | 90 | 180 | 270 }
 export type BlueprintSegment = { id: string; x1: number; y1: number; x2: number; y2: number }
 export type BenchPlacement = { id: string; holes: Record<string, HoleId | null>; rotation: 0 | 90 | 180 | 270; offboard?: { x: number; z: number } }
-export type Wire = { id: string; a: HoleId; b: HoleId; color: string }
+export type WireStyle = "arc" | "angle"
+export type Wire = { id: string; a: HoleId; b: HoleId; color: string; style?: WireStyle; mid?: { x: number; z: number } }
 export type Meter = { mode: "off" | "V" | "A" | "ohm"; red: HoleId | null; black: HoleId | null }
 export type CircuitDoc = {
   version: 1
@@ -185,7 +186,9 @@ function validBenchPlacement(p: unknown): boolean {
 }
 
 function validWire(w: unknown): boolean {
-  return isObject(w) && isString(w.id) && isString(w.a) && isString(w.b) && isString(w.color)
+  if (!isObject(w) || !isString(w.id) || !isString(w.a) || !isString(w.b) || !isString(w.color)) return false
+  if (w.style !== undefined && w.style !== "arc" && w.style !== "angle") return false
+  return w.mid === undefined || (isObject(w.mid) && isNumber(w.mid.x) && isNumber(w.mid.z))
 }
 
 function validMeter(m: unknown): boolean {

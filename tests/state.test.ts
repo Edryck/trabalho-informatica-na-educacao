@@ -467,3 +467,17 @@ describe("notebook fields", () => {
     expect(data.conceptSeen).toEqual(["g3p4"])
   })
 })
+
+describe("wire look in saved docs", () => {
+  const withWire = (wire: Record<string, unknown>) => ({ ...emptyDoc(), bench: { ...emptyDoc().bench, wires: [wire] } })
+
+  it("accepts style and mid", () => {
+    expect(isValidDoc(withWire({ id: "W1", a: "A1", b: "A5", color: "#000", style: "angle", mid: { x: 1, z: 2 } }), catalog)).toBe(true)
+    expect(isValidDoc(withWire({ id: "W1", a: "A1", b: "A5", color: "#000" }), catalog)).toBe(true)
+  })
+
+  it("rejects a broken style or mid", () => {
+    expect(isValidDoc(withWire({ id: "W1", a: "A1", b: "A5", color: "#000", style: "zigzag" }), catalog)).toBe(false)
+    expect(isValidDoc(withWire({ id: "W1", a: "A1", b: "A5", color: "#000", mid: { x: "1", z: 2 } }), catalog)).toBe(false)
+  })
+})
