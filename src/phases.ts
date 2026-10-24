@@ -186,6 +186,15 @@ export function checkThen(then: Record<string, ThenValue>, net: Netlist, result:
   return failures
 }
 
+export type LiveCircuit = { net: Netlist; result: SolveResult }
+
+export function observationFlags(observations: Observation[], side: "bench" | "blueprint", live: Record<"bench" | "blueprint", LiveCircuit>, catalog: PartsCatalog): boolean[] {
+  return observations.map((o) => {
+    const { net, result } = live[o.on ?? side]
+    return checkThen(o.if, net, result, catalog).length === 0
+  })
+}
+
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
   return scenarios.map((scenario) => {
     const removed = Object.entries(scenario.when).filter(([, v]) => v === "removed").map(([id]) => id)

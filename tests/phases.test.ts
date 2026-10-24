@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Phase } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationFlags } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -756,5 +756,29 @@ describe("lesson and order", () => {
     const daily = dailyRepair("2026-11-03", data, new Set(demo.map((p) => p.id)), catalog)!
     expect(daily.lesson).toBeNull()
     expect(daily.order).toBeNull()
+  })
+})
+
+describe("observationFlags", () => {
+  const doc = circuit({ withSwitch: false })
+  const benchNet = benchToNetlist(doc, catalog)
+  const blueprintNet = blueprintToNetlist(doc, catalog)
+  const live = {
+    bench: { net: benchNet, result: solve(benchNet, catalog) },
+    blueprint: { net: blueprintNet, result: solve(blueprintNet, catalog) },
+  }
+  const lit: Observation = { if: { L1: "lit" }, say: "x", witness: { from: "reference" } }
+
+  it("reads the side the phase evaluates", () => {
+    expect(observationFlags([lit], "bench", live, catalog)).toEqual([true])
+    expect(observationFlags([lit], "blueprint", live, catalog)).toEqual([false])
+  })
+
+  it("an observation can pin its own side", () => {
+    expect(observationFlags([{ ...lit, on: "blueprint" }], "bench", live, catalog)).toEqual([false])
+  })
+
+  it("keeps the order of the list", () => {
+    expect(observationFlags([{ ...lit, if: { L1: "off" } }, lit], "bench", live, catalog)).toEqual([false, true])
   })
 })
