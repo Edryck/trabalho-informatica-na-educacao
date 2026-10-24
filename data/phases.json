@@ -4844,7 +4844,36 @@
               "kind": "maxCost",
               "value": 6
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Em paralelo, cada lâmpada tem o seu próprio caminho até a bateria. A bateria entrega a corrente de cada ramo separado, então uma lâmpada não rouba brilho da outra.",
+            "discovery": "Em paralelo, cada ramo puxa a sua própria corrente da bateria.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.08,
+                      0.2
+                    ]
+                  },
+                  "L2": "off"
+                },
+                "say": "Uma lâmpada está sem corrente e a outra mantém uns 100 mA. Cada ramo leva a sua própria corrente.",
+                "witness": {
+                  "from": "reference",
+                  "open": [
+                    "L2"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Escola Municipal Paulo Freire",
+            "object": "Varal de luz pra festa junina",
+            "thanks": "O varal ficou de primeira. As crianças disseram que parece que o arraial já começou."
+          }
         },
         {
           "id": "g3p2",
@@ -5161,7 +5190,32 @@
               "kind": "maxCost",
               "value": 8
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Cada ramo pode ter a sua chave. O caminho de uma lâmpada não passa pelo da outra, então abrir uma chave corta só o ramo dela e o resto do circuito continua como estava.",
+            "discovery": "Uma chave num ramo só manda naquele ramo.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "lit",
+                  "L2": "off"
+                },
+                "say": "Uma lâmpada está acesa e a outra está apagada ao mesmo tempo.",
+                "witness": {
+                  "from": "reference",
+                  "inputs": {
+                    "S1": "on",
+                    "S2": "off"
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Dona Cláudia, mãe de dois irmãos",
+            "object": "Luz de beliche, uma pra cada",
+            "thanks": "Acabou a briga de quem apaga. Cada um manda na sua luz e eu durmo em paz."
+          }
         },
         {
           "id": "g3p3",
@@ -5432,7 +5486,54 @@
               "kind": "maxCost",
               "value": 8
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "A corrente que sai da bateria se divide entre os ramos e se junta de novo na volta. Nada some no meio: o que entra num ponto de divisão é a soma do que sai dele.",
+            "discovery": "A corrente da bateria é a soma das correntes dos ramos.",
+            "observations": [
+              {
+                "if": {
+                  "L3": {
+                    "current": [
+                      0.08,
+                      0.2
+                    ]
+                  },
+                  "L1": "off"
+                },
+                "say": "Uma lâmpada está com uns 100 mA enquanto outra está sem corrente nenhuma.",
+                "witness": {
+                  "from": "reference",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.03,
+                      0.07
+                    ]
+                  },
+                  "L3": "off"
+                },
+                "say": "Tem uns 50 mA passando pela lâmpada, metade da corrente cheia.",
+                "witness": {
+                  "from": "reference",
+                  "open": [
+                    "L3"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Wagner, da loja de calçados",
+            "object": "Painel de vitrine com três lâmpadas",
+            "thanks": "A vitrine ficou com cara de loja grande. Conferi com o multímetro e a soma bateu certinho."
+          }
         },
         {
           "id": "g3p4",
@@ -5651,7 +5752,35 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Em série, a tensão da bateria se divide entre as peças, na proporção da resistência de cada uma. Com dois resistores iguais, cada um fica com metade.",
+            "discovery": "Dois resistores iguais em série dividem a tensão no meio.",
+            "observations": [
+              {
+                "if": {
+                  "R1": {
+                    "voltage": [
+                      8,
+                      10
+                    ]
+                  }
+                },
+                "say": "O resistor está com a tensão inteira da bateria em cima dele.",
+                "witness": {
+                  "from": "reference",
+                  "short": [
+                    "R2"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Clube de robótica da escola técnica",
+            "object": "Fonte de meia tensão improvisada",
+            "thanks": "Funcionou pro sensor que a gente tinha. Prometemos um bilhete de rifa pra vocês."
+          }
         },
         {
           "id": "g3p5",
@@ -6050,7 +6179,30 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Em paralelo, cada ramo funciona por conta própria. Se um deles para, o outro continua com a mesma corrente, e isso ajuda a isolar qual ramo está com problema.",
+            "discovery": "Em paralelo, o ramo que não funciona não derruba os outros.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "off"
+                },
+                "say": "Tem uma lâmpada apagada, sem corrente passando por ela agora.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Nelson, dono do bar da esquina",
+            "object": "Lustre de duas lâmpadas com uma apagada",
+            "thanks": "O balcão voltou a ficar claro. A rodada de guaraná é por minha conta."
+          }
         },
         {
           "id": "g3p6",
@@ -6339,7 +6491,34 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "A chave pode ficar no trecho comum, antes do ponto em que o circuito se divide. Assim ela manda nos dois ramos de uma vez, e cada lâmpada continua com o seu próprio caminho.",
+            "discovery": "Chave no trecho comum manda em todos os ramos de uma vez.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "lit",
+                  "L2": "off"
+                },
+                "say": "Uma lâmpada está acesa e a outra está apagada ao mesmo tempo.",
+                "witness": {
+                  "from": "reference",
+                  "inputs": {
+                    "S1": "on"
+                  },
+                  "open": [
+                    "L2"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Dona Rita, moradora da casa dos fundos",
+            "object": "Luz de garagem com duas lâmpadas",
+            "thanks": "Liguei na chave e a garagem inteira clareou. Se uma queimar, a outra segura a noite."
+          }
         }
       ],
       "requires": "g2",
