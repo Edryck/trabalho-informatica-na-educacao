@@ -20,6 +20,8 @@ import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist
 import {
   evaluate,
   claimableId,
+  ammeterLampPin,
+  bothLampSides,
   evaluateScenarios,
   findPhase,
   referenceCost,
@@ -165,6 +167,7 @@ type Session = {
   won: boolean
   everAllPassed: boolean
   meterModes: Set<"V" | "A" | "ohm">
+  lampSides: Set<string>
   heardOk: boolean[]
   heardGoals: GoalState[]
 }
@@ -744,7 +747,14 @@ function noticeMeterAndWarnings() {
   meterWasPlaced = placed
   if (reading?.display === "value" && reading.value !== null) {
     if (reading.mode === "V" && Math.abs(reading.value) > 0.1) record("meterReadVoltage")
-    if (reading.mode === "A" && Math.abs(reading.value) > 1e-4) record("meterReadCurrent")
+    if (reading.mode === "A" && Math.abs(reading.value) > 1e-4) {
+      record("meterReadCurrent")
+      const pin = ammeterLampPin(view.benchNet, result, catalog)
+      if (pin && session) {
+        session.lampSides.add(pin)
+        if (bothLampSides([...session.lampSides])) record("meterReadLampBothSides")
+      }
+    }
   }
   const now = new Set(result.warnings.map((w) => `${w.kind}|${w.partId ?? ""}`))
   for (const w of result.warnings) {
@@ -910,6 +920,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     won: false,
     everAllPassed: false,
     meterModes: new Set(),
+    lampSides: new Set(),
     heardOk: [],
     heardGoals: [],
   }

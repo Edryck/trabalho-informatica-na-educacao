@@ -19,6 +19,7 @@ export type TutorialEvent =
   | "meterPlaced"
   | "meterReadVoltage"
   | "meterReadCurrent"
+  | "meterReadLampBothSides"
   | "datasheetOpened"
 export type Step = { text: string; until: { event: TutorialEvent } | { expect: Scenario[] } }
 export type PhaseType = "tutorial" | "build" | "repair" | "order"
