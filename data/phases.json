@@ -6680,7 +6680,16 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "O diodo é uma via de mão única pra corrente. Ligado num sentido, deixa passar. Ligado ao contrário, barra, e o circuito fica como se tivesse um corte.",
+            "discovery": "O diodo deixa a corrente passar num sentido e barra no outro.",
+            "observations": []
+          },
+          "order": {
+            "object": "Diodos novos na gaveta",
+            "thanks": "Diodo é porteiro de uma mão só. Daqui pra frente a direção da peça passa a importar."
+          }
         },
         {
           "id": "g6p2",
@@ -6869,7 +6878,29 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Quando conduz, o diodo fica com uma parte fixa da tensão, perto de 0,7 V, qualquer que seja a corrente. É o preço de deixar a corrente passar.",
+            "discovery": "O diodo conduzindo sempre fica com uma fatia pequena e fixa da tensão.",
+            "observations": [
+              {
+                "if": {
+                  "D1": "blocking"
+                },
+                "say": "O diodo está bloqueando, com a porta fechada, e o circuito está sem corrente. Aqui a leitura em V não mostra a queda dele.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "D1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "object": "Medição do diodo da gaveta",
+            "thanks": "Perto de 0,7 V é o que ele cobra pra deixar passar. Anota esse número, que ele volta a aparecer."
+          }
         },
         {
           "id": "g6p3",
@@ -7101,7 +7132,34 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "LED é um diodo que acende. Tem polaridade, como o diodo, e aguenta pouca corrente, uns 20 mA. Sem um resistor em série pra segurar a corrente, ele passa do limite.",
+            "discovery": "O LED só acende do lado certo e precisa de resistor pra não passar do limite.",
+            "observations": [
+              {
+                "if": {
+                  "LED1": {
+                    "current": [
+                      0.026,
+                      1
+                    ]
+                  }
+                },
+                "say": "A corrente no LED está bem acima dos 20 mA que ele aguenta.",
+                "witness": {
+                  "from": "reference",
+                  "values": {
+                    "R1": 22
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "object": "LED de painel",
+            "thanks": "LED só acende do lado certo, e com o resistor ele dura anos. Já vale pra qualquer painel que chegar."
+          }
         },
         {
           "id": "g6p4",
@@ -7303,7 +7361,35 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "O resistor do LED fica com a tensão que sobra depois do LED. A conta é R igual à tensão que sobra dividida pela corrente que o datasheet pede, que no caso é uns 20 mA.",
+            "discovery": "O resistor do LED se calcula com a tensão que sobra e a corrente do datasheet.",
+            "observations": [
+              {
+                "if": {
+                  "LED1": {
+                    "current": [
+                      0.026,
+                      1
+                    ]
+                  }
+                },
+                "say": "O LED está com mais de 20 mA, e o brilho está acima do que o datasheet pede.",
+                "witness": {
+                  "from": "reference",
+                  "values": {
+                    "R1": 100
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Jorge, técnico de som",
+            "object": "Luz de ligado de um rádio",
+            "thanks": "A luzinha acendeu no ponto certo, sem ofuscar. Rádio de cliente vai sair daqui com ela."
+          }
         },
         {
           "id": "g6p5",
@@ -7650,7 +7736,35 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "LED fraco é sinal de corrente baixa. Medir a corrente mostra se o resistor do circuito bate com a conta, e é aí que a peça que está diferente do esquema aparece.",
+            "discovery": "LED fraco é sinal de corrente baixa, e o multímetro mostra onde ela foge do esperado.",
+            "observations": [
+              {
+                "if": {
+                  "LED1": {
+                    "current": [
+                      0.026,
+                      1
+                    ]
+                  }
+                },
+                "say": "A corrente no LED está acima dos 20 mA do datasheet.",
+                "witness": {
+                  "from": "initial",
+                  "values": {
+                    "R1": 100
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Bia, estudante de engenharia",
+            "object": "Carregador com a luz de aviso fraquinha",
+            "thanks": "Agora a luz de aviso aparece até de dia. Já posso carregar o celular sem ficar na dúvida."
+          }
         }
       ],
       "requires": "g3",
