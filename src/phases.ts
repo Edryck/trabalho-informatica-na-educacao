@@ -195,6 +195,23 @@ export function observationFlags(observations: Observation[], side: "bench" | "b
   })
 }
 
+export type ObservationTracker = { last: boolean[] | null; pending: number[]; fired: number[] }
+
+export function createObservationTracker(): ObservationTracker {
+  return { last: null, pending: [], fired: [] }
+}
+
+export function observationTick(tracker: ObservationTracker, flags: boolean[]): { tracker: ObservationTracker; show: number | null } {
+  // primeira leitura é só a foto de como a fase abriu
+  if (tracker.last === null) return { tracker: { ...tracker, last: flags }, show: null }
+  const last = tracker.last
+  const rising = flags.flatMap((on, i) => (on && !last[i] && !tracker.fired.includes(i) ? [i] : []))
+  const pending = [...new Set([...tracker.pending, ...rising])].filter((i) => flags[i]).sort((a, b) => a - b)
+  const show = pending[0] ?? null
+  if (show === null) return { tracker: { last: flags, pending, fired: tracker.fired }, show }
+  return { tracker: { last: flags, pending: pending.slice(1), fired: [...tracker.fired, show] }, show }
+}
+
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
   return scenarios.map((scenario) => {
     const removed = Object.entries(scenario.when).filter(([, v]) => v === "removed").map(([id]) => id)

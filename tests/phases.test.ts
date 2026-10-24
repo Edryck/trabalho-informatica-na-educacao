@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationFlags } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, createObservationTracker, observationFlags, observationTick } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -780,5 +780,36 @@ describe("observationFlags", () => {
 
   it("keeps the order of the list", () => {
     expect(observationFlags([{ ...lit, if: { L1: "off" } }, lit], "bench", live, catalog)).toEqual([false, true])
+  })
+})
+
+describe("observationTick", () => {
+  const run = (frames: boolean[][]) => {
+    let tracker = createObservationTracker()
+    return frames.map((flags) => {
+      const next = observationTick(tracker, flags)
+      tracker = next.tracker
+      return next.show
+    })
+  }
+
+  it("first frame is the baseline", () => {
+    expect(run([[true, false]])).toEqual([null])
+  })
+
+  it("shows on the rising edge once per attempt", () => {
+    expect(run([[false], [true], [false], [true]])).toEqual([null, 0, null, null])
+  })
+
+  it("shows one per tick and keeps the rest eligible", () => {
+    expect(run([[false, false], [true, true], [true, true], [true, true]])).toEqual([null, 0, 1, null])
+  })
+
+  it("drops a pending one that went false", () => {
+    expect(run([[false, false], [true, true], [true, false], [true, true]])).toEqual([null, 0, null, 1])
+  })
+
+  it("an observation true at the baseline can still rise later", () => {
+    expect(run([[true], [false], [true]])).toEqual([null, null, 0])
   })
 })
