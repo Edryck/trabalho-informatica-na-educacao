@@ -23,6 +23,15 @@ describe("wirePath", () => {
     expect(top(new Vector3(60, 0.6, 0))).toBeGreaterThan(top(new Vector3(15, 0.6, 0)))
   })
 
+  it("arc with a far middle leaves the hole leaning toward it, not straight up", () => {
+    const far = new Vector3(10, 0.6, 30)
+    const path = wirePath(a, b, { style: "arc", mid: far })
+    const start = path.getTangent(0)
+    const end = path.getTangent(1)
+    expect(Math.hypot(start.x, start.z)).toBeGreaterThan(0.1)
+    expect(Math.hypot(end.x, end.z)).toBeGreaterThan(0.1)
+  })
+
   it("angle uses axis-aligned straight pieces through the middle", () => {
     const mid = new Vector3(5, 0.6, -8)
     const path = wirePath(a, b, { style: "angle", mid }) as CurvePath<Vector3>

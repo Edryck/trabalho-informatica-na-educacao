@@ -271,7 +271,9 @@ export function wirePath(a: Vector3, b: Vector3, look: WireLook): Curve<Vector3>
   // mesma altura do arco sem ponto do meio: fio comprido sobe mais
   const height = Math.max(PITCH, 0.35 * a.distanceTo(b))
   const top = new Vector3(look.mid.x, Math.max(a.y, b.y) + height, look.mid.z)
-  return new CatmullRomCurve3([a, a.clone().setY(a.y + height * 0.6), top, b.clone().setY(b.y + height * 0.6), b], false, "centripetal")
+  // pontos de apoio puxados pro topo: o fio sai inclinado em direção ao meio, sem bico vertical
+  const lean = (end: Vector3) => end.clone().lerp(top, 0.3).setY(end.y + height * 0.7)
+  return new CatmullRomCurve3([a, lean(a), top, lean(b), b], false, "centripetal")
 }
 
 function anglePath(a: Vector3, b: Vector3, mid: Vector3 | null): CurvePath<Vector3> {
