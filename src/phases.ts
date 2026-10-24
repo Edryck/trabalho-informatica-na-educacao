@@ -5,6 +5,10 @@ import { evaluateStars } from "./game"
 
 export type ThenValue = string | { current?: [number, number]; voltage?: [number, number] }
 export type Scenario = { when: Record<string, string>; then: Record<string, ThenValue>; on?: "bench" | "blueprint" }
+export type WitnessSpec = { from: "initial" | "reference"; inputs?: Record<string, string>; open?: string[]; short?: string[]; values?: Record<string, number>; move?: Record<string, string> }
+export type Observation = { if: Record<string, ThenValue>; say: string; witness: WitnessSpec; on?: "bench" | "blueprint" }
+export type Lesson = { concept: string; discovery: string; observations: Observation[] }
+export type WorkOrder = { client?: string; object: string; thanks: string }
 export type TutorialEvent =
   | "viewSwitched"
   | "cameraOrbited"
@@ -41,6 +45,8 @@ export type Phase = {
   stars: Star[]
   hints: string[]
   referenceSolution: CircuitDoc | null
+  lesson: Lesson | null
+  order: WorkOrder | null
 }
 export type Block = "eletrica" | "eletronica"
 export type Group = {
@@ -74,7 +80,7 @@ type RawPhase = Partial<Phase> & { id: string; type: PhaseType; goal: string }
 type RawGroup = Omit<Group, "phases" | "requires" | "block" | "burns"> & Partial<Pick<Group, "requires" | "block" | "burns">> & { phases: RawPhase[] }
 
 function fillPhase(raw: RawPhase): Phase {
-  return {
+  const phase: Phase = {
     brief: raw.goal,
     tray: {},
     keyParts: [],
@@ -87,8 +93,11 @@ function fillPhase(raw: RawPhase): Phase {
     hints: [],
     referenceSolution: null,
     stars: [{ kind: "solved" }],
+    lesson: null,
+    order: null,
     ...raw,
   }
+  return { ...phase, lesson: phase.lesson ? { ...phase.lesson, observations: phase.lesson.observations ?? [] } : null }
 }
 
 export function loadPhases(raw: unknown): PhaseData {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Phase } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Phase } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -734,5 +734,27 @@ describe("checkThen", () => {
     expect(checkThen({ L1: "off" }, off.net, off.result, catalog)).toEqual([])
     const on = live(circuit({ inputs: { S1: "on" } }))
     expect(checkThen({ L1: "lit" }, on.net, on.result, catalog)).toEqual([])
+  })
+})
+
+describe("lesson and order", () => {
+  it("default to null", () => {
+    const p = phase({})
+    expect(p.lesson).toBeNull()
+    expect(p.order).toBeNull()
+  })
+
+  it("keep authored text and fill missing observations", () => {
+    const p = phase({ lesson: { concept: "c", discovery: "d" } as Lesson, order: { object: "o", thanks: "t" } })
+    expect(p.lesson).toEqual({ concept: "c", discovery: "d", observations: [] })
+    expect(p.order).toEqual({ object: "o", thanks: "t" })
+  })
+
+  it("daily repair drops the base lesson and order", () => {
+    const data = loadPhases(phasesRaw)
+    const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
+    const daily = dailyRepair("2026-11-03", data, new Set(demo.map((p) => p.id)), catalog)!
+    expect(daily.lesson).toBeNull()
+    expect(daily.order).toBeNull()
   })
 })
