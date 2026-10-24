@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
 import parts from "../data/parts.json"
 import phasesJson from "../data/phases.json"
-import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext } from "../src/game"
+import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext, markDiscovered, notebookEntries } from "../src/game"
 import type { PartsCatalog } from "../src/netlist"
 import { evaluate, type Evaluation, type PhaseData, type Star } from "../src/phases"
 import { defaultSave, emptyDoc, type CircuitDoc } from "../src/state"
@@ -338,5 +338,55 @@ describe("empty demo group", () => {
     const list = groupSummaries(fixture, { a1: { won: true, bestCost: null, stars: [0] } })
     expect(list[1].state).not.toBe("complete")
     expect(list[1]).toMatchObject({ done: 0, total: 0 })
+  })
+})
+
+describe("notebook", () => {
+  const data = loadPhases({
+    groups: [
+      {
+        id: "g0",
+        title: "Bancada",
+        demo: true,
+        concept: "",
+        unlocks: [],
+        phases: [
+          { id: "a", type: "build", goal: "acender", lesson: { concept: "c", discovery: "Primeira.", observations: [] } },
+          { id: "b", type: "build", goal: "sem nota" },
+        ],
+      },
+      {
+        id: "g9",
+        title: "Fora",
+        demo: false,
+        concept: "",
+        unlocks: [],
+        phases: [{ id: "z", type: "build", goal: "x", expect: [{ when: {}, then: {} }], lesson: { concept: "c", discovery: "Fora.", observations: [] } }],
+      },
+    ],
+    future: [],
+  })
+  const progress = {
+    a: { won: true, bestCost: null, stars: [0] },
+    b: { won: true, bestCost: null, stars: [0] },
+    z: { won: true, bestCost: null, stars: [0] },
+  }
+
+  it("lists won phases with a discovery in demo groups", () => {
+    expect(notebookEntries(data, progress, [])).toEqual([
+      { id: "g0", title: "Bancada", entries: [{ phaseId: "a", goal: "acender", discovery: "Primeira.", isNew: true }] },
+    ])
+  })
+
+  it("hides phases not won yet", () => {
+    expect(notebookEntries(data, {}, [])).toEqual([])
+  })
+
+  it("marks entries as read and keeps the save when nothing changed", () => {
+    const groups = notebookEntries(data, progress, [])
+    const save = markDiscovered({ ...defaultSave(), progress }, groups)
+    expect(save.discovered).toEqual(["a"])
+    expect(notebookEntries(data, progress, save.discovered)[0].entries[0].isNew).toBe(false)
+    expect(markDiscovered(save, groups)).toBe(save)
   })
 })

@@ -293,3 +293,24 @@ export function cosmeticColors(cosmetics: Cosmetics, rewards: Rewards): Cosmetic
   const wires = value(cosmetics.wires)
   return { boardColor: value(cosmetics.board), wireColors: wires ? wires.split(",") : null, matColor: value(cosmetics.mat) }
 }
+
+export type NotebookEntry = { phaseId: string; goal: string; discovery: string; isNew: boolean }
+export type NotebookGroup = { id: string; title: string; entries: NotebookEntry[] }
+
+export function notebookEntries(data: PhaseData, progress: SaveData["progress"], discovered: string[]): NotebookGroup[] {
+  return data.groups
+    .filter((g) => g.demo)
+    .map((g) => ({
+      id: g.id,
+      title: g.title,
+      entries: g.phases.flatMap((p) =>
+        progress[p.id]?.won && p.lesson?.discovery ? [{ phaseId: p.id, goal: p.goal, discovery: p.lesson.discovery, isNew: !discovered.includes(p.id) }] : [],
+      ),
+    }))
+    .filter((g) => g.entries.length > 0)
+}
+
+export function markDiscovered(save: SaveData, groups: NotebookGroup[]): SaveData {
+  const next = [...new Set([...save.discovered, ...groups.flatMap((g) => g.entries.map((e) => e.phaseId))])]
+  return next.length === save.discovered.length ? save : { ...save, discovered: next }
+}
