@@ -3013,7 +3013,16 @@
               "kind": "maxCost",
               "value": 4
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Tensão é a diferença de empurrão entre dois pontos do circuito. Ela não passa por uma peça, ela existe entre dois pontos. Por isso o multímetro mede por fora, com as pontas em paralelo.",
+            "discovery": "A tensão que a bateria dá aparece inteira em cima da lâmpada.",
+            "observations": []
+          },
+          "order": {
+            "object": "Multímetro novo da oficina",
+            "thanks": "Multímetro é o olho da bancada. Com ele você para de chutar e começa a conferir."
+          }
         },
         {
           "id": "g2p2",
@@ -3228,7 +3237,52 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Resistor é uma peça feita pra atrapalhar a corrente na medida certa. Quanto maior a resistência, menos corrente passa no caminho todo.",
+            "discovery": "Quanto mais resistência no caminho, menos corrente em todo ele.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.086,
+                      0.2
+                    ]
+                  }
+                },
+                "say": "A lâmpada está com uns 100 mA e brilho cheio.",
+                "witness": {
+                  "from": "reference",
+                  "short": [
+                    "R1"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.0005,
+                      0.019
+                    ]
+                  }
+                },
+                "say": "Tem corrente passando pela lâmpada, mas tão pouca que o filamento nem esquenta.",
+                "witness": {
+                  "from": "reference",
+                  "values": {
+                    "R1": 4700
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Anselmo, morador do segundo andar",
+            "object": "Luz de leitura forte demais",
+            "thanks": "Agora dá pra ler sem ofuscar a minha mulher. Ela agradece, eu também."
+          }
         },
         {
           "id": "g2p3",
@@ -3417,7 +3471,29 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Corrente se mede por dentro: o multímetro entra no caminho, em série, e a corrente passa por ele. A conta é V = R × I, então a corrente é a tensão da bateria dividida pela resistência total.",
+            "discovery": "A corrente do circuito é a tensão da bateria dividida pela resistência total.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "off"
+                },
+                "say": "A lâmpada está apagada e o caminho está aberto, então a corrente é zero no circuito inteiro.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "object": "Medição de corrente na luz de leitura",
+            "thanks": "Número bate com a conta, e é assim que a gente confere um circuito sem abrir nada. Guarda esse jeito."
+          }
         },
         {
           "id": "g2p7",
@@ -3815,7 +3891,35 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Resistor pequeno não cabe texto, então o valor vai em faixas de cor. As duas primeiras são os dígitos, a terceira diz quantos zeros vêm depois. Como a corrente é a mesma em todo o caminho, o resistor que você escolhe decide quanto passa pela lâmpada.",
+            "discovery": "As cores do resistor dizem o valor sem precisar medir.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.071,
+                      0.2
+                    ]
+                  }
+                },
+                "say": "Tem mais corrente na lâmpada do que ela pede: passa de 70 mA.",
+                "witness": {
+                  "from": "reference",
+                  "values": {
+                    "R1": 22
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Camila, ciclista de domingo",
+            "object": "Lanterna de bicicleta",
+            "thanks": "Ficou na medida: acende bem e a pilha dura a volta toda. Domingo eu testo na estrada."
+          }
         },
         {
           "id": "g2p5",
@@ -4175,7 +4279,35 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Medir mostra o que o olho não vê. Duas peças podem parecer iguais e ter valores diferentes, e a conta do esquema só vale se a peça for a que o esquema diz.",
+            "discovery": "Quando o circuito não bate com a conta, medir mostra qual peça mudou.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.086,
+                      0.2
+                    ]
+                  }
+                },
+                "say": "A lâmpada está com uns 100 mA, bem mais forte do que o esquema pede.",
+                "witness": {
+                  "from": "initial",
+                  "short": [
+                    "R1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Dona Aparecida, do presépio da igreja",
+            "object": "Luz de presépio fraquinha",
+            "thanks": "Agora o menino Jesus aparece direitinho na manjedoura. A irmã Lourdes mandou beijo."
+          }
         },
         {
           "id": "g2p6",
@@ -4432,7 +4564,38 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Brilho é corrente. Quem escolhe a resistência escolhe a corrente, e com ela o brilho da lâmpada. Dá pra mirar numa faixa de corrente em vez de tentar acertar um valor só.",
+            "discovery": "Escolher a resistência é escolher a corrente e o brilho.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.086,
+                      0.2
+                    ]
+                  }
+                },
+                "say": "Tem uns 100 mA na lâmpada, brilho cheio, acima do moderado que a encomenda pede.",
+                "witness": {
+                  "from": "reference",
+                  "inputs": {
+                    "S1": "on"
+                  },
+                  "short": [
+                    "R1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Marcenaria do Seu Edmilson",
+            "object": "Luz de armário com interruptor",
+            "thanks": "Acende na medida e não ofusca quem abre o armário de madrugada. Mandei uma gaveta de brinde pra vocês."
+          }
         }
       ],
       "requires": "g1",
