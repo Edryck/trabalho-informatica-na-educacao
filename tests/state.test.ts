@@ -438,3 +438,32 @@ describe("sandbox storage", () => {
     expect(s.getItem(STORAGE_KEY)).toBe("progress-text")
   })
 })
+
+describe("notebook fields", () => {
+  it("default to empty lists", () => {
+    expect(defaultSave().discovered).toEqual([])
+    expect(defaultSave().conceptSeen).toEqual([])
+  })
+
+  it("a v3 save without them still loads as v3", () => {
+    const raw: Record<string, unknown> = { ...defaultSave() }
+    delete raw.discovered
+    delete raw.conceptSeen
+    const data = migrateSave(raw)!
+    expect(data.version).toBe(3)
+    expect(data.discovered).toEqual([])
+    expect(data.conceptSeen).toEqual([])
+  })
+
+  it("keeps only strings", () => {
+    const data = migrateSave({ ...defaultSave(), discovered: ["g1p4", 3, null], conceptSeen: ["g0p1", {}] })!
+    expect(data.discovered).toEqual(["g1p4"])
+    expect(data.conceptSeen).toEqual(["g0p1"])
+  })
+
+  it("keeps the ids as they are, even ones that old saves used to move", () => {
+    const data = migrateSave({ ...defaultSave(), version: 2, discovered: ["g2p3"], conceptSeen: ["g3p4"] })!
+    expect(data.discovered).toEqual(["g2p3"])
+    expect(data.conceptSeen).toEqual(["g3p4"])
+  })
+})

@@ -128,6 +128,8 @@ export type SaveData = {
   daily: Daily
   tutorialSeen: boolean
   seenGroups: string[]
+  discovered: string[]
+  conceptSeen: string[]
 }
 export type StorageLike = Pick<Storage, "getItem" | "setItem">
 export type Store = {
@@ -151,6 +153,8 @@ export function defaultSave(): SaveData {
     daily: { lastWonDate: null, streak: 0, wonDates: [] },
     tutorialSeen: false,
     seenGroups: [],
+    discovered: [],
+    conceptSeen: [],
   }
 }
 
@@ -259,6 +263,8 @@ function v3PhaseId(id: string): string {
   return V3_PHASE_MOVES[id] ?? (V3_LEGACY.includes(id) ? `legacy:${id}` : id)
 }
 
+const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter(isString) : [])
+
 export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | null {
   if (!isObject(raw) || (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) || !isObject(raw.progress) || !isObject(raw.settings)) return null
   const fromV1 = raw.version === 1
@@ -284,6 +290,8 @@ export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | nu
     daily: fromV1 ? base.daily : cleanDaily(raw.daily),
     tutorialSeen: raw.tutorialSeen === true,
     seenGroups: moves ? seenGroups.map((g) => V3_GROUP_MOVES[g] ?? g) : seenGroups,
+    discovered: stringList(raw.discovered),
+    conceptSeen: stringList(raw.conceptSeen),
   }
 }
 
