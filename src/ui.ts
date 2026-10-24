@@ -379,7 +379,7 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
   }
 }
 
-export function createWirePalette(el: HTMLElement, colors: { value: string; name: string }[], onPick: (color: string) => void) {
+export function createWirePalette(el: HTMLElement, colors: { value: string; name: string }[], onPick: (color: string) => void, onStyle?: () => void) {
   el.classList.add("wire-palette")
   el.setAttribute("role", "group")
   el.setAttribute("aria-label", "Cor do fio")
@@ -387,6 +387,15 @@ export function createWirePalette(el: HTMLElement, colors: { value: string; name
   title.className = "palette-title"
   title.textContent = "Cor do fio"
   el.appendChild(title)
+  if (onStyle) {
+    const style = document.createElement("button")
+    style.type = "button"
+    style.className = "btn-secondary palette-style"
+    style.textContent = "Arco / reto"
+    style.title = "Troca o fio entre arco e ângulo reto. Arrasta a bolinha do meio pra mudar o caminho."
+    style.addEventListener("click", onStyle)
+    el.appendChild(style)
+  }
   function fill(list: { value: string; name: string }[]) {
     for (const old of el.querySelectorAll(".swatch")) old.remove()
     for (const { value: color, name } of list) {

@@ -556,7 +556,7 @@ const meterHud = createMeterHud(meterEl, (mode) => setMeterMode(mode))
 let lastMeterMode: "V" | "A" | "ohm" = "V"
 let meterWasPlaced = false
 let shownWarnings = new Set<string>()
-const palette = createWirePalette(paletteEl, WIRE_PALETTE, (color) => bench.setWireColor(color))
+const palette = createWirePalette(paletteEl, WIRE_PALETTE, (color) => bench.setWireColor(color), () => bench.toggleWireStyle())
 palette.show(false)
 const pendingList = createPendingList(pendingEl, "Na protoboard, falta no esquema", (item: PendingItem) => setTool({ place: item.type, id: item.id }))
 

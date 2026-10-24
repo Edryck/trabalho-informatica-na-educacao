@@ -255,6 +255,13 @@ body {
   justify-self: end;
 }
 
+.wire-palette .palette-style {
+  height: 28px;
+  margin-left: 6px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .palette-title {
   align-self: center;
   margin-right: 4px;

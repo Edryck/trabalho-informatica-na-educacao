@@ -61,6 +61,7 @@ import {
   sparkTexture,
   std,
   wireCurve,
+  wirePath,
 } from "./parts3d"
 
 export { bandHex, PITCH, resistorBands }
@@ -195,7 +196,7 @@ const DECOR_SLOTS: Record<string, { x: number; z: number; rotY: number; scale: n
 const FLEX_MIN = PITCH * 0.99
 const FLEX_MAX = PITCH * 8.01
 
-type Pickable = { kind: "part" | "wire" | "wireEnd" | "leadEnd" | "probeEnd"; id: string; end?: "a" | "b"; pin?: string }
+type Pickable = { kind: "part" | "wire" | "wireEnd" | "wireMid" | "leadEnd" | "probeEnd"; id: string; end?: "a" | "b"; pin?: string }
 type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
 type Mode =
   | { kind: "idle" }
@@ -774,8 +775,9 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (!pa || !pb) return g
     const a = new Vector3(pa.x, 0.6, pa.z)
     const b = new Vector3(pb.x, 0.6, pb.z)
+    const path = wirePath(a, b, { style: wire.style ?? "arc", mid: wire.mid ? new Vector3(wire.mid.x, 0.6, wire.mid.z) : null })
     const sel = selectedEmissive(wire.id, "wire")
-    const tube = new Mesh(new TubeGeometry(wireCurve(a, b), 40, WIRE_RADIUS, 8), std(wire.color, { emissive: COLOR.accent, emissiveIntensity: sel }))
+    const tube = new Mesh(new TubeGeometry(path, 64, WIRE_RADIUS, 8), std(wire.color, { emissive: COLOR.accent, emissiveIntensity: sel }))
     g.add(tube)
     addPickable(tube, { kind: "wire", id: wire.id })
     for (const [end, pos] of [["a", a], ["b", b]] as const) {
@@ -783,6 +785,12 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       tip.position.copy(pos)
       g.add(tip)
       addPickable(tip, { kind: "wireEnd", id: wire.id, end })
+    }
+    if (sel > 0) {
+      const handle = new Mesh(new SphereGeometry(1.1, 14, 10), std(COLOR.accent, { emissive: COLOR.accent, emissiveIntensity: 0.4 }))
+      handle.position.copy(path.getPoint(0.5))
+      g.add(handle)
+      addPickable(handle, { kind: "wireMid", id: wire.id })
     }
     return g
   }
@@ -1189,13 +1197,21 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (!drag || !view) return
     const d = structuredClone(drag.doc)
     const pick = drag.pick
-    if (pick.kind === "wireEnd" && pick.end) {
+    if (pick.kind === "wireMid") {
+      const wire = d.bench.wires.find((w) => w.id === pick.id)
+      const p = hole ? holePosition(hole) : null
+      // o meio é só visual: pode cair em furo ocupado
+      if (!wire || !p) return
+      wire.mid = { x: p.x, z: p.z }
+    } else if (pick.kind === "wireEnd" && pick.end) {
       const wire = d.bench.wires.find((w) => w.id === pick.id)
       if (!wire) return
       const other = pick.end === "a" ? wire.b : wire.a
       const used = occupiedHoles(d, { wireEnd: `${wire.id}.${pick.end}` })
       if (!hole || used.has(hole) || hole === other) return
       wire[pick.end] = hole
+      // meio guardado pra posição antiga da ponta deixaria o fio torto
+      delete wire.mid
     } else if (pick.kind === "probeEnd" && (pick.pin === "red" || pick.pin === "black")) {
       d.bench.meter[pick.pin] = hole
     } else if (pick.kind === "leadEnd" && pick.pin) {
@@ -1230,7 +1246,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     downAt = { x: event.clientX, y: event.clientY }
     if (mode.kind !== "idle" || !view) return
     const pick = pickHit()
-    if (pick && (pick.kind === "wireEnd" || pick.kind === "leadEnd" || pick.kind === "probeEnd")) {
+    if (pick && (pick.kind === "wireEnd" || pick.kind === "wireMid" || pick.kind === "leadEnd" || pick.kind === "probeEnd")) {
       drag = { pick, doc: doc(), moved: false }
       controls.enabled = false
       return
@@ -1395,6 +1411,15 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     cb.onChange(d, true)
   }
 
+  function toggleWireStyle() {
+    if (!selection || selection.kind !== "wire" || !view) return
+    const d = doc()
+    const wire = d.bench.wires.find((w) => w.id === selection!.id)
+    if (!wire) return
+    wire.style = (wire.style ?? "arc") === "arc" ? "angle" : "arc"
+    cb.onChange(d, true)
+  }
+
   function handleKey(event: KeyboardEvent): boolean {
     const k = event.key
     if (k === "Escape") {
@@ -1466,6 +1491,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     frame,
     handleKey,
     setWireColor,
+    toggleWireStyle,
     celebrate,
     setCosmetics(c: BenchCosmetics) {
       if (boardBody instanceof Mesh && boardBody.material instanceof MeshStandardMaterial) boardBody.material.color.set(c.boardColor ?? "#FBFBF8")
