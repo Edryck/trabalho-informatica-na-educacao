@@ -3500,16 +3500,17 @@ body.lite .part-sketch .sketch-side {
 }
 
 .complete-thanks {
+  width: 100%;
   margin: 0;
-  padding: 12px 16px;
+  padding: 8px 14px;
   background: var(--color-panel-soft);
   border-left: 4px solid var(--color-accent);
   border-radius: 10px;
 }
 
 .complete-thanks p {
-  margin: 0 0 6px;
-  font: 400 15px/1.5 var(--font-ui);
+  margin: 0 0 4px;
+  font: 400 14px/1.4 var(--font-ui);
   color: var(--color-text);
 }
 
@@ -3520,13 +3521,14 @@ body.lite .part-sketch .sketch-side {
 }
 
 .complete-discovery {
-  padding: 12px 16px;
+  width: 100%;
+  padding: 8px 14px;
   border: 1px dashed var(--color-accent);
   border-radius: 10px;
 }
 
 .complete-discovery h3 {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   font: 500 12px/1.2 var(--font-ui);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -3535,7 +3537,7 @@ body.lite .part-sketch .sketch-side {
 
 .complete-discovery p {
   margin: 0;
-  font: 500 16px/1.45 var(--font-ui);
+  font: 500 15px/1.4 var(--font-ui);
   color: var(--color-text);
 }
 
@@ -3589,4 +3591,16 @@ body.lite .part-sketch .sketch-side {
 
 .notebook-group + .notebook-group {
   margin-top: 20px;
+}
+
+@media (max-height: 800px) {
+  .complete-card {
+    width: min(620px, 100%);
+    gap: 10px;
+    padding: 18px 24px;
+  }
+
+  .complete-card h2 {
+    font-size: 32px;
+  }
 }

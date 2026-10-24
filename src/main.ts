@@ -1307,7 +1307,7 @@ function showComplete(reward: CompleteReward, instant = false) {
       onBest: phase.referenceSolution && !isDaily(phase.id) ? showBestVersion : null,
       onRetry: () => restartPhase(true),
       onMap: showCurrentGroup,
-      onNotebook: null,
+      onNotebook: phase.lesson?.discovery && !isDaily(phase.id) ? showNotebook : null,
       play: (name, pitch) => audio.play(name, pitch),
     },
     instant,
