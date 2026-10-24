@@ -1262,6 +1262,8 @@ function startSandbox() {
     hints: [],
     referenceSolution: null,
     stars: [],
+    lesson: null,
+    order: null,
   }
   startPhase("sandbox", sandbox)
 }

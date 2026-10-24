@@ -247,6 +247,8 @@ export function dailyRepair(date: string, data: PhaseData, won: Set<string>, cat
         hints: DAILY_HINTS,
         stars: [{ kind: "solved" }, { kind: "usedMeter", mode: "V" }, { kind: "usedMeter", mode: "A" }],
         referenceSolution: reference,
+        lesson: null,
+        order: null,
       }
     }
   }
