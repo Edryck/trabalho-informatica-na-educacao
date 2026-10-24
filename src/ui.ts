@@ -2,7 +2,7 @@ import type { Divergence, PartsCatalog, PinRef } from "./netlist"
 import type { BlueprintPlacement, BlueprintSegment, Instance } from "./state"
 import { resistorBands } from "./parts3d"
 import type { Warning } from "./solver"
-import type { Star } from "./phases"
+import type { Lesson, Star, WorkOrder } from "./phases"
 import type { GoalState, LevelInfo } from "./game"
 
 export type Unit = "V" | "A" | "Ω" | "W"
@@ -624,7 +624,36 @@ export function orderFrom(type: string, order: { client?: string } | null): stri
   return order?.client ?? "Cliente de balcão"
 }
 
-export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[] }
+export type WorkOrderView = { label: string; from: string; object: string; concept: string | null }
+
+export function createWorkOrderCard(el: HTMLElement, onClose: () => void) {
+  el.className = "work-order"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-labelledby", "work-order-title")
+  el.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("[data-action=close]")) onClose()
+  })
+  return {
+    isOpen: () => !el.hidden,
+    show(view: WorkOrderView) {
+      el.hidden = false
+      el.innerHTML = `
+        <p class="work-order-tag">Ordem de serviço <span class="mono">${view.label}</span></p>
+        <h2 id="work-order-title" class="work-order-object">${view.object}</h2>
+        <p class="work-order-from">${view.from}</p>
+        ${view.concept ? `<p class="work-order-concept">${view.concept}</p>` : ""}
+        <button type="button" class="btn-primary" data-action="close">Bora pra bancada</button>`
+      void fadeSlide(el, { y: 16, duration: 300 })
+      el.querySelector<HTMLButtonElement>("[data-action=close]")?.focus()
+    },
+    hide() {
+      el.hidden = true
+    },
+  }
+}
+
+export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[]; order?: WorkOrder | null; lesson?: Lesson | null }
 const METER_UNITS: Record<"V" | "A" | "ohm", string> = { V: "V", A: "A", ohm: "Ω" }
 
 export function starLabel(star: Star): string {
@@ -661,7 +690,7 @@ export type BriefState = {
   won: boolean
 }
 
-export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void; onRestart(): void; onDatasheets?(): void }) {
+export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: number | null): void; onHint(): void; onPhases(): void; onRestart(): void; onDatasheets?(): void; onOrder?(): void }) {
   el.className = "phase-brief"
   el.setAttribute("aria-label", "Objetivo da fase")
   el.hidden = true
@@ -674,6 +703,7 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
     if (row) handlers.onPreview(Number(row.dataset.row))
     if (target.closest("[data-action=hint]")) handlers.onHint()
     if (target.closest("[data-action=phases]")) handlers.onPhases()
+    if (target.closest("[data-action=order]")) handlers.onOrder?.()
     if (target.closest("[data-action=datasheets]")) handlers.onDatasheets?.()
     if (target.closest("[data-action=restart]")) {
       if (confirmingRestart) {
@@ -733,8 +763,10 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
           <span class="brief-id mono">${phaseLabel(phase.id)}</span>
           <button type="button" class="brief-link" data-action="restart" title="Volta a fase pro começo">${confirmingRestart ? "Confirmar recomeço" : "Recomeçar"}</button>
           ${phase.id === "sandbox" && handlers.onDatasheets ? '<button type="button" class="brief-link" data-action="datasheets">Datasheets</button>' : ""}
+          ${handlers.onOrder && (phase.order || phase.lesson) ? '<button type="button" class="brief-link" data-action="order">Ordem</button>' : ""}
           <button type="button" class="brief-link" data-action="phases">Fases</button>
         </header>
+        ${phase.order ? `<p class="brief-order">${orderFrom(phase.type, phase.order)} · ${phase.order.object}</p>` : ""}
         <h2 class="brief-title">${phase.goal.charAt(0).toUpperCase()}${phase.goal.slice(1)}</h2>
         <p class="brief-text">${phase.brief}</p>
         ${step ? `<p class="brief-step"><span class="mono">${(state.stepIndex ?? 0) + 1}/${phase.steps!.length}</span>${step.text}</p>` : ""}

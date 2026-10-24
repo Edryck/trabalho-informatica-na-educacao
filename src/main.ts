@@ -70,6 +70,9 @@ import {
   divergencesApply,
   createHint,
   createObservationNote,
+  createWorkOrderCard,
+  orderFrom,
+  type WorkOrderView,
   createMeterHud,
   createValuePicker,
   formatValue,
@@ -163,6 +166,9 @@ stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pic
 const observationEl = document.createElement("div")
 stageEl.append(observationEl)
 const observationNote = createObservationNote(observationEl)
+const workOrderEl = document.createElement("div")
+stageEl.append(workOrderEl)
+const workOrder = createWorkOrderCard(workOrderEl, () => closeWorkOrder())
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -224,6 +230,7 @@ const brief = createPhaseBrief(briefEl, {
   onPhases: showCurrentGroup,
   onDatasheets: () => openSheetList(),
   onRestart: () => restartPhase(),
+  onOrder: () => openWorkOrder(),
 })
 const topBar = createTopBar(topbarEl, () => showMap())
 
@@ -852,6 +859,25 @@ function tickObservations() {
   if (next.show !== null) observationNote.show(list[next.show].say)
 }
 
+function workOrderView(phase: Phase): WorkOrderView | null {
+  if (!phase.order && !phase.lesson) return null
+  return { label: phaseLabel(phase.id), from: orderFrom(phase.type, phase.order), object: phase.order?.object ?? phase.goal, concept: phase.lesson?.concept ?? null }
+}
+
+function openWorkOrder() {
+  const v = session ? workOrderView(session.phase) : null
+  if (!v) return
+  workOrder.show(v)
+  audio.play("click")
+}
+
+function closeWorkOrder() {
+  workOrder.hide()
+  if (!session || store.data.conceptSeen.includes(session.phase.id)) return
+  store.data = { ...store.data, conceptSeen: [...store.data.conceptSeen, session.phase.id] }
+  store.save()
+}
+
 function checkVictory() {
   if (!session || session.won || !evaluation || session.phase.id === "sandbox") return
   const steps = session.phase.steps
@@ -980,9 +1006,13 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   if (!synthetic) queueNewDatasheets(phase)
   flushNotices()
   maybeStartTour()
+  // tour do primeiro acesso tem prioridade; o cartão volta na próxima vez
+  const tourComing = tourPending || (phase.id === phaseOrder(phases)[0] && !store.data.tutorialSeen)
+  if (!synthetic && !tour.isOpen() && !tourComing && !store.data.conceptSeen.includes(phase.id)) openWorkOrder()
 }
 
 function hideOverlays() {
+  workOrder.hide()
   tour.stop()
   document.body.classList.remove("showcase", "overlay")
   bench.setShowcase(false)
@@ -1339,6 +1369,13 @@ window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault()
       sheetScreen.close()
+    }
+    return
+  }
+  if (workOrder.isOpen()) {
+    if (event.key === "Escape") {
+      event.preventDefault()
+      closeWorkOrder()
     }
     return
   }

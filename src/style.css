@@ -662,8 +662,9 @@ body {
 
 .brief-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
 }
 
 .brief-tag {
@@ -3438,4 +3439,62 @@ body.lite .part-sketch .sketch-side {
 
 .group-screen .map-head {
   grid-template-columns: 1fr minmax(260px, 380px) auto;
+}
+
+.work-order {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  width: min(440px, calc(100% - 32px));
+  display: grid;
+  gap: 10px;
+  padding: 22px 24px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--color-accent);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-pop);
+  z-index: 6;
+}
+
+.work-order[hidden] {
+  display: none;
+}
+
+.work-order-tag {
+  margin: 0;
+  font: 500 12px/1.2 var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-deep);
+}
+
+.work-order-object {
+  margin: 0;
+  font: 600 22px/1.25 var(--font-display);
+  color: var(--color-text);
+}
+
+.work-order-from {
+  margin: 0;
+  font: 500 14px/1.4 var(--font-ui);
+  color: var(--color-text-muted);
+}
+
+.work-order-concept {
+  margin: 4px 0 6px;
+  font: 400 15px/1.55 var(--font-ui);
+  color: var(--color-text);
+}
+
+.work-order .btn-primary {
+  justify-self: start;
+}
+
+.brief-order {
+  margin: 0 0 4px;
+  font: 500 12px/1.4 var(--font-ui);
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
 }
