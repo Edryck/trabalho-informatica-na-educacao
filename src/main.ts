@@ -859,7 +859,10 @@ function tickObservations() {
   }
   const next = observationTick(session.observations, observationFlags(list, session.phase.evaluateOn, live, catalog))
   session.observations = next.tracker
-  if (next.show !== null) observationNote.show(list[next.show].say)
+  if (next.show !== null) {
+    observationNote.show(list[next.show].say)
+    audio.play("tick", 0.75)
+  }
 }
 
 function workOrderView(phase: Phase): WorkOrderView | null {
@@ -881,6 +884,29 @@ function closeWorkOrder() {
   store.save()
 }
 
+const CELEBRATE_MS = 700
+let celebrateTimer: ReturnType<typeof setTimeout> | null = null
+
+function cancelCelebrate() {
+  if (celebrateTimer !== null) clearTimeout(celebrateTimer)
+  celebrateTimer = null
+}
+
+function celebrateThen(reveal: () => void) {
+  cancelCelebrate()
+  if (reducedMotion) return reveal()
+  const owner = session
+  const ids = view.doc.instances.filter((i) => i.type !== "battery" && !catalog[i.type]?.isTool).map((i) => i.id)
+  // a vitória é checada antes do render: sem esperar, a bancada ainda não conhece as peças do circuito vencedor
+  queueMicrotask(() => bench.celebrate(ids))
+  // dá tempo de ver o confete antes da tela de fim cobrir a bancada
+  celebrateTimer = setTimeout(() => {
+    celebrateTimer = null
+    // se a pessoa trocou de fase nesse meio tempo, a tela de fim velha não aparece
+    if (session === owner) reveal()
+  }, CELEBRATE_MS)
+}
+
 function checkVictory() {
   if (!session || session.won || !evaluation || session.phase.id === "sandbox") return
   const steps = session.phase.steps
@@ -899,13 +925,15 @@ function checkVictory() {
     store.data = reward.save
     store.flush()
     applyWorkshop()
-    return showComplete({
-      stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] && reward.xpGained > 0 })),
-      xpGained: reward.xpGained,
-      levelBefore: levelFor(xpBefore, rewards),
-      levelAfter: levelFor(store.data.xp, rewards),
-      unlocked: reward.unlocked,
-    })
+    return celebrateThen(() =>
+      showComplete({
+        stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: earned[i], isNew: earned[i] && reward.xpGained > 0 })),
+        xpGained: reward.xpGained,
+        levelBefore: levelFor(xpBefore, rewards),
+        levelAfter: levelFor(store.data.xp, rewards),
+        unlocked: reward.unlocked,
+      }),
+    )
   }
   const reward = applyPhaseReward(store.data, phase.id, earned, evaluation.cost, rewards)
   store.data = recordReward(reward.save, earned.flatMap((ok, i) => (ok ? [i] : [])), reward.xpGained)
@@ -914,13 +942,15 @@ function checkVictory() {
   store.flush()
   applyWorkshop()
   const owned = new Set(store.data.progress[phase.id]?.stars ?? [])
-  showComplete({
-    stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: owned.has(i), isNew: reward.newStars.includes(i) })),
-    xpGained: reward.xpGained,
-    levelBefore: levelFor(xpBefore, rewards),
-    levelAfter: levelFor(store.data.xp, rewards),
-    unlocked: reward.unlocked,
-  })
+  celebrateThen(() =>
+    showComplete({
+      stars: phase.stars.map((star, i) => ({ label: starLabel(star), earned: owned.has(i), isNew: reward.newStars.includes(i) })),
+      xpGained: reward.xpGained,
+      levelBefore: levelFor(xpBefore, rewards),
+      levelAfter: levelFor(store.data.xp, rewards),
+      unlocked: reward.unlocked,
+    }),
+  )
 }
 
 function openHint() {
@@ -945,6 +975,7 @@ function maybeOfferHint() {
 }
 
 function startPhase(phaseId: string, synthetic?: Phase) {
+  cancelCelebrate()
   flushSandbox()
   const phase = synthetic ?? findPhase(phases, phaseId)
   if (!phase) return
@@ -1015,6 +1046,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
 }
 
 function hideOverlays() {
+  cancelCelebrate()
   workOrder.hide()
   tour.stop()
   document.body.classList.remove("showcase", "overlay")

@@ -448,7 +448,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (!opts.reducedMotion) pops.set(id, performance.now())
   }
 
-  function spawnSparks(partId: string) {
+  function spawnSparks(partId: string, colors: number[] = [PART_COLORS.orange, PART_COLORS.yellow, PART_COLORS.yellow]) {
     if (!view) return
     const placement = view.doc.bench.placements.find((p) => p.id === partId)
     const instance = view.doc.instances.find((i) => i.id === partId)
@@ -458,7 +458,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const now = performance.now()
     for (let i = 0; i < 12; i++) {
       // fundo claro: brilho aditivo some, então a faísca é cor chapada com miolo branco
-      const sprite = new Sprite(new SpriteMaterial({ map: sparkTexture(), color: i % 3 === 0 ? PART_COLORS.orange : PART_COLORS.yellow, transparent: true, depthWrite: false, toneMapped: false }))
+      const sprite = new Sprite(new SpriteMaterial({ map: sparkTexture(), color: colors[i % colors.length], transparent: true, depthWrite: false, toneMapped: false }))
       sprite.scale.setScalar(3 + Math.random() * 2)
       sprite.position.copy(at)
       const angle = (i / 12) * Math.PI * 2 + Math.random() * 0.4
@@ -466,6 +466,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       sparkGroup.add(sprite)
       sparks.push({ sprite, velocity: new Vector3(Math.cos(angle) * speed, 30 + Math.random() * 30, Math.sin(angle) * speed), born: now })
     }
+  }
+
+  function celebrate(ids: string[]) {
+    if (opts.reducedMotion) return
+    for (const id of ids) spawnSparks(id, [PART_COLORS.green, 0xffb400, PART_COLORS.blue, PART_COLORS.pink])
   }
 
   function buildRigid(placement: BenchPlacement, type: string, state: string | undefined): Group {
@@ -1461,6 +1466,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     frame,
     handleKey,
     setWireColor,
+    celebrate,
     setCosmetics(c: BenchCosmetics) {
       if (boardBody instanceof Mesh && boardBody.material instanceof MeshStandardMaterial) boardBody.material.color.set(c.boardColor ?? "#FBFBF8")
       // placa escura apaga os furos escuros, então eles clareiam
