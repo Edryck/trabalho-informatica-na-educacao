@@ -18,6 +18,8 @@ export type CompleteSummary = {
   levelBefore: LevelInfo
   levelAfter: LevelInfo
   unlocked: RewardItem[]
+  thanks: { from: string; text: string } | null
+  discovery: string | null
 }
 
 export type CompleteHandlers = {
@@ -26,6 +28,7 @@ export type CompleteHandlers = {
   onBest: (() => void) | null
   onRetry(): void
   onMap(): void
+  onNotebook: (() => void) | null
   play(name: SfxName, pitch?: number): void
 }
 
@@ -67,6 +70,7 @@ export function createCompleteScreen(el: HTMLElement) {
     if (action === "best") handlers.onBest?.()
     if (action === "retry") handlers.onRetry()
     if (action === "map") handlers.onMap()
+    if (action === "notebook") handlers.onNotebook?.()
   })
   return {
     async show(summary: CompleteSummary, next: CompleteHandlers, instant = false): Promise<void> {
@@ -95,6 +99,8 @@ export function createCompleteScreen(el: HTMLElement) {
             <h2 id="complete-title">Fase concluída</h2>
             <p class="complete-goal">${summary.goal.charAt(0).toUpperCase()}${summary.goal.slice(1)} <span class="mono">${phaseLabel(summary.phaseId)}</span></p>
           </header>
+          ${summary.thanks ? `<blockquote class="complete-thanks"><p>${summary.thanks.text}</p><cite>${summary.thanks.from}</cite></blockquote>` : ""}
+          ${summary.discovery ? `<section class="complete-discovery" aria-label="Anotado no caderno"><h3>Anotado no caderno</h3><p>${summary.discovery}</p></section>` : ""}
           <ol class="complete-stars">${stars}</ol>
           <section class="complete-xp" aria-label="Experiência">
             <div class="complete-xp-row">
@@ -120,6 +126,7 @@ export function createCompleteScreen(el: HTMLElement) {
             <button type="button" class="btn-secondary" data-action="retry">Tentar de novo</button>
             ${cheaper ? '<button type="button" class="btn-secondary" data-action="cheaper">Tentar versão mais barata</button>' : ""}
             ${cheaper && next.onBest ? '<button type="button" class="btn-secondary" data-action="best">Ver solução de menor custo</button>' : ""}
+            ${summary.discovery && next.onNotebook ? '<button type="button" class="btn-secondary" data-action="notebook">Caderno</button>' : ""}
             <button type="button" class="btn-secondary" data-action="map">Mapa de fases</button>
           </div>
           <p class="complete-skip" aria-hidden="true">Clique ou Esc pra pular</p>

@@ -1279,6 +1279,8 @@ function showComplete(reward: CompleteReward, instant = false) {
       budget: phase.budget,
       referenceCost: referenceCost(phase, catalog),
       bestCost: store.data.progress[phase.id]?.bestCost ?? null,
+      thanks: phase.order && !isDaily(phase.id) ? { from: orderFrom(phase.type, phase.order), text: phase.order.thanks } : null,
+      discovery: isDaily(phase.id) ? null : phase.lesson?.discovery ?? null,
     },
     {
       onNext: nextId ? () => startPhase(nextId) : null,
@@ -1293,6 +1295,7 @@ function showComplete(reward: CompleteReward, instant = false) {
       onBest: phase.referenceSolution && !isDaily(phase.id) ? showBestVersion : null,
       onRetry: () => restartPhase(true),
       onMap: showCurrentGroup,
+      onNotebook: null,
       play: (name, pitch) => audio.play(name, pitch),
     },
     instant,

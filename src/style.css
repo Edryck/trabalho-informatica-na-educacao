@@ -3498,3 +3498,43 @@ body.lite .part-sketch .sketch-side {
   letter-spacing: 0.02em;
   color: var(--color-text-muted);
 }
+
+.complete-thanks {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--color-panel-soft);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 10px;
+}
+
+.complete-thanks p {
+  margin: 0 0 6px;
+  font: 400 15px/1.5 var(--font-ui);
+  color: var(--color-text);
+}
+
+.complete-thanks cite {
+  font: 500 12px/1.2 var(--font-ui);
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+.complete-discovery {
+  padding: 12px 16px;
+  border: 1px dashed var(--color-accent);
+  border-radius: 10px;
+}
+
+.complete-discovery h3 {
+  margin: 0 0 4px;
+  font: 500 12px/1.2 var(--font-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-deep);
+}
+
+.complete-discovery p {
+  margin: 0;
+  font: 500 16px/1.45 var(--font-ui);
+  color: var(--color-text);
+}
