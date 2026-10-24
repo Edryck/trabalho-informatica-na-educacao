@@ -1357,7 +1357,30 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "A chave abre e fecha o caminho da corrente. Fechada, a corrente passa. Aberta, o caminho tem um corte e não passa nada, em ponto nenhum do circuito.",
+            "discovery": "A chave manda no circuito porque abre o único caminho da corrente.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "lit"
+                },
+                "say": "A lâmpada está acesa: existe um caminho fechado do + ao − passando por ela.",
+                "witness": {
+                  "from": "reference",
+                  "short": [
+                    "S1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Dona Marta, vizinha da oficina",
+            "object": "Abajur que não tem como desligar",
+            "thanks": "Agora apago da cama mesmo. Deixei um bolo de fubá aí na bancada pra vocês."
+          }
         },
         {
           "id": "g1p2",
@@ -1566,7 +1589,30 @@
               "kind": "maxCost",
               "value": 6
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "O botão é uma chave que só fecha o caminho enquanto alguém aperta. Solto, a mola abre o contato e a corrente para de circular.",
+            "discovery": "O botão fecha o caminho só enquanto a gente segura.",
+            "observations": [
+              {
+                "if": {
+                  "Z1": "sounding"
+                },
+                "say": "O buzzer está tocando: tem corrente atravessando ele agora.",
+                "witness": {
+                  "from": "reference",
+                  "inputs": {
+                    "K1": "pressed"
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Seu Zé, dono do mercadinho da esquina",
+            "object": "Campainha do portão",
+            "thanks": "Já toquei umas dez vezes pra testar. Os fregueses que me perdoem."
+          }
         },
         {
           "id": "g1p3",
@@ -1850,7 +1896,30 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "O motor de corrente contínua gira conforme o lado por onde a corrente entra nele. Entrando por um terminal ele gira pra um lado, pelo outro terminal gira pro lado oposto.",
+            "discovery": "Trocar o sentido da corrente troca o sentido do giro.",
+            "observations": [
+              {
+                "if": {
+                  "M1": "off"
+                },
+                "say": "O motor está parado: não tem corrente passando por dentro dele.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "M1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Rafa e o pai dele",
+            "object": "Carrinho que só anda de ré",
+            "thanks": "Agora ele vai pra frente! O Rafa já quer fazer uma corrida com o do primo."
+          }
         },
         {
           "id": "g1p4",
@@ -2061,7 +2130,48 @@
               "kind": "maxCost",
               "value": 6
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Em fila, a corrente passa por uma lâmpada e depois pela outra. Ela não se gasta no meio: a mesma quantidade entra na primeira, atravessa a segunda e volta pra bateria.",
+            "discovery": "Numa fila, a corrente é a mesma antes, entre e depois das lâmpadas.",
+            "observations": [
+              {
+                "if": {
+                  "L1": {
+                    "current": [
+                      0.08,
+                      0.2
+                    ]
+                  }
+                },
+                "say": "Tem uns 100 mA passando pela lâmpada. Esse número vale como referência pro resto do circuito.",
+                "witness": {
+                  "from": "reference",
+                  "short": [
+                    "L2"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "L1": "off",
+                  "L2": "off"
+                },
+                "say": "As duas lâmpadas estão sem corrente ao mesmo tempo. Em fila, um ponto aberto deixa o caminho todo parado.",
+                "witness": {
+                  "from": "reference",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Dona Lúcia, do bazar de enfeites",
+            "object": "Enfeite de Natal com duas lâmpadas",
+            "thanks": "Ficou lindo na vitrine. E olha que as duas acendem igual, sem uma ficar mais fraca."
+          }
         },
         {
           "id": "g1p5",
@@ -2415,7 +2525,30 @@
               "kind": "maxCost",
               "value": 5
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "A chave só manda no circuito se a corrente for obrigada a passar por ela. Se existe outro caminho que contorna a chave, a corrente vai por ele e abrir a chave não muda nada.",
+            "discovery": "Chave fora do caminho da corrente não manda em nada.",
+            "observations": [
+              {
+                "if": {
+                  "L1": "off"
+                },
+                "say": "A lâmpada está apagada: não tem corrente passando por ela agora.",
+                "witness": {
+                  "from": "initial",
+                  "open": [
+                    "L1"
+                  ]
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Professor Almir, de física",
+            "object": "Luminária que não desliga",
+            "thanks": "Agora sim apaga quando eu mando. Vou usar ela de exemplo na aula de quinta."
+          }
         },
         {
           "id": "g1p6",
@@ -2683,7 +2816,30 @@
               "kind": "maxWires",
               "value": 2
             }
-          ]
+          ],
+          "lesson": {
+            "concept": "Uma chave pode mandar em mais de uma peça, desde que todas dependam do caminho que ela abre. Quando a chave abre esse caminho, tudo que está nele fica sem corrente.",
+            "discovery": "Uma chave só controla tudo que depende do caminho dela.",
+            "observations": [
+              {
+                "if": {
+                  "M1": "spinning"
+                },
+                "say": "O motor está girando: tem corrente passando por ele.",
+                "witness": {
+                  "from": "reference",
+                  "inputs": {
+                    "S1": "on"
+                  }
+                }
+              }
+            ]
+          },
+          "order": {
+            "client": "Padaria do Seu Nena",
+            "object": "Ventilador de balcão com aviso",
+            "thanks": "O ventilador liga junto com o aviso e a gente nem precisa lembrar. Quando passar aí, o pão quente é por conta da casa."
+          }
         }
       ]
     },
