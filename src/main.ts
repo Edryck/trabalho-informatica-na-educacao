@@ -21,6 +21,7 @@ import {
   evaluate,
   claimableId,
   ammeterLampPin,
+  phaseLabels,
   bothLampSides,
   evaluateScenarios,
   findPhase,
@@ -83,7 +84,9 @@ import {
   createTray,
   createViewToggle,
   createWirePalette,
+  phaseLabel,
   scenarioLabel,
+  setPhaseLabels,
   type Datasheet,
   type Goal,
   type PendingItem,
@@ -95,6 +98,7 @@ import {
 const catalog = partsJson as unknown as PartsCatalog
 const audio = createAudio({ volume: 0.8 })
 const phases = loadPhases(phasesJson)
+setPhaseLabels(phaseLabels(phases))
 const rewards = buildRewards(rewardsJson as RewardsData, phases)
 
 const PART_LABELS: Record<string, string> = {
@@ -1015,7 +1019,7 @@ function nextAvailablePhase(): string | undefined {
 
 function backToPhase(): { label: string; run(): void } | null {
   if (!session) return null
-  return { label: session.phase.id === "sandbox" ? "Voltar pro sandbox" : `Voltar pra ${session.phase.id}`, run: closeOverlay }
+  return { label: session.phase.id === "sandbox" ? "Voltar pro sandbox" : `Voltar pra ${phaseLabel(session.phase.id)}`, run: closeOverlay }
 }
 
 function showMap() {

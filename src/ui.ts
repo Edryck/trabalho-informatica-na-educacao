@@ -579,9 +579,16 @@ export function scenarioLabel(scenario: ScenarioLike): { when: string; then: str
 export const CHECK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>'
 export const CROSS_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 
+let phaseLabelMap: Record<string, string> = {}
+
+export function setPhaseLabels(map: Record<string, string>): void {
+  phaseLabelMap = map
+}
+
 export function phaseLabel(id: string): string {
   // conserto do dia aparece pela data, "daily-2026-11-03" vira "03/11"
-  return id.startsWith("daily-") ? id.slice(6).split("-").reverse().slice(0, 2).join("/") : id
+  if (id.startsWith("daily-")) return id.slice(6).split("-").reverse().slice(0, 2).join("/")
+  return phaseLabelMap[id] ?? id
 }
 
 export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[] }

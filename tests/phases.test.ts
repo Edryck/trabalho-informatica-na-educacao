@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick, ammeterLampPin, bothLampSides } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick, ammeterLampPin, bothLampSides, phaseLabels } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -900,5 +900,15 @@ describe("ammeter on each side of the lamp", () => {
     expect(bothLampSides(["L1.a"])).toBe(false)
     expect(bothLampSides(["L1.a", "L2.b"])).toBe(false)
     expect(bothLampSides(["L1.a", "L2.b", "L1.b"])).toBe(true)
+  })
+})
+
+describe("phaseLabels", () => {
+  it("numbers phases by their position, not their id", () => {
+    const data = loadPhases({
+      groups: [{ id: "g2", title: "t", demo: true, concept: "", unlocks: [], phases: [{ id: "g2p1", type: "build", goal: "a" }, { id: "g2p7", type: "build", goal: "b" }, { id: "g2p4", type: "build", goal: "c" }] }],
+      future: [],
+    })
+    expect(phaseLabels(data)).toEqual({ g2p1: "g2p1", g2p7: "g2p2", g2p4: "g2p3" })
   })
 })

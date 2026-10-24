@@ -221,12 +221,19 @@ describe("tour", () => {
   })
 })
 
-import { phaseLabel } from "../src/ui"
+import { phaseLabel, setPhaseLabels } from "../src/ui"
 
 describe("phaseLabel", () => {
   it("shows the daily repair by its date", () => {
     expect(phaseLabel("daily-2026-11-03")).toBe("03/11")
     expect(phaseLabel("g1p2")).toBe("g1p2")
+  })
+
+  it("uses the label from the data when there is one", () => {
+    setPhaseLabels({ g2p7: "g2p4" })
+    expect(phaseLabel("g2p7")).toBe("g2p4")
+    expect(phaseLabel("g9p9")).toBe("g9p9")
+    setPhaseLabels({})
   })
 })
 

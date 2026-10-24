@@ -336,6 +336,10 @@ export function phaseOrder(data: PhaseData): string[] {
   return data.groups.flatMap((g) => g.phases.map((p) => p.id))
 }
 
+export function phaseLabels(data: PhaseData): Record<string, string> {
+  return Object.fromEntries(data.groups.flatMap((g) => g.phases.map((p, i) => [p.id, `${g.id}p${i + 1}`])))
+}
+
 export function groupComplete(group: Group, won: Set<string>): boolean {
   return group.phases.length > 0 && group.phases.every((p) => won.has(p.id))
 }
