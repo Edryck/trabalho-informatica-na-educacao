@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
 import type { PartsCatalog } from "../src/netlist"
-import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, createObservationTracker, observationFlags, observationTick } from "../src/phases"
+import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
 import { emptyDoc, type CircuitDoc } from "../src/state"
 import rewardsJson from "../data/rewards.json"
@@ -811,5 +811,41 @@ describe("observationTick", () => {
 
   it("an observation true at the baseline can still rise later", () => {
     expect(run([[true], [false], [true]])).toEqual([null, null, 0])
+  })
+})
+
+describe("observation witnesses", () => {
+  const p = phase({ initial: circuit(), referenceSolution: circuit({ inputs: { S1: "on" } }) })
+  const lit: Observation = { if: { L1: "lit" }, say: "x", witness: { from: "initial", inputs: { S1: "on" } } }
+
+  it("applies inputs, faults, values and moves without touching the phase", () => {
+    const doc = witnessDoc(p, { from: "initial", inputs: { S1: "on" }, open: ["L1"], values: { B1: 5 }, move: { "L1.a": "J30", "W1.b": "E30" } })!
+    expect(doc.instances.find((i) => i.id === "S1")!.inputState).toBe("on")
+    expect(doc.instances.find((i) => i.id === "L1")!.fault).toBe("open")
+    expect(doc.instances.find((i) => i.id === "B1")!.actualValue).toBe(5)
+    expect(doc.bench.placements.find((x) => x.id === "L1")!.holes.a).toBe("J30")
+    expect(doc.bench.wires.find((w) => w.id === "W1")!.b).toBe("E30")
+    expect(p.initial!.instances.find((i) => i.id === "L1")!.fault).toBeUndefined()
+  })
+
+  it("returns null without the base doc", () => {
+    expect(witnessDoc(phase({}), { from: "reference" })).toBeNull()
+  })
+
+  it("rises when false at the start and true at the witness", () => {
+    expect(observationCanRise(p, lit, catalog)).toBe(true)
+  })
+
+  it("does not rise when already true at the start", () => {
+    expect(observationCanRise(p, { ...lit, if: { L1: "off" }, witness: { from: "initial", open: ["L1"] } }, catalog)).toBe(false)
+  })
+
+  it("does not rise when the witness misses it", () => {
+    expect(observationCanRise(p, { ...lit, witness: { from: "initial" } }, catalog)).toBe(false)
+  })
+
+  it("a build phase without initial starts from the empty doc", () => {
+    const build = phase({ referenceSolution: circuit({ inputs: { S1: "on" } }) })
+    expect(observationCanRise(build, { ...lit, witness: { from: "reference" } }, catalog)).toBe(true)
   })
 })

@@ -1,6 +1,6 @@
 import { benchToNetlist, blueprintToNetlist, compare, type Divergence, type Netlist, type PartsCatalog } from "./netlist"
 import { DEFAULT_INPUT_STATE, solve, type PartState, type SolveResult } from "./solver"
-import type { CircuitDoc } from "./state"
+import { emptyDoc, type CircuitDoc } from "./state"
 import { evaluateStars } from "./game"
 
 export type ThenValue = string | { current?: [number, number]; voltage?: [number, number] }
@@ -210,6 +210,52 @@ export function observationTick(tracker: ObservationTracker, flags: boolean[]): 
   const show = pending[0] ?? null
   if (show === null) return { tracker: { last: flags, pending, fired: tracker.fired }, show }
   return { tracker: { last: flags, pending: pending.slice(1), fired: [...tracker.fired, show] }, show }
+}
+
+export function witnessDoc(phase: Phase, witness: WitnessSpec): CircuitDoc | null {
+  const base = witness.from === "initial" ? phase.initial : phase.referenceSolution
+  if (!base) return null
+  const doc = structuredClone(base)
+  const instance = (id: string) => doc.instances.find((i) => i.id === id)
+  for (const [id, state] of Object.entries(witness.inputs ?? {})) {
+    const i = instance(id)
+    if (i) i.inputState = state
+  }
+  for (const id of witness.open ?? []) {
+    const i = instance(id)
+    if (i) i.fault = "open"
+  }
+  for (const id of witness.short ?? []) {
+    const i = instance(id)
+    if (i) i.fault = "short"
+  }
+  for (const [id, value] of Object.entries(witness.values ?? {})) {
+    const i = instance(id)
+    if (i) {
+      i.value = value
+      i.actualValue = value
+    }
+  }
+  for (const [ref, hole] of Object.entries(witness.move ?? {})) {
+    const [id, end] = ref.split(".")
+    const wire = doc.bench.wires.find((w) => w.id === id)
+    if (wire && (end === "a" || end === "b")) wire[end] = hole
+    const placement = doc.bench.placements.find((p) => p.id === id)
+    if (placement && end in placement.holes) placement.holes[end] = hole
+  }
+  return doc
+}
+
+export function observationHolds(phase: Phase, observation: Observation, doc: CircuitDoc, catalog: PartsCatalog): boolean {
+  const side = observation.on ?? phase.evaluateOn
+  const net = side === "bench" ? benchToNetlist(doc, catalog) : blueprintToNetlist(doc, catalog)
+  return checkThen(observation.if, net, solve(net, catalog), catalog).length === 0
+}
+
+export function observationCanRise(phase: Phase, observation: Observation, catalog: PartsCatalog): boolean {
+  const witness = witnessDoc(phase, observation.witness)
+  // verdadeira já na abertura vira linha de base e nunca aparece
+  return witness !== null && observationHolds(phase, observation, witness, catalog) && !observationHolds(phase, observation, phase.initial ?? emptyDoc(), catalog)
 }
 
 export function evaluateScenarios(scenarios: Scenario[], nets: { bench: Netlist; blueprint: Netlist }, side: "bench" | "blueprint", catalog: PartsCatalog): ScenarioResult[] {
