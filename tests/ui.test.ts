@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { bounceLand, cssLinear, divergenceLabel, formatValue, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
+import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 import type { Star } from "../src/phases"
 
@@ -319,5 +319,18 @@ describe("partSketch", () => {
       const group = partSketch(type, catalog).split('<g class="sketch-pins">')[1]
       expect((group.match(/<text /g) ?? []).length, type).toBe(catalog[type].pins.length)
     }
+  })
+})
+
+describe("orderFrom", () => {
+  it("tutorials always speak through the mentor", () => {
+    expect(orderFrom("tutorial", { client: "Alguém" })).toBe(MENTOR)
+    expect(orderFrom("tutorial", null)).toBe("Dona Neide, dona da oficina")
+  })
+
+  it("other phases use the client or the counter", () => {
+    expect(orderFrom("repair", { client: "Seu Jorge, pescador" })).toBe("Seu Jorge, pescador")
+    expect(orderFrom("order", {})).toBe("Cliente de balcão")
+    expect(orderFrom("build", null)).toBe("Cliente de balcão")
   })
 })

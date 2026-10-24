@@ -617,6 +617,13 @@ export function phaseLabel(id: string): string {
   return phaseLabelMap[id] ?? id
 }
 
+export const MENTOR = "Dona Neide, dona da oficina"
+
+export function orderFrom(type: string, order: { client?: string } | null): string {
+  if (type === "tutorial") return MENTOR
+  return order?.client ?? "Cliente de balcão"
+}
+
 export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[] }
 const METER_UNITS: Record<"V" | "A" | "ohm", string> = { V: "V", A: "A", ohm: "Ω" }
 
