@@ -127,7 +127,7 @@ describe("starsTotal", () => {
   it("counts the union of stars over demo phases", () => {
     const data = loadPhases(phasesRaw)
     const progress = { g0p1: { won: true, bestCost: null, stars: [0, 2] }, g1p1: { won: true, bestCost: 5, stars: [0] }, sandbox: { won: true, bestCost: null, stars: [0, 1, 2] } }
-    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 84 })
+    expect(starsTotal(progress, data)).toEqual({ earned: 3, max: 87 })
   })
 })
 
