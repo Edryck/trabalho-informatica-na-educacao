@@ -1,4 +1,4 @@
-import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
+import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createNotebookScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -13,7 +13,7 @@ import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
-import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
+import { markDiscovered, notebookEntries, applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
 import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
@@ -195,7 +195,7 @@ let history: History = createHistory(emptyDoc())
 let view: AppView
 let evaluation: Evaluation | null = null
 let session: Session | null = null
-type Overlay = "title" | "map" | "group" | "settings" | "complete" | "workshop" | null
+type Overlay = "title" | "map" | "group" | "settings" | "complete" | "workshop" | "notebook" | null
 let overlay: Overlay = null
 let overlayReturn: Overlay = null
 let lastDivergences: import("./netlist").Divergence[] = []
@@ -283,17 +283,20 @@ const titleEl = document.createElement("div")
 const completeEl = document.createElement("div")
 const settingsEl = document.createElement("div")
 const workshopEl = document.createElement("div")
-app.append(titleEl, completeEl, settingsEl, workshopEl)
+const notebookEl = document.createElement("div")
+app.append(titleEl, completeEl, settingsEl, workshopEl, notebookEl)
 const mapScreen = createMapScreen(listEl, {
   onGroup: showGroup,
   onSettings: () => showSettings("map"),
   onHome: showTitle,
   onDatasheets: () => openSheetList(),
+  onNotebook: () => showNotebook(),
   onUnlockSeen: (groupId) => {
     if (!store.data.seenGroups.includes(groupId)) store.data.seenGroups.push(groupId)
     store.save()
   },
 })
+const notebookScreen = createNotebookScreen(notebookEl, { onBack: () => showMap() })
 const groupEl = document.createElement("div")
 stageEl.append(groupEl)
 const groupScreen = createGroupScreen(groupEl, {
@@ -1023,6 +1026,7 @@ function hideOverlays() {
   completeScreen.hide()
   settingsScreen.hide()
   workshopScreen.hide()
+  notebookScreen.hide()
   overlay = null
   stageEl.classList.remove("choosing")
 }
@@ -1113,6 +1117,14 @@ function showCurrentGroup() {
   const group = session ? phases.groups.find((g) => g.phases.some((p) => p.id === session!.phase.id)) : undefined
   if (group) showGroup(group.id)
   else showMap()
+}
+
+function showNotebook() {
+  openOverlay("notebook")
+  const groups = notebookEntries(phases, store.data.progress, store.data.discovered)
+  notebookScreen.show(groups)
+  store.data = markDiscovered(store.data, groups)
+  store.save()
 }
 
 const NEON_NAMES = ["Ciano", "Verde-limão", "Rosa", "Amarelo"]
@@ -1400,6 +1412,10 @@ window.addEventListener("keydown", (event) => {
     } else if (event.key === "Escape" && session && overlay === "map") {
       event.preventDefault()
       closeOverlay()
+    }
+    if (event.key === "Escape" && overlay === "notebook") {
+      event.preventDefault()
+      showMap()
     }
     if (event.key === "Escape" && overlay === "workshop") {
       event.preventDefault()

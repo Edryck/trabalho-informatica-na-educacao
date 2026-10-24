@@ -1,4 +1,4 @@
-import type { GroupSummary, LevelInfo, RewardItem } from "./game"
+import type { GroupSummary, LevelInfo, NotebookGroup, RewardItem } from "./game"
 import type { PhaseType } from "./phases"
 import type { Datasheet } from "./ui"
 import type { Cosmetics } from "./state"
@@ -458,7 +458,7 @@ export function createWorkshopScreen(el: HTMLElement, handlers: WorkshopHandlers
 }
 
 
-export type MapHandlers = { onGroup(id: string): void; onHome(): void; onSettings(): void; onDatasheets?(): void; onUnlockSeen(id: string): void }
+export type MapHandlers = { onGroup(id: string): void; onHome(): void; onSettings(): void; onDatasheets?(): void; onNotebook?(): void; onUnlockSeen(id: string): void }
 
 const BLOCKS: { id: GroupSummary["block"]; title: string }[] = [
   { id: "eletrica", title: "Elétrica" },
@@ -496,6 +496,7 @@ export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
     if (action === "home") return handlers.onHome()
     if (action === "settings") return handlers.onSettings()
     if (action === "datasheets") return handlers.onDatasheets?.()
+    if (action === "notebook") return handlers.onNotebook?.()
     const card = target.closest<HTMLButtonElement>("[data-group]")
     if (card && card.dataset.open === "true") handlers.onGroup(card.dataset.group!)
   })
@@ -516,6 +517,7 @@ export function createMapScreen(el: HTMLElement, handlers: MapHandlers) {
           <h2 class="map-title">Mapa de fases</h2>
           <div class="map-badge"></div>
           <div class="map-nav">
+            ${handlers.onNotebook ? '<button type="button" class="btn-secondary" data-action="notebook">Caderno</button>' : ""}
             ${handlers.onDatasheets ? '<button type="button" class="btn-secondary" data-action="datasheets">Datasheets</button>' : ""}
             <button type="button" class="btn-secondary" data-action="home">Início</button>
             <button type="button" class="btn-secondary" data-action="settings">Configurações</button>
@@ -677,6 +679,38 @@ export function createDatasheetScreen(el: HTMLElement, handlers: { onClose(): vo
     },
     hide() {
       open = false
+      el.hidden = true
+    },
+  }
+}
+
+export function createNotebookScreen(el: HTMLElement, handlers: { onBack(): void }) {
+  el.className = "phase-map notebook-screen"
+  el.hidden = true
+  el.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest("[data-action=back]")) handlers.onBack()
+  })
+  const entry = (e: NotebookGroup["entries"][number]) =>
+    `<li class="notebook-entry${e.isNew ? " new" : ""}"><span class="notebook-meta mono">${phaseLabel(e.phaseId)}</span><p class="notebook-text">${e.discovery}</p>${e.isNew ? '<span class="notebook-new">nova</span>' : ""}</li>`
+  return {
+    show(groups: NotebookGroup[]) {
+      el.hidden = false
+      const body =
+        groups.length === 0
+          ? '<p class="notebook-empty">O caderno ainda está em branco. Cada fase vencida deixa uma anotação aqui.</p>'
+          : groups
+              .map((g) => `<section class="notebook-group" aria-labelledby="nb-${g.id}"><h3 id="nb-${g.id}" class="map-block-title">${g.title}</h3><ol class="notebook-list">${g.entries.map(entry).join("")}</ol></section>`)
+              .join("")
+      el.innerHTML = `
+        <header class="map-head">
+          <h2 class="map-title">Caderno de bancada</h2>
+          <div class="map-nav"><button type="button" class="btn-primary" data-action="back">Voltar pro mapa</button></div>
+        </header>
+        ${body}`
+      void stagger([...el.querySelectorAll<HTMLElement>(".notebook-entry")], (node, delay) => fadeSlide(node, { delay, y: 12, duration: 600 }), 40)
+      el.querySelector<HTMLButtonElement>("[data-action=back]")?.focus()
+    },
+    hide() {
       el.hidden = true
     },
   }

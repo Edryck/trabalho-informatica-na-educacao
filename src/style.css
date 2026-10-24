@@ -3538,3 +3538,55 @@ body.lite .part-sketch .sketch-side {
   font: 500 16px/1.45 var(--font-ui);
   color: var(--color-text);
 }
+
+.notebook-screen .map-head {
+  grid-template-columns: 1fr auto;
+}
+
+.notebook-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notebook-entry {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.notebook-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.notebook-text {
+  margin: 0;
+  font: 400 15px/1.5 var(--font-ui);
+  color: var(--color-text);
+}
+
+.notebook-new {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font: 600 12px/1 var(--font-display);
+  color: var(--color-xp-deep);
+}
+
+.notebook-empty {
+  font: 400 15px/1.5 var(--font-ui);
+  color: var(--color-text-muted);
+}
+
+.notebook-group + .notebook-group {
+  margin-top: 20px;
+}
