@@ -67,15 +67,19 @@ Electrical values keep SI prefixes, Brazilian decimal comma and a thin space bef
 - Parts look like well-made products: rounded edges, satin plastic, metallic terminals, strong colors. Battery with a colored band and label; lamp with a threaded socket and glass bulb with a glowing filament; buttons with green or yellow caps; LEDs with translucent heads; chips matte black with silver pins and printed codes; the breadboard white with colored rails and printed column numbers.
 - Reactions: lamp filament and halo follow brightness; LED glow in its color; motor propeller spins with a slight body vibration; buzzer emits animated rings; a short circuit throws small sparks for 600ms (nothing burns); a placed part does a small settle bounce.
 - Light mode: after a 3s warm-up, if the frame rate stays below 40 for 2s, shadows and environment turn off and the game says so once.
+- Wires: arc (height proportional to length) or right angle (axis-aligned straight runs). A selected wire shows a copper handle at its middle; dragging snaps the middle to the hole under the cursor. Visual only, the netlist ignores it.
 
 ## Screens
 
 1. **Title** — the player's bench in slow showcase orbit behind a white panel: logo, player badge (level, XP bar, stars), daily repair card, buttons (Continue, New game, Workshop, Sandbox, Settings).
 2. **Map and group screen** — the map shows only group cards, split into Electrical and Electronics. Each card says its state (available, complete, locked with what is missing, or soon), phases done and stars. A click opens the group screen: a single path of round nodes with 3 stars under each, focused on the next available phase. Esc goes group, then map, then back to the phase. Notices that arrive while a screen covers the bench (light mode, "continuing where you left off") wait in a queue and show when the screen closes.
 3. **Phase screen** — top bar (level, XP, the phase's 3 star goals, map button), brief panel (goal, scenario checklist, star goals), tool bar, tray with chunky part cards and mini illustrations, blueprint/bench toggle.
-4. **Phase complete** — celebration: stars drop one by one, XP counts up, level bar fills, unlock scene on level up; skippable with click or Esc.
+   - **Work order card** — opens once per phase over the bench: tag "Ordem de serviço" + phase label, object (Rubik 22px), who asked (client or "Dona Neide, dona da oficina"), concept, primary button "Bora pra bancada". Reopened from the "Ordem" link in the brief. Esc closes.
+   - **Observation note** — white panel near the bottom of the stage with a copper left border, Plex Sans 14px, `role="status"`, disappears after 9s.
+4. **Phase complete** — celebration: stars drop one by one, XP counts up, level bar fills, unlock scene on level up; skippable with click or Esc. Shows the client's thanks as a quote and the discovery in a dashed copper box ("Anotado no caderno"), with a "Caderno" button. Victory throws confetti on the parts and opens this screen 700ms later (instant with reduced motion).
 5. **Workshop** — bench close-up with unlocked decor, cosmetic cards (breadboard, wires, mat), next reward.
 6. **Settings** — symbol standard, reduced motion, volume, shortcuts, replay tour, export data, reset progress.
+7. **Bench notebook** — discoveries of won phases grouped by group, each as a white card with a copper left border; new entries carry a "nova" tag until the notebook is opened. Opened from the map and from the phase complete screen. Esc goes back to the map.
 
 ## Datasheet screen
 
@@ -114,7 +118,7 @@ Reduced motion (system or settings): everything is instant, no loops, no particl
 
 ## Sound
 
-CC0 effects, volume in settings, silent failure if the browser blocks audio: click, snap (part placed), wire, toggle, tick (scenario met), star (rising pitch per star), win, level up, unlock, soft error (short circuit, never punitive).
+CC0 effects, volume in settings, silent failure if the browser blocks audio: click (also when the work order opens), snap (part placed), wire, toggle, tick (scenario met; lower pitch for an observation), star (rising pitch per star), win, level up, unlock, soft error (short circuit, never punitive).
 
 ## Simulation UI patterns
 

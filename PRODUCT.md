@@ -30,6 +30,8 @@ A browser game where the simulator is the core. Every phase runs on top of the s
 - A **current view** toggle shows the flow and its direction, making it visible that current is the same before and after a component.
 - **Repair phases** hand the player a broken circuit and a multimeter. Finding the fault is investigation, not a question.
 - **Orders** give an open spec ("a fan with a switch and a buzzer, one 9V battery") with many valid solutions.
+- Every phase is a **work order** from someone who brought something to the workshop (a client, or Dona Neide, the workshop owner, in tutorials). The order opens with the **concept** the phase uses; while the player builds, the simulator drops short **observations** tied to what just happened in the circuit; winning writes one **discovery** sentence into the **bench notebook**. No quiz.
+- A g2 phase has the player measure the current on both sides of a lamp and compare: the numbers match.
 
 ## Users
 
@@ -118,7 +120,7 @@ XP, levels and the workshop are extrinsic motivation. They are kept on method (n
 
 ## Design Principles
 
-1. **The simulator is the teacher** — feedback comes from what the circuit actually does, not from a script saying "wrong"
+1. **The simulator is the teacher** — feedback comes from what the circuit actually does, not from a script saying "wrong"; observations describe the phenomenon, never the fix
 2. **Many right answers** — phases check the expected state, never one correct layout
 3. **Mistakes are cheap** — undo/rewind always available, nothing burns outside the groups marked `burns` in the JSON (the Limits groups)
 4. **Drawing and building are the same circuit** — the netlist is the single truth; divergences are shown, not hidden
