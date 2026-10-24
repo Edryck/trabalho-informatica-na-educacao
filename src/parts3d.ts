@@ -6,6 +6,7 @@ import {
   CircleGeometry,
   Color,
   CubicBezierCurve3,
+  CurvePath,
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
@@ -13,6 +14,7 @@ import {
   Group,
   HemisphereLight,
   LatheGeometry,
+  LineCurve3,
   Material,
   Mesh,
   MeshBasicMaterial,
@@ -28,6 +30,7 @@ import {
   SRGBColorSpace,
   TorusGeometry,
   TubeGeometry,
+  type Curve,
   Vector2,
   Vector3,
   type WebGLRenderer,
@@ -258,6 +261,26 @@ export function hatch(): CanvasTexture {
 export function wireCurve(a: Vector3, b: Vector3, liftBase = 0): CubicBezierCurve3 {
   const height = Math.max(PITCH, 0.35 * a.distanceTo(b)) + liftBase
   return new CubicBezierCurve3(a, a.clone().setY(a.y + height), b.clone().setY(b.y + height), b)
+}
+
+export type WireLook = { style: "arc" | "angle"; mid: Vector3 | null }
+
+export function wirePath(a: Vector3, b: Vector3, look: WireLook): Curve<Vector3> {
+  if (look.style === "angle") return anglePath(a, b, look.mid)
+  if (!look.mid) return wireCurve(a, b)
+  // mesma altura do arco sem ponto do meio: fio comprido sobe mais
+  const height = Math.max(PITCH, 0.35 * a.distanceTo(b))
+  const top = new Vector3(look.mid.x, Math.max(a.y, b.y) + height, look.mid.z)
+  return new CatmullRomCurve3([a, a.clone().setY(a.y + height * 0.6), top, b.clone().setY(b.y + height * 0.6), b], false, "centripetal")
+}
+
+function anglePath(a: Vector3, b: Vector3, mid: Vector3 | null): CurvePath<Vector3> {
+  const y = Math.max(a.y, b.y) + Math.max(PITCH, 0.15 * a.distanceTo(b))
+  const m = mid ?? a.clone().add(b).multiplyScalar(0.5)
+  const points = [a, new Vector3(a.x, y, a.z), new Vector3(m.x, y, a.z), new Vector3(m.x, y, m.z), new Vector3(b.x, y, m.z), new Vector3(b.x, y, b.z), b]
+  const path = new CurvePath<Vector3>()
+  for (let i = 1; i < points.length; i++) if (points[i].distanceTo(points[i - 1]) > 1e-6) path.add(new LineCurve3(points[i - 1], points[i]))
+  return path
 }
 
 export function std(color: number | string, extra: Partial<{ emissive: number; emissiveIntensity: number; roughness: number; metalness: number; transparent: boolean; opacity: number }> = {}) {
