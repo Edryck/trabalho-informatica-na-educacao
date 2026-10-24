@@ -27,11 +27,15 @@ import {
   findPhase,
   referenceCost,
   isPhaseAvailable,
+  createObservationTracker,
   loadPhases,
   meterGroups,
+  observationFlags,
+  observationTick,
   phaseOrder,
   shouldOfferHint,
   type Evaluation,
+  type ObservationTracker,
   type Phase,
   type TutorialEvent,
 } from "./phases"
@@ -65,6 +69,7 @@ import {
   createDivergenceBar,
   divergencesApply,
   createHint,
+  createObservationNote,
   createMeterHud,
   createValuePicker,
   formatValue,
@@ -155,6 +160,9 @@ const [paletteEl, hintEl, toggleEl, barEl, pendingEl, briefEl, listEl, toastEl, 
   document.createElement("div"),
 )
 stageEl.append(toggleEl, barEl, hintEl, briefEl, previewEl, listEl, toastEl, pickerEl, sheetEl, rewindEl)
+const observationEl = document.createElement("div")
+stageEl.append(observationEl)
+const observationNote = createObservationNote(observationEl)
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -174,6 +182,7 @@ type Session = {
   lampSides: Set<string>
   heardOk: boolean[]
   heardGoals: GoalState[]
+  observations: ObservationTracker
 }
 
 let history: History = createHistory(emptyDoc())
@@ -667,6 +676,7 @@ function update(doc: CircuitDoc, opts: { commit: boolean }) {
   // arrasto manda estados intermediários: só conta vitória no que o jogador soltou
   if (opts.commit) {
     advanceSteps()
+    tickObservations()
     checkVictory()
   }
   renderSound = opts.commit
@@ -697,6 +707,7 @@ function restore(next: History) {
   if (session?.phase.id === "sandbox") saveSandboxSoon(view.doc)
   if (session && !session.won && session.phase.id !== "sandbox" && !isDaily(session.phase.id)) store.saveDraftSoon(session.phase.id, view.doc)
   advanceSteps()
+  tickObservations()
   checkVictory()
   renderSettled = true
   render()
@@ -828,6 +839,19 @@ function advanceSteps(): boolean {
   return moved
 }
 
+function tickObservations() {
+  if (!session || session.won || bestView) return
+  const list = session.phase.lesson?.observations ?? []
+  if (list.length === 0) return
+  const live = {
+    bench: { net: view.benchNet, result: view.benchResult },
+    blueprint: { net: view.blueprintNet, result: view.blueprintResult },
+  }
+  const next = observationTick(session.observations, observationFlags(list, session.phase.evaluateOn, live, catalog))
+  session.observations = next.tracker
+  if (next.show !== null) observationNote.show(list[next.show].say)
+}
+
 function checkVictory() {
   if (!session || session.won || !evaluation || session.phase.id === "sandbox") return
   const steps = session.phase.steps
@@ -927,6 +951,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     lampSides: new Set(),
     heardOk: [],
     heardGoals: [],
+    observations: createObservationTracker(),
   }
   brief.reset()
   hideOverlays()
@@ -940,6 +965,8 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   benchDiscrete = undefined
   blueprintDiscrete = undefined
   view = compute(doc)
+  observationNote.clear()
+  tickObservations()
   setTool("select")
   bench.frame()
   if (resumed) notify("info", "Continuando de onde você parou.")

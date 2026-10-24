@@ -421,6 +421,32 @@ export function createHint(el: HTMLElement) {
   }
 }
 
+const OBSERVATION_MS = 9000
+
+export function createObservationNote(el: HTMLElement) {
+  el.className = "observation-note"
+  el.setAttribute("role", "status")
+  el.setAttribute("aria-live", "polite")
+  el.hidden = true
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const clear = () => {
+    if (timer !== null) clearTimeout(timer)
+    timer = null
+    el.hidden = true
+    el.textContent = ""
+  }
+  return {
+    show(text: string) {
+      if (timer !== null) clearTimeout(timer)
+      el.hidden = false
+      el.textContent = text
+      void softRise(el)
+      timer = setTimeout(clear, OBSERVATION_MS)
+    },
+    clear,
+  }
+}
+
 export function trayCount(count: number): string {
   return count === Infinity ? "∞" : String(count)
 }
