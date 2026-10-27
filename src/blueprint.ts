@@ -748,6 +748,17 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     setTool,
     handleKey,
     frame,
+    screenBox(target: string): { x: number; y: number; w: number; h: number; r: number } | null {
+      if (!view || !target.startsWith("part:")) return null
+      const value = target.slice("part:".length)
+      const instances = view.doc.instances
+      const placed = new Set(view.doc.blueprint.placements.map((p) => p.id))
+      const instance = instances.find((i) => i.id === value && placed.has(i.id)) ?? instances.find((i) => i.type === value && placed.has(i.id))
+      const hit = instance ? partsLayer.querySelector(`[data-id="${CSS.escape(instance.id)}"] .hit`) : null
+      if (!hit) return null
+      const rect = hit.getBoundingClientRect()
+      return rect.width > 0 && rect.height > 0 ? { x: rect.left, y: rect.top, w: rect.width, h: rect.height, r: 8 } : null
+    },
     staticMarkup(blueprint: CircuitDoc["blueprint"], instances: Instance[], standard: SymbolStandard): string {
       const types = new Map(instances.map((i) => [i.id, i]))
       const xs: number[] = []

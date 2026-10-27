@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { Box3, PerspectiveCamera, Vector3 } from "three"
-import { boardHoleBox, DEFAULT_CAMERA, dragEvent, meterSlotBox, nextMeterMode, PITCH, probeRest } from "../src/bench"
+import { boardHoleBox, DEFAULT_CAMERA, dragEvent, meterSlotBox, nextMeterMode, PITCH, probeRest, projectBox } from "../src/bench"
 
 function corners(b: Box3): Vector3[] {
   const out: Vector3[] = []
@@ -62,5 +62,24 @@ describe("drag events", () => {
   it("wire ends and middles never count", () => {
     expect(dragEvent("wireEnd", "W1", "a", true)).toBeNull()
     expect(dragEvent("wireMid", "W1", undefined, true)).toBeNull()
+  })
+})
+
+describe("projectBox", () => {
+  const cam = new PerspectiveCamera(40, 1, 1, 3000)
+  cam.position.set(0, 0, 100)
+  cam.lookAt(0, 0, 0)
+  cam.updateMatrixWorld()
+
+  it("projects a box in front of the camera and rejects one behind it", () => {
+    const front = projectBox(new Box3(new Vector3(-1, -1, -1), new Vector3(1, 1, 1)), cam, 800, 800)!
+    expect(front.x).toBeGreaterThan(380)
+    expect(front.x + front.w).toBeLessThan(420)
+    expect(projectBox(new Box3(new Vector3(-1, -1, 150), new Vector3(1, 1, 152)), cam, 800, 800)).toBeNull()
+  })
+
+  it("rejects a box that is in front but fully off screen, keeps one that peeks in", () => {
+    expect(projectBox(new Box3(new Vector3(500, -1, -1), new Vector3(502, 1, 1)), cam, 800, 800)).toBeNull()
+    expect(projectBox(new Box3(new Vector3(30, -1, -1), new Vector3(60, 1, 1)), cam, 800, 800)).not.toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import {
   Box3,
   BoxGeometry,
+  Camera,
   Color,
   ConeGeometry,
   CylinderGeometry,
@@ -242,6 +243,31 @@ export function dragEvent(kind: "part" | "leadEnd" | "probeEnd" | "wireEnd" | "w
   if (kind === "part" || kind === "leadEnd") return { type: "partMoved", target: `part:${id}`, ...(partType ? { partType } : {}) }
   if (kind === "probeEnd") return { type: "probeMoved", target: `probe:${pin}` }
   return null
+}
+
+export function projectBox(box: Box3, camera: Camera, width: number, height: number): { x: number; y: number; w: number; h: number } | null {
+  if (width <= 0 || height <= 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const x of [box.min.x, box.max.x]) {
+    for (const y of [box.min.y, box.max.y]) {
+      for (const z of [box.min.z, box.max.z]) {
+        const p = new Vector3(x, y, z).project(camera)
+        // atrás da câmera o z do NDC passa de 1
+        if (p.z < -1 || p.z > 1) return null
+        const px = ((p.x + 1) / 2) * width
+        const py = ((1 - p.y) / 2) * height
+        minX = Math.min(minX, px)
+        maxX = Math.max(maxX, px)
+        minY = Math.min(minY, py)
+        maxY = Math.max(maxY, py)
+      }
+    }
+  }
+  if (maxX < 0 || maxY < 0 || minX > width || minY > height) return null
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY }
 }
 
 export function probeRest(meterOn: boolean, hole: HoleId | null): "hole" | "holder" {
@@ -824,6 +850,53 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         material.emissiveIntensity = hoverPin === color ? 0.6 : 0
       }
     }
+  }
+
+  function targetBox(target: string): { box: Box3; r: number } | null {
+    const colon = target.indexOf(":")
+    const kind = target.slice(0, colon)
+    const value = target.slice(colon + 1)
+    const groupOf = (id: string) => partsGroup.children.find((c) => c.userData.popId === id)
+    if (kind === "hole") {
+      const p = holePosition(value as HoleId)
+      if (!p) return null
+      const half = PITCH * 0.75
+      return { box: new Box3(new Vector3(p.x - half, -0.2, p.z - half), new Vector3(p.x + half, 0.8, p.z + half)), r: 999 }
+    }
+    if (kind === "part") {
+      const instances = view?.doc.instances ?? []
+      const instance = instances.find((i) => i.id === value) ?? instances.find((i) => i.type === value && groupOf(i.id))
+      const group = instance ? groupOf(instance.id) : undefined
+      if (!group) return null
+      group.updateWorldMatrix(true, true)
+      return { box: new Box3().setFromObject(group), r: 8 }
+    }
+    if (kind === "probe" && (value === "red" || value === "black")) {
+      const meshes = probeMeshes[value]
+      if (meshes.length === 0) return null
+      const box = new Box3()
+      for (const mesh of meshes) {
+        mesh.updateWorldMatrix(true, false)
+        box.union(new Box3().setFromObject(mesh))
+      }
+      return { box, r: 999 }
+    }
+    if (kind === "meter" && value === "dial" && meter.visible) {
+      const dial = meter.getObjectByName("dial")
+      if (!dial) return null
+      dial.updateWorldMatrix(true, true)
+      return { box: new Box3().setFromObject(dial), r: 999 }
+    }
+    return null
+  }
+
+  function screenBox(target: string): { x: number; y: number; w: number; h: number; r: number } | null {
+    const found = targetBox(target)
+    if (!found) return null
+    camera.updateMatrixWorld()
+    const rect = renderer.domElement.getBoundingClientRect()
+    const px = projectBox(found.box, camera, rect.width, rect.height)
+    return px ? { x: px.x + rect.left, y: px.y + rect.top, w: px.w, h: px.h, r: found.r } : null
   }
 
   function updateCables() {
@@ -1646,6 +1719,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       if (on) frame()
     },
     frame,
+    screenBox,
     handleKey,
     setWireColor,
     toggleWireStyle,
