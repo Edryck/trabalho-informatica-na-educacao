@@ -1091,6 +1091,7 @@ function openOverlay(kind: Exclude<Overlay, null>) {
     bestView = null
   }
   hideOverlays()
+  audio.stopLoops()
   overlay = kind
   document.body.classList.add("overlay")
   setTool("select")
@@ -1527,6 +1528,7 @@ const unlockOnGesture = () => {
 }
 for (const type of unlockEvents) document.addEventListener(type, unlockOnGesture)
 audio.preload()
+document.addEventListener("visibilitychange", () => audio.setHidden(document.hidden))
 
 window.addEventListener("pagehide", () => {
   flushSandbox()

@@ -26,6 +26,9 @@ type Fake = {
   volume: number
   loop: boolean
   paused: boolean
+  playbackRate: number
+  currentTime: number
+  preservesPitch: boolean
   plays: number
   play: () => Promise<void>
   pause: () => void
@@ -41,6 +44,9 @@ function fakeMake(made: Fake[], playResult: () => Promise<void> = () => Promise.
       volume: 1,
       loop: false,
       paused: true,
+      playbackRate: 1,
+      currentTime: 0,
+      preservesPitch: true,
       plays: 0,
       play() {
         node.plays++
@@ -199,5 +205,143 @@ describe("music volume and mute", () => {
     vi.advanceTimersByTime(3000)
     expect(music(made).volume).toBeCloseTo(0.2)
     vi.useRealTimers()
+  })
+})
+
+describe("ducking", () => {
+  const playing = async (musicVolume = 0.6) => {
+    vi.useFakeTimers()
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume, make: fakeMake(made), tracks: ["t.mp3"] })
+    a.unlock()
+    await Promise.resolve()
+    vi.advanceTimersByTime(2000)
+    return { a, made }
+  }
+
+  it("ducks to half and comes back", async () => {
+    const { a, made } = await playing()
+    a.duck(1500)
+    expect(music(made).volume).toBeCloseTo(0.3)
+    vi.advanceTimersByTime(2600)
+    expect(music(made).volume).toBeCloseTo(0.6)
+    vi.useRealTimers()
+  })
+
+  it("duck ending while muted stays at 0", async () => {
+    const { a, made } = await playing()
+    a.duck(1500)
+    a.setMuted(true)
+    vi.advanceTimersByTime(3000)
+    expect(music(made).volume).toBe(0)
+    vi.useRealTimers()
+  })
+
+  it("a new duck cancels the previous timer", async () => {
+    const { a, made } = await playing()
+    a.duck(1000)
+    vi.advanceTimersByTime(900)
+    a.duck(1000)
+    vi.advanceTimersByTime(900)
+    expect(music(made).volume).toBeCloseTo(0.3)
+    vi.advanceTimersByTime(2000)
+    expect(music(made).volume).toBeCloseTo(0.6)
+    vi.useRealTimers()
+  })
+
+  it("slider during a duck jumps to the new target and stops it", async () => {
+    const { a, made } = await playing()
+    a.duck(1500)
+    a.setMusicVolume(0.4)
+    expect(music(made).volume).toBeCloseTo(0.4)
+    vi.advanceTimersByTime(4000)
+    expect(music(made).volume).toBeCloseTo(0.4)
+    vi.useRealTimers()
+  })
+})
+
+describe("visibility", () => {
+  it("hidden before unlock never plays; showing the tab starts it", async () => {
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made), tracks: ["t.mp3"] })
+    a.setHidden(true)
+    a.unlock()
+    await Promise.resolve()
+    expect(made.some((m) => m.src.endsWith("t.mp3") && m.plays > 0)).toBe(false)
+    a.setHidden(false)
+    expect(music(made).plays).toBe(1)
+  })
+
+  it("showing the tab does not start locked, muted or zero-volume music", async () => {
+    const made: Fake[] = []
+    const locked = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made), tracks: ["t.mp3"] })
+    locked.setHidden(true)
+    locked.setHidden(false)
+    expect(made.some((m) => m.src.endsWith("t.mp3") && m.plays > 0)).toBe(false)
+    const madeB: Fake[] = []
+    const muted = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(madeB), tracks: ["t.mp3"] })
+    muted.unlock()
+    await Promise.resolve()
+    muted.setMuted(true)
+    muted.setHidden(true)
+    muted.setHidden(false)
+    expect(music(madeB).paused).toBe(true)
+    const madeC: Fake[] = []
+    const silent = createAudio({ sfxVolume: 0.8, musicVolume: 0, make: fakeMake(madeC), tracks: ["t.mp3"] })
+    silent.unlock()
+    silent.setHidden(true)
+    silent.setHidden(false)
+    expect(madeC.some((m) => m.src.endsWith("t.mp3") && m.plays > 0)).toBe(false)
+  })
+
+  it("hiding pauses music and loops; loops do not come back on their own", async () => {
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made), tracks: ["t.mp3"] })
+    a.unlock()
+    await Promise.resolve()
+    a.setLoop("motor", true)
+    a.setHidden(true)
+    const motor = made.find((m) => m.src.endsWith("motor.ogg"))!
+    expect(music(made).paused).toBe(true)
+    expect(motor.paused).toBe(true)
+    a.setHidden(false)
+    expect(music(made).paused).toBe(false)
+    expect(motor.paused).toBe(true)
+  })
+})
+
+describe("loops", () => {
+  it("[RF 2] starts, retunes and stops", () => {
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made) })
+    a.setLoop("motor", true, 1.3)
+    a.setLoop("motor", true, 1.1)
+    const motor = made.find((m) => m.src.endsWith("motor.ogg"))!
+    expect(motor.plays).toBe(1)
+    expect(motor.loop).toBe(true)
+    expect(motor.playbackRate).toBeCloseTo(1.1)
+    expect(motor.preservesPitch).toBe(false)
+    a.stopLoops()
+    expect(motor.paused).toBe(true)
+    expect(motor.currentTime).toBe(0)
+  })
+
+  it("mute silences loops and restores volumes", () => {
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made) })
+    a.setLoop("motor", true)
+    a.setMuted(true)
+    const motor = made.find((m) => m.src.endsWith("motor.ogg"))!
+    expect(motor.volume).toBe(0)
+    a.setMuted(false)
+    expect(motor.volume).toBeCloseTo(0.8)
+  })
+
+  it("sfx slider retunes a running loop", () => {
+    const made: Fake[] = []
+    const a = createAudio({ sfxVolume: 0.8, musicVolume: 0.5, make: fakeMake(made) })
+    a.setLoop("buzzer", true)
+    a.setSfxVolume(0.3)
+    expect(made.find((m) => m.src.endsWith("buzzer.ogg"))!.volume).toBeCloseTo(0.3)
   })
 })

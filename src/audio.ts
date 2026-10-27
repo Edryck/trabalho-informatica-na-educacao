@@ -1,4 +1,5 @@
-export type SfxName = "click" | "snap" | "wire" | "toggle" | "tick" | "star" | "win" | "levelup" | "unlock" | "soft-error"
+export type SfxName = "click" | "snap" | "wire" | "toggle" | "tick" | "star" | "win" | "levelup" | "unlock" | "soft-error" | "lamp-on" | "zap" | "dial"
+export type LoopName = "motor" | "buzzer"
 
 const SFX: SfxName[] = ["click", "snap", "wire", "toggle", "tick", "star", "win", "levelup", "unlock", "soft-error"]
 
@@ -7,6 +8,7 @@ export const DEFAULT_TRACKS = ["workshop-1.mp3", "workshop-2.mp3"]
 const FADE_MS = 2000
 const FADE_STEP_MS = 100
 const FADE_STEPS = FADE_MS / FADE_STEP_MS
+const DUCK_RETURN_MS = 1000
 
 type AudioOptions = {
   sfxVolume: number
@@ -38,11 +40,16 @@ export function createAudio(opts: AudioOptions) {
   const tracks = opts.tracks ?? DEFAULT_TRACKS
   const loaded = new Map<SfxName, HTMLAudioElement | null>()
   const elements = new Map<string, HTMLAudioElement | null>()
+  const loops = new Map<LoopName, HTMLAudioElement | null>()
   const bad = new Set<string>()
 
   let sfxVolume = clamp(opts.sfxVolume)
   let musicVolume = clamp(opts.musicVolume)
   let muted = opts.muted ?? false
+  let hidden = false
+  let ducked = false
+  let duckTimer: ReturnType<typeof setTimeout> | undefined
+  let duckFade: ReturnType<typeof setInterval> | undefined
   let gestureSeen = false
   let unlocked = false
   let pending = false
@@ -56,8 +63,57 @@ export function createAudio(opts: AudioOptions) {
     return loaded.get(name) ?? null
   }
 
-  const musicTarget = () => (muted ? 0 : musicVolume)
-  const playAllowed = () => gestureSeen && !muted && musicVolume > 0
+  const musicTarget = () => (muted ? 0 : musicVolume * (ducked ? 0.5 : 1))
+  const sfxTarget = () => (muted ? 0 : sfxVolume)
+  const playAllowed = () => gestureSeen && !muted && !hidden && musicVolume > 0
+
+  const loopElement = (name: LoopName) => {
+    if (!loops.has(name)) {
+      const el = make(`${base}${name}.ogg`)
+      if (el) {
+        el.loop = true
+        el.preservesPitch = false
+        el.volume = sfxTarget()
+      }
+      loops.set(name, el)
+    }
+    return loops.get(name) ?? null
+  }
+
+  const syncLoops = () => {
+    for (const el of loops.values()) if (el) el.volume = sfxTarget()
+  }
+
+  const stopLoops = () => {
+    for (const el of loops.values()) {
+      if (!el) continue
+      el.pause()
+      el.currentTime = 0
+    }
+  }
+
+  const cancelDuck = () => {
+    clearTimeout(duckTimer)
+    clearInterval(duckFade)
+    duckTimer = undefined
+    duckFade = undefined
+    ducked = false
+  }
+
+  const releaseDuck = (el: HTMLAudioElement) => {
+    ducked = false
+    const from = el.volume
+    const steps = DUCK_RETURN_MS / FADE_STEP_MS
+    let step = 0
+    duckFade = setInterval(() => {
+      step++
+      el.volume = from + (musicTarget() - from) * Math.min(1, step / steps)
+      if (step >= steps) {
+        clearInterval(duckFade)
+        duckFade = undefined
+      }
+    }, FADE_STEP_MS)
+  }
 
   const clearFade = () => {
     clearInterval(fade)
@@ -144,6 +200,7 @@ export function createAudio(opts: AudioOptions) {
   }
 
   const refresh = () => {
+    cancelDuck()
     if (!playAllowed()) {
       clearFade()
       if (active) {
@@ -163,6 +220,7 @@ export function createAudio(opts: AudioOptions) {
     },
     setSfxVolume(v: number) {
       sfxVolume = clamp(v)
+      syncLoops()
     },
     setMusicVolume(v: number) {
       musicVolume = clamp(v)
@@ -170,7 +228,39 @@ export function createAudio(opts: AudioOptions) {
     },
     setMuted(m: boolean) {
       muted = m
+      syncLoops()
       refresh()
+    },
+    setHidden(h: boolean) {
+      hidden = h
+      if (h) stopLoops()
+      refresh()
+    },
+    setLoop(name: LoopName, on: boolean, rate = 1) {
+      const el = loopElement(name)
+      if (!el) return
+      if (!on) {
+        el.pause()
+        el.currentTime = 0
+        return
+      }
+      if (hidden) return
+      el.volume = sfxTarget()
+      el.playbackRate = rate
+      if (el.paused) void el.play()?.catch(() => undefined)
+    },
+    stopLoops,
+    duck(ms: number) {
+      cancelDuck()
+      if (!active || active.paused) return
+      const el = active
+      clearFade()
+      ducked = true
+      el.volume = musicTarget()
+      duckTimer = setTimeout(() => {
+        duckTimer = undefined
+        releaseDuck(el)
+      }, ms)
     },
     unlock() {
       gestureSeen = true
