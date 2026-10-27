@@ -998,7 +998,7 @@ export function createTitleScreen(el: HTMLElement) {
   }
 }
 
-export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number; systemReducedMotion: boolean; storageAvailable: boolean }
+export type SettingsView = { standard: "IEC" | "ANSI"; reducedMotion: boolean; sfxVolume: number; systemReducedMotion: boolean; storageAvailable: boolean }
 export type SettingsHandlers = { onStandard(s: "IEC" | "ANSI"): void; onReducedMotion(on: boolean): void; onVolume(v: number, done: boolean): void; onReset(): void; onExport(): void; onBack(): void; onTour(): void }
 
 export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers) {
@@ -1055,7 +1055,7 @@ export function createSettingsScreen(el: HTMLElement, handlers: SettingsHandlers
         </section>
         <section class="settings-row">
           <div><h3>Volume</h3><p>Efeitos de clique, encaixe, estrelas e nível. No zero, fica tudo em silêncio.</p></div>
-          <input type="range" name="volume" min="0" max="1" step="0.1" value="${state.volume}" aria-label="Volume dos efeitos"/>
+          <input type="range" name="volume" min="0" max="1" step="0.1" value="${state.sfxVolume}" aria-label="Volume dos efeitos"/>
         </section>
         <section class="settings-row shortcuts">
           <div><h3>Atalhos</h3>

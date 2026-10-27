@@ -481,3 +481,11 @@ describe("wire look in saved docs", () => {
     expect(isValidDoc(withWire({ id: "W1", a: "A1", b: "A5", color: "#000", mid: { x: "1", z: 2 } }), catalog)).toBe(false)
   })
 })
+
+describe("settings volumes", () => {
+  it("migrates volume into sfxVolume and adds musicVolume", () => {
+    const m = migrateSave({ version: 1, progress: {}, settings: { standard: "IEC", reducedMotion: false, volume: 0.3 } })!
+    expect(m.settings).toEqual({ standard: "IEC", reducedMotion: false, sfxVolume: 0.3, musicVolume: 0.5, muted: false })
+    expect(defaultSave().settings.musicVolume).toBe(0.5)
+  })
+})

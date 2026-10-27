@@ -96,7 +96,7 @@ export const STORAGE_KEY = "fio-continuo:v1"
 export const SANDBOX_KEY = "fio-continuo:sandbox"
 const DRAFT_DEBOUNCE_MS = 1000
 
-export type Settings = { standard: "IEC" | "ANSI"; reducedMotion: boolean; volume: number }
+export type Settings = { standard: "IEC" | "ANSI"; reducedMotion: boolean; sfxVolume: number; musicVolume: number; muted: boolean }
 export type SessionAttempt = {
   phaseId: string
   startedAt: string
@@ -145,7 +145,7 @@ export function defaultSave(): SaveData {
   return {
     version: 3,
     progress: {},
-    settings: { standard: "IEC", reducedMotion: false, volume: 0.8 },
+    settings: { standard: "IEC", reducedMotion: false, sfxVolume: 0.8, musicVolume: 0.5, muted: false },
     draft: null,
     sessionLog: [],
     seenDatasheets: [],
@@ -268,6 +268,21 @@ function v3PhaseId(id: string): string {
 
 const stringList = (v: unknown): string[] => (Array.isArray(v) ? v.filter(isString) : [])
 
+const isVolume = (v: unknown): v is number => isNumber(v) && v >= 0 && v <= 1
+
+function cleanSettings(raw: Record<string, unknown>): Settings {
+  const base = defaultSave().settings
+  const saved = raw as Partial<Settings> & { volume?: unknown }
+  const sfxVolume = isVolume(saved.sfxVolume) ? saved.sfxVolume : isVolume(saved.volume) ? saved.volume : base.sfxVolume
+  return {
+    standard: saved.standard ?? base.standard,
+    reducedMotion: saved.reducedMotion ?? base.reducedMotion,
+    sfxVolume,
+    musicVolume: isVolume(saved.musicVolume) ? saved.musicVolume : base.musicVolume,
+    muted: saved.muted === true,
+  }
+}
+
 export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | null {
   if (!isObject(raw) || (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) || !isObject(raw.progress) || !isObject(raw.settings)) return null
   const fromV1 = raw.version === 1
@@ -284,7 +299,7 @@ export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | nu
   return {
     version: 3,
     progress,
-    settings: { ...base.settings, ...(raw.settings as Partial<Settings>) },
+    settings: cleanSettings(raw.settings),
     draft: draft && draft.phaseId.startsWith("legacy:") ? null : draft,
     sessionLog: Array.isArray(raw.sessionLog) ? raw.sessionLog.filter(validAttempt).map(cleanAttempt).map((a) => ({ ...a, phaseId: phaseId(a.phaseId) })) : [],
     seenDatasheets: Array.isArray(raw.seenDatasheets) ? raw.seenDatasheets.filter((k): k is string => typeof k === "string") : [],

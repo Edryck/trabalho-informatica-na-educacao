@@ -323,7 +323,7 @@ setReducedMotion(reducedMotion)
     render()
   },
   onVolume: (v, done) => {
-    store.data.settings.volume = v
+    store.data.settings.sfxVolume = v
     audio.setVolume(v)
     if (done) {
       store.save()
@@ -1269,7 +1269,7 @@ function showSettings(from: Overlay) {
   settingsScreen.show({
     standard: store.data.settings.standard,
     reducedMotion: store.data.settings.reducedMotion,
-    volume: store.data.settings.volume,
+    sfxVolume: store.data.settings.sfxVolume,
     systemReducedMotion,
     storageAvailable: store.available,
   })
@@ -1505,7 +1505,7 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest("button")
   if (button && !button.disabled) audio.play("click")
 })
-audio.setVolume(store.data.settings.volume)
+audio.setVolume(store.data.settings.sfxVolume)
 audio.preload()
 
 window.addEventListener("pagehide", () => {
