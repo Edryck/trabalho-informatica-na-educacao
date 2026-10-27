@@ -8,3 +8,11 @@
 ## Sons
 
 - **Interface Sounds 1.0** — Kenney (www.kenney.nl) — https://opengameart.org/content/interface-sounds — CC0 1.0. Arquivos usados (renomeados em `public/sfx/`): click_002 → click, drop_002 → snap, pluck_001 → wire, switch_002 → toggle, tick_002 → tick, glass_001 → star, confirmation_002 → win, maximize_006 → levelup, bong_001 → unlock, error_006 → soft-error.
+- **Digital Audio** — Kenney Vleugels (www.kenney.nl) — https://kenney.nl/assets/digital-audio — CC0 1.0. Arquivos usados (renomeados em `public/sfx/`): zap1 → zap, phaserUp3 → lamp-on.
+- **Interface Sounds 1.0** (mesmo pacote acima, https://opengameart.org/content/interface-sounds) — switch_006 → dial.
+- **Sci-Fi Sounds 1.0** — Kenney (www.kenney.nl) — https://kenney.nl/assets/sci-fi-sounds — CC0 1.0. Arquivos usados (renomeados em `public/sfx/`, cortados em 1,6 s e fechados em loop com crossfade de 0,25 s, volume reduzido): engineCircular_000 → motor, computerNoise_002 → buzzer.
+
+## Música
+
+- **Chill lofi inspired** — omfgdude — https://opengameart.org/content/chill-lofi-inspired — CC0. Arquivo original `ChillLofi.ogg` → `public/music/workshop-1.mp3` (convertido para mp3 128 kbps, volume normalizado).
+- **Lofi again** — omfgdude — https://opengameart.org/content/lofi-again — CC0. Arquivo original `lofiagain.ogg` → `public/music/workshop-2.mp3` (convertido para mp3 128 kbps, volume normalizado).

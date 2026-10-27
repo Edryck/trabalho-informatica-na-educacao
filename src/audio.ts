@@ -3,7 +3,7 @@ import type { SolveResult } from "./solver"
 export type SfxName = "click" | "snap" | "wire" | "toggle" | "tick" | "star" | "win" | "levelup" | "unlock" | "soft-error" | "lamp-on" | "zap" | "dial"
 export type LoopName = "motor" | "buzzer"
 
-const SFX: SfxName[] = ["click", "snap", "wire", "toggle", "tick", "star", "win", "levelup", "unlock", "soft-error"]
+const SFX: SfxName[] = ["click", "snap", "wire", "toggle", "tick", "star", "win", "levelup", "unlock", "soft-error", "lamp-on", "zap", "dial"]
 
 export const DEFAULT_TRACKS = ["workshop-1.mp3", "workshop-2.mp3"]
 
