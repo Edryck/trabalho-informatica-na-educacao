@@ -43,6 +43,7 @@ export type Phase = {
   id: string
   type: PhaseType
   goal: string
+  introduces: string[]
   brief: string
   tray: Record<string, number>
   trayValues?: Record<string, number[]>
@@ -92,6 +93,7 @@ type RawGroup = Omit<Group, "phases" | "requires" | "block" | "burns"> & Partial
 
 function fillPhase(raw: RawPhase): Phase {
   const phase: Phase = {
+    introduces: [],
     brief: raw.goal,
     tray: {},
     keyParts: [],
@@ -354,6 +356,32 @@ export function groupComplete(group: Group, won: Set<string>): boolean {
   return group.phases.length > 0 && group.phases.every((p) => won.has(p.id))
 }
 
+export function seedIntroduced(data: PhaseData, won: Set<string>, catalog: PartsCatalog): string[] {
+  const out: string[] = []
+  const add = (key: string) => {
+    if (!out.includes(key)) out.push(key)
+  }
+  for (const group of data.groups) {
+    if (groupComplete(group, won)) for (const unlock of group.unlocks) if (unlock in catalog) add(unlock)
+    for (const phase of group.phases) {
+      if (!won.has(phase.id)) continue
+      for (const key of phase.introduces) add(key)
+      for (const type of Object.keys(phase.tray)) add(type)
+    }
+  }
+  return out
+}
+
+export function newPartsFor(data: PhaseData, phase: Phase, introduced: string[], known: Set<string>, catalog: PartsCatalog): string[] {
+  const group = data.groups.find((g) => g.phases.includes(phase))
+  const candidates: string[] = []
+  if (group && group.phases[0] === phase) candidates.push(...group.unlocks.filter((u) => u in catalog))
+  candidates.push(...phase.introduces, ...Object.keys(phase.tray), ...(phase.initial?.instances.map((i) => i.type) ?? []))
+  const out: string[] = []
+  for (const key of candidates) if (known.has(key) && !introduced.includes(key) && !out.includes(key)) out.push(key)
+  return out
+}
+
 function groupUnlocked(data: PhaseData, won: Set<string>, group: Group, seen: Set<string> = new Set()): boolean {
   if (group.requires === null) return true
   if (seen.has(group.id)) return false
@@ -419,7 +447,7 @@ export function targetError(target: string, phase: Phase, catalog: PartsCatalog)
   return METER_TARGETS.includes(value) ? null : `alvo "${target}": seletor do multímetro inválido`
 }
 
-export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheets: Record<string, unknown>): string[] {
+export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheets: Record<string, unknown>, guideKeys: string[] = []): string[] {
   const errors: string[] = []
   const groupIds = new Set<string>()
   const meters = meterGroups(data)
@@ -446,6 +474,9 @@ export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheet
       for (const key of phase.keyParts) {
         if (!(key.part in catalog)) errors.push(`${where}: peça-chave ${key.id} tem tipo "${key.part}" inexistente`)
         if (!initialIds.has(key.id) && !(phase.tray[key.part] > 0)) errors.push(`${where}: peça-chave ${key.id} não está na bandeja nem no circuito inicial`)
+      }
+      for (const key of phase.introduces) {
+        if (!guideKeys.includes(key) && !(key in catalog)) errors.push(`${where}: introduces "${key}" não existe`)
       }
       phase.steps?.forEach((step, index) => {
         const targets = [step.target, "event" in step.until ? step.until.target : undefined]

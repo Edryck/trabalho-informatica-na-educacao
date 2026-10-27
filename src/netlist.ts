@@ -31,9 +31,17 @@ export type PartDef = {
   symbolPins: Record<string, [number, number]>
   isTool?: boolean
   datasheet?: string
+  howTo?: HowTo
 }
 
 export type PartsCatalog = Record<string, PartDef>
+export type HowTo = { place: string; works: string }
+export type GuideDef = { name: string; howTo: HowTo }
+
+export function splitParts(raw: unknown): { catalog: PartsCatalog; guides: Record<string, GuideDef> } {
+  const { guides = {}, ...catalog } = raw as PartsCatalog & { guides?: Record<string, GuideDef> }
+  return { catalog, guides }
+}
 
 export type NetPart = {
   id: string

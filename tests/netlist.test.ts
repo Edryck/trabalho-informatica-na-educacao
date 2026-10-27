@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import { stripOf, benchToNetlist, blueprintToNetlist, collapse, compare } from "../src/netlist"
 import type { Link, NetPart, Netlist, PartsCatalog } from "../src/netlist"
 import { emptyDoc } from "../src/state"
 import type { CircuitDoc, Instance } from "../src/state"
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
 
 type DocPatch = {
   instances?: Instance[]

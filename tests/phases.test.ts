@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import type { PartsCatalog } from "../src/netlist"
 import { checkThen, claimableId, docCost, evaluate, evaluateScenarios, groupComplete, isPhaseAvailable, loadPhases, meterGroups, phaseOrder, shouldOfferHint, type Lesson, type Observation, type Phase, observationCanRise, witnessDoc, createObservationTracker, observationFlags, observationTick, ammeterLampPin, bothLampSides, phaseLabels } from "../src/phases"
 import { benchToNetlist, blueprintToNetlist } from "../src/netlist"
@@ -9,9 +10,10 @@ import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
 import { starLabel, type Datasheet } from "../src/ui"
 import { solve } from "../src/solver"
-import { eventMatches, freshTutorialState, stepEventDone, targetError, type TutorialEvent } from "../src/phases"
+import { eventMatches, freshTutorialState, newPartsFor, seedIntroduced, stepEventDone, targetError, type TutorialEvent } from "../src/phases"
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
+const guideKeys = Object.keys(splitParts(parts).guides)
 
 function phase(partial: Partial<Phase>): Phase {
   return loadPhases({ groups: [{ id: "g", title: "t", demo: true, concept: "", unlocks: [], phases: [{ id: "p", type: "build", goal: "x", ...partial }] }], future: [] }).groups[0].phases[0]
@@ -149,7 +151,7 @@ describe("evaluate", () => {
       groups: [{ id: "x", title: "x", demo: true, concept: "", unlocks: [], phases: [{ id: "x1", type: "build", goal: "g", showDivergence: false, stars: [{ kind: "solved" }, { kind: "noDivergence" }, { kind: "maxWires", value: 2 }] }] }],
       future: [],
     })
-    expect(validatePhases(bad, catalog, datasheets).some((e) => e.includes("noDivergence"))).toBe(true)
+    expect(validatePhases(bad, catalog, datasheets, guideKeys).some((e) => e.includes("noDivergence"))).toBe(true)
   })
 
   it("budget blocks win", () => {
@@ -219,7 +221,7 @@ describe("shipped data", () => {
   const data = loadPhases(phasesRaw)
 
   it("is consistent", () => {
-    expect(validatePhases(data, catalog, datasheets)).toEqual([])
+    expect(validatePhases(data, catalog, datasheets, guideKeys)).toEqual([])
   })
 
   it("validator catches duplicate ids and missing key parts", () => {
@@ -239,7 +241,7 @@ describe("shipped data", () => {
       ],
       future: [],
     })
-    expect(validatePhases(broken, catalog, datasheets).length).toBeGreaterThanOrEqual(4)
+    expect(validatePhases(broken, catalog, datasheets, guideKeys).length).toBeGreaterThanOrEqual(4)
   })
 
   describe("reference solutions win", () => {
@@ -578,7 +580,7 @@ describe("group requirements", () => {
       ],
       future: [],
     })
-    const errors = validatePhases(cyc, catalog, datasheets)
+    const errors = validatePhases(cyc, catalog, datasheets, guideKeys)
     expect(errors.some((e) => e.includes("ciclo"))).toBe(true)
     expect(errors.some((e) => e.includes('"nope"'))).toBe(true)
   })
@@ -1021,12 +1023,52 @@ describe("step targets", () => {
   })
 
   it("real phase data has no bad step targets", () => {
-    expect(validatePhases(loadPhases(phasesRaw), catalog, datasheets).filter((e) => e.includes("passo"))).toEqual([])
+    expect(validatePhases(loadPhases(phasesRaw), catalog, datasheets, guideKeys).filter((e) => e.includes("passo"))).toEqual([])
+  })
+
+  it("validatePhases rejects introduces that is neither a guide nor a part", () => {
+    const bad = structuredClone(loadPhases(phasesRaw))
+    bad.groups[0].phases[0].introduces = ["nope"]
+    expect(validatePhases(bad, catalog, datasheets, guideKeys).some((e) => e.includes('introduces "nope" não existe'))).toBe(true)
   })
 
   it("validatePhases reports a bad step target in any phase, demo or not", () => {
     const bad = structuredClone(loadPhases(phasesRaw))
     bad.groups[0].phases[0].steps = [{ text: "x", until: { event: "wireDrawn" }, target: "tray:lamp" }]
-    expect(validatePhases(bad, catalog, datasheets).some((e) => e.startsWith(`fase ${bad.groups[0].phases[0].id}: passo 1:`))).toBe(true)
+    expect(validatePhases(bad, catalog, datasheets, guideKeys).some((e) => e.startsWith(`fase ${bad.groups[0].phases[0].id}: passo 1:`))).toBe(true)
+  })
+})
+
+describe("part cards", () => {
+  const data = loadPhases(phasesRaw)
+
+  it("[RF 5] seeds introduced parts from finished groups and finished phases", () => {
+    const won = new Set(data.groups.find((g) => g.id === "g0")!.phases.map((p) => p.id))
+    const seeded = seedIntroduced(data, won, catalog)
+    expect(seeded).toEqual(expect.arrayContaining(["battery", "lamp", "breadboard", "jumper_wire"]))
+    expect(seeded).not.toContain("resistor")
+  })
+
+  it("lists new parts for the first phase of a group, unlocks first", () => {
+    const g2p1 = findPhase(data, "g2p1")!
+    const known = new Set(["resistor", "multimeter", "battery", "lamp"])
+    expect(newPartsFor(data, g2p1, ["battery", "lamp"], known, catalog).slice(0, 2)).toEqual(["resistor", "multimeter"])
+    expect(newPartsFor(data, g2p1, ["battery", "lamp", "resistor", "multimeter"], known, catalog)).toEqual([])
+  })
+
+  it("guides only come from introduces", () => {
+    const known = new Set(["battery", "lamp", "breadboard", "jumper_wire"])
+    expect(newPartsFor(data, findPhase(data, "g0p1")!, [], known, catalog)).not.toContain("breadboard")
+    expect(newPartsFor(data, findPhase(data, "g0p4")!, ["battery", "lamp"], known, catalog)).toEqual(["breadboard", "jumper_wire"])
+  })
+})
+
+describe("guides split", () => {
+  it("catalog has no guides and guides come with a how-to", () => {
+    const { catalog: parsed, guides } = splitParts(parts)
+    expect(parsed).not.toHaveProperty("guides")
+    expect(parsed).not.toHaveProperty("breadboard")
+    expect(guides.breadboard.howTo.place.length).toBeGreaterThan(0)
+    expect(guides.jumper_wire.name.length).toBeGreaterThan(0)
   })
 })

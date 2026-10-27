@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import { solve, INITIAL_DISCRETE, MAX_PASSES } from "../src/solver"
 import type { PartState } from "../src/solver"
 import type { Link, NetPart, Netlist, PartsCatalog } from "../src/netlist"
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
 
 function net(netParts: NetPart[], pinAt: Record<string, string>, links: Link[] = []): Netlist {
   return { parts: netParts, links, pinAt }
@@ -310,10 +311,10 @@ describe("logic chips", () => {
   })
 
   it("nor output is pin 1 and gates match the real pinout", () => {
-    expect((parts as unknown as PartsCatalog).chip_nor.pins[0]).toBe("1Y")
-    expect((parts as unknown as PartsCatalog).chip_and.pins.slice(0, 3)).toEqual(["1A", "1B", "1Y"])
-    expect((parts as unknown as PartsCatalog).chip_not.pins[6]).toBe("GND")
-    expect((parts as unknown as PartsCatalog).chip_not.pins[13]).toBe("VCC")
+    expect(splitParts(parts).catalog.chip_nor.pins[0]).toBe("1Y")
+    expect(splitParts(parts).catalog.chip_and.pins.slice(0, 3)).toEqual(["1A", "1B", "1Y"])
+    expect(splitParts(parts).catalog.chip_not.pins[6]).toBe("GND")
+    expect(splitParts(parts).catalog.chip_not.pins[13]).toBe("VCC")
   })
 
   it("floating input is undefined and warns", () => {

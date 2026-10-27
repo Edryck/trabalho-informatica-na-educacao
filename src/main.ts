@@ -16,7 +16,7 @@ import { createAudio, soundCues, throttleCues, type SfxName } from "./audio"
 import { markDiscovered, notebookEntries, applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
 import { bandHex, createBench, nextMeterMode, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
-import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
+import { benchToNetlist, blueprintToNetlist, splitParts, type PartsCatalog } from "./netlist"
 import {
   evaluate,
   claimableId,
@@ -41,6 +41,7 @@ import {
   stepEventDone,
   type TutorialEvent,
   type TutorialEventType,
+  seedIntroduced,
 } from "./phases"
 import { solve, type DiscreteState, type SolveResult } from "./solver"
 import {
@@ -107,7 +108,7 @@ import {
   type ViewName,
 } from "./ui"
 
-const catalog = partsJson as unknown as PartsCatalog
+const catalog = splitParts(partsJson).catalog
 const phases = loadPhases(phasesJson)
 setPhaseLabels(phaseLabels(phases))
 const rewards = buildRewards(rewardsJson as RewardsData, phases)
@@ -144,6 +145,10 @@ function safeLocalStorage(): Storage | null {
 }
 
 const store = createStore(safeLocalStorage(), catalog)
+if (store.data.partsIntroduced === null) {
+  store.data.partsIntroduced = seedIntroduced(phases, progressWon(), catalog)
+  store.save()
+}
 const audio = createAudio({
   sfxVolume: store.data.settings.sfxVolume,
   musicVolume: store.data.settings.musicVolume,
@@ -1423,6 +1428,7 @@ function startSandbox() {
   for (const key of Object.keys(catalog)) if (key !== "multimeter") tray[key] = Infinity
   const sandbox: Phase = {
     id: "sandbox",
+    introduces: [],
     type: "build",
     goal: "sandbox",
     brief: "Monta o que quiser, com todas as peças e sem limite. O que você monta aqui fica salvo.",

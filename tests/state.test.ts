@@ -58,10 +58,11 @@ describe("nextInstanceId", () => {
 
 import { vi } from "vitest"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import type { PartsCatalog } from "../src/netlist"
 import { createStore, defaultSave, isValidDoc, STORAGE_KEY } from "../src/state"
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
 
 const memory = () => {
   const m = new Map<string, string>()
@@ -487,5 +488,18 @@ describe("settings volumes", () => {
     const m = migrateSave({ version: 1, progress: {}, settings: { standard: "IEC", reducedMotion: false, volume: 0.3 } })!
     expect(m.settings).toEqual({ standard: "IEC", reducedMotion: false, sfxVolume: 0.3, musicVolume: 0.5, muted: false })
     expect(defaultSave().settings.musicVolume).toBe(0.5)
+  })
+})
+
+describe("partsIntroduced", () => {
+  const raw = { version: 3, progress: {}, settings: { standard: "IEC", reducedMotion: false } }
+
+  it("new save starts empty, old save starts null so it gets seeded", () => {
+    expect(defaultSave().partsIntroduced).toEqual([])
+    expect(migrateSave(raw)!.partsIntroduced).toBeNull()
+  })
+
+  it("keeps only string entries", () => {
+    expect(migrateSave({ ...raw, partsIntroduced: ["lamp", 3] })!.partsIntroduced).toEqual(["lamp"])
   })
 })

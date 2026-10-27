@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest"
 import phasesRaw from "../data/phases.json"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import type { PartsCatalog } from "../src/netlist"
 import { loadPhases, observationCanRise, type Phase } from "../src/phases"
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
 const data = loadPhases(phasesRaw)
 const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
 

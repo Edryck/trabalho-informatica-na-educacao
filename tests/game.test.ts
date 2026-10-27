@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest"
 import rewardsJson from "../data/rewards.json"
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import phasesJson from "../data/phases.json"
 import { applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, equipCosmetic, dailyRepair, dailyUnlocked, evaluateStars, goalState, itemsUpTo, levelFor, seededRandom, updateStreak, type Rewards, type RewardsData, type StarContext, markDiscovered, notebookEntries } from "../src/game"
 import type { PartsCatalog } from "../src/netlist"
@@ -131,7 +132,7 @@ describe("starsTotal", () => {
   })
 })
 
-const catalog = parts as unknown as PartsCatalog
+const catalog = splitParts(parts).catalog
 const data = loadPhases(phasesJson)
 const g3Done = new Set(data.groups.filter((g) => g.demo).flatMap((g) => g.phases.map((p) => p.id)))
 const metered: PhaseData = { ...data, groups: data.groups.map((g) => (g.id === "g2" ? { ...g, phases: data.groups.find((x) => x.id === "g6")!.phases } : g)) }

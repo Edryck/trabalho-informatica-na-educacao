@@ -569,6 +569,10 @@
           "type": "build",
           "goal": "montar na protoboard o que foi desenhado",
           "brief": "O desenho já está pronto. Monta o mesmo circuito na protoboard.",
+          "introduces": [
+            "breadboard",
+            "jumper_wire"
+          ],
           "keyParts": [
             {
               "id": "L1",

@@ -131,6 +131,7 @@ export type SaveData = {
   seenGroups: string[]
   discovered: string[]
   conceptSeen: string[]
+  partsIntroduced: string[] | null
 }
 export type StorageLike = Pick<Storage, "getItem" | "setItem">
 export type Store = {
@@ -156,6 +157,7 @@ export function defaultSave(): SaveData {
     seenGroups: [],
     discovered: [],
     conceptSeen: [],
+    partsIntroduced: [],
   }
 }
 
@@ -310,6 +312,7 @@ export function migrateSave(raw: unknown, catalog?: PartsCatalog): SaveData | nu
     seenGroups: moves ? seenGroups.map((g) => V3_GROUP_MOVES[g] ?? g) : seenGroups,
     discovered: stringList(raw.discovered),
     conceptSeen: stringList(raw.conceptSeen),
+    partsIntroduced: Array.isArray(raw.partsIntroduced) ? stringList(raw.partsIntroduced) : null,
   }
 }
 

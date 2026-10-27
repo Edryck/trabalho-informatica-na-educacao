@@ -26,7 +26,11 @@
         2
       ]
     },
-    "datasheet": "battery"
+    "datasheet": "battery",
+    "howTo": {
+      "place": "Ligue o + e o − em furos de linhas diferentes da protoboard, ou em um trilho.",
+      "works": "Fornece a tensão que empurra a corrente pelo circuito."
+    }
   },
   "lamp": {
     "pins": [
@@ -54,7 +58,11 @@
         0
       ]
     },
-    "datasheet": "lamp"
+    "datasheet": "lamp",
+    "howTo": {
+      "place": "Encaixe as duas pernas em furos de colunas diferentes, sem encostar uma na outra.",
+      "works": "A corrente aquece o filamento até ele brilhar. Quanta mais corrente, mais forte a luz."
+    }
   },
   "switch": {
     "pins": [
@@ -1578,5 +1586,21 @@
       ]
     },
     "datasheet": "multimeter"
+  },
+  "guides": {
+    "jumper_wire": {
+      "name": "Fio jumper",
+      "howTo": {
+        "place": "Clique num furo e depois em outro para ligar os dois com um fio.",
+        "works": "Liga dois pontos do circuito sem nenhuma peça no meio."
+      }
+    },
+    "breadboard": {
+      "name": "Protoboard",
+      "howTo": {
+        "place": "Encaixe as peças nos furos. Cada coluna de A a E e de F a J é uma ligação só.",
+        "works": "Os furos de uma mesma coluna estão ligados por dentro. Os trilhos das laterais formam as linhas de + e −."
+      }
+    }
   }
 }

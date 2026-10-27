@@ -272,11 +272,12 @@ describe("sandbox helpers", () => {
 })
 
 import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
 import type { PartsCatalog } from "../src/netlist"
 import { formatValue as fmt, specRows, bandNames, partSketch } from "../src/ui"
 
 describe("specRows", () => {
-  const catalog = parts as unknown as PartsCatalog
+  const catalog = splitParts(parts).catalog
 
   it("led rows match the solver model", () => {
     const led = catalog.led
@@ -307,7 +308,7 @@ describe("specRows", () => {
 })
 
 describe("partSketch", () => {
-  const catalog = parts as unknown as PartsCatalog
+  const catalog = splitParts(parts).catalog
 
   it("sketch has a side view only where the shape changes", () => {
     for (const type of ["resistor", "led", "diode", "chip_and"]) expect(partSketch(type, catalog), type).toContain("sketch-side")
