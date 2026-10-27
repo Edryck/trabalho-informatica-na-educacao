@@ -1,3 +1,5 @@
+import type { SolveResult } from "./solver"
+
 export type SfxName = "click" | "snap" | "wire" | "toggle" | "tick" | "star" | "win" | "levelup" | "unlock" | "soft-error" | "lamp-on" | "zap" | "dial"
 export type LoopName = "motor" | "buzzer"
 
@@ -289,3 +291,35 @@ export function createAudio(opts: AudioOptions) {
 }
 
 export type GameAudio = ReturnType<typeof createAudio>
+
+export type SoundCue = { kind: "play"; name: SfxName } | { kind: "loop"; name: LoopName; on: boolean; rate: number }
+
+export const CUE_MIN_GAP_MS = 300
+
+const litParts = (result: SolveResult | null) =>
+  new Set(Object.entries(result?.partState ?? {}).filter(([, s]) => (s.kind === "lamp" || s.kind === "led") && s.lit).map(([id]) => id))
+
+export function soundCues(prev: SolveResult | null, next: SolveResult): SoundCue[] {
+  const cues: SoundCue[] = []
+  const before = litParts(prev)
+  if ([...litParts(next)].some((id) => !before.has(id))) cues.push({ kind: "play", name: "lamp-on" })
+  const hadShort = prev?.warnings.some((w) => w.kind === "shortCircuit") ?? false
+  if (!hadShort && next.warnings.some((w) => w.kind === "shortCircuit")) cues.push({ kind: "play", name: "zap" })
+  const spinning = Object.entries(next.partState).filter(([, s]) => s.kind === "motor" && s.spinning)
+  const strongest = Math.max(0, ...spinning.map(([id]) => Math.abs(next.partCurrent[id] ?? 0)))
+  cues.push({ kind: "loop", name: "motor", on: spinning.length > 0, rate: spinning.length > 0 ? Math.min(1.4, Math.max(0.8, 0.8 + strongest * 2)) : 1 })
+  cues.push({ kind: "loop", name: "buzzer", on: Object.values(next.partState).some((s) => s.kind === "buzzer" && s.sounding), rate: 1 })
+  return cues
+}
+
+export function throttleCues(cues: SoundCue[], lastAt: Partial<Record<SfxName, number>>, now: number): { cues: SoundCue[]; lastAt: Partial<Record<SfxName, number>> } {
+  const nextAt = { ...lastAt }
+  const passed = cues.filter((cue) => {
+    if (cue.kind === "loop" || (cue.name !== "lamp-on" && cue.name !== "zap")) return true
+    const last = nextAt[cue.name]
+    if (last !== undefined && now - last < CUE_MIN_GAP_MS) return false
+    nextAt[cue.name] = now
+    return true
+  })
+  return { cues: passed, lastAt: nextAt }
+}

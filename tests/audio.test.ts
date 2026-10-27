@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
-import { createAudio } from "../src/audio"
+import { createAudio, soundCues, throttleCues, type SoundCue } from "../src/audio"
+import type { PartState, SolveResult } from "../src/solver"
 
 type FakeAudio = { volume: number; playbackRate: number; play: () => Promise<void>; cloneNode: () => FakeAudio; preload: string }
 
@@ -343,5 +344,44 @@ describe("loops", () => {
     a.setLoop("buzzer", true)
     a.setSfxVolume(0.3)
     expect(made.find((m) => m.src.endsWith("buzzer.ogg"))!.volume).toBeCloseTo(0.3)
+  })
+})
+
+describe("sound cues", () => {
+  const base = { status: "ok", voltages: {}, linkCurrent: {}, partCurrent: {}, partState: {}, warnings: [], discrete: {}, passes: 1 } as unknown as SolveResult
+  const withState = (partState: Record<string, PartState>, extra: Partial<SolveResult> = {}) => ({ ...base, partState, ...extra }) as SolveResult
+
+  it("lamp-on fires only on the off-to-lit transition", () => {
+    const off = withState({ L1: { kind: "lamp", lit: false, brightness: 0 } })
+    const lit = withState({ L1: { kind: "lamp", lit: true, brightness: 1 }, L2: { kind: "lamp", lit: true, brightness: 1 } })
+    expect(soundCues(off, lit).filter((c) => c.kind === "play")).toEqual([{ kind: "play", name: "lamp-on" }])
+    expect(soundCues(lit, lit).filter((c) => c.kind === "play")).toEqual([])
+  })
+
+  it("[RF 5] zap only when the short starts", () => {
+    const short = withState({}, { warnings: [{ kind: "shortCircuit" }] })
+    expect(soundCues(base, short)).toContainEqual({ kind: "play", name: "zap" })
+    expect(soundCues(short, short)).not.toContainEqual({ kind: "play", name: "zap" })
+  })
+
+  it("throttles lamp-on and zap within 300 ms, never loops", () => {
+    const cues = [{ kind: "play", name: "lamp-on" }, { kind: "loop", name: "motor", on: true, rate: 1 }] as SoundCue[]
+    const first = throttleCues(cues, {}, 1000)
+    expect(first.cues).toHaveLength(2)
+    expect(throttleCues(cues, first.lastAt, 1200).cues).toEqual([{ kind: "loop", name: "motor", on: true, rate: 1 }])
+    expect(throttleCues(cues, first.lastAt, 1301).cues).toHaveLength(2)
+  })
+
+  it("motor and buzzer loops follow the state", () => {
+    const spin = withState({ M1: { kind: "motor", spinning: true, direction: 1 }, Z1: { kind: "buzzer", sounding: true } }, { partCurrent: { M1: 0.1 } })
+    const cues = soundCues(null, spin)
+    expect(cues).toContainEqual({ kind: "loop", name: "motor", on: true, rate: 1.0 })
+    expect(cues).toContainEqual({ kind: "loop", name: "buzzer", on: true, rate: 1 })
+    expect(soundCues(spin, base)).toContainEqual({ kind: "loop", name: "motor", on: false, rate: 1 })
+  })
+
+  it("motor pitch is clamped", () => {
+    const fast = withState({ M1: { kind: "motor", spinning: true, direction: 1 } }, { partCurrent: { M1: -5 } })
+    expect(soundCues(null, fast)).toContainEqual({ kind: "loop", name: "motor", on: true, rate: 1.4 })
   })
 })

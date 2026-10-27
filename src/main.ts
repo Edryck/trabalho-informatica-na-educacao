@@ -12,7 +12,7 @@ import partsJson from "../data/parts.json"
 import phasesJson from "../data/phases.json"
 import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
-import { createAudio } from "./audio"
+import { createAudio, soundCues, throttleCues, type SfxName } from "./audio"
 import { markDiscovered, notebookEntries, applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
 import { bandHex, createBench, nextMeterMode, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
@@ -39,7 +39,7 @@ import {
   type Phase,
   type TutorialEvent,
 } from "./phases"
-import { solve, type DiscreteState } from "./solver"
+import { solve, type DiscreteState, type SolveResult } from "./solver"
 import {
   createHistory,
   createStore,
@@ -220,6 +220,8 @@ function overlayOpen(): boolean {
 }
 
 let renderSound = false
+let lastCueResult: SolveResult | null = null
+let cueLastAt: Partial<Record<SfxName, number>> = {}
 let renderSettled = false
 const hint = createHint(hintEl)
 const bar = createDivergenceBar(barEl)
@@ -613,6 +615,22 @@ function previewText(index: number): string {
   return label.when || "estado atual"
 }
 
+function applyCues() {
+  const prev = lastCueResult
+  const result = view.benchResult
+  lastCueResult = result
+  const live = !!session && activeView === "bench" && !overlayOpen() && !rewinding && bestView === null
+  if (!live) return audio.stopLoops()
+  // primeiro solve da sessão é só a linha de base: entrar na fase ou retomar rascunho não faz barulho
+  if (prev === null) return
+  const throttled = throttleCues(soundCues(prev, result), cueLastAt, performance.now())
+  cueLastAt = throttled.lastAt
+  for (const cue of throttled.cues) {
+    if (cue.kind === "play") audio.play(cue.name)
+    else audio.setLoop(cue.name, cue.on, cue.rate)
+  }
+}
+
 function render() {
   const phase = session?.phase
   const ev = evaluation
@@ -621,6 +639,7 @@ function render() {
   const previewResult = session?.previewIndex !== null && session?.previewIndex !== undefined ? ev?.scenarios[session.previewIndex]?.result : undefined
   const evaluatesBench = phase?.evaluateOn !== "blueprint"
   const meter = view.doc.bench.meter
+  applyCues()
   const reading = (previewResult && evaluatesBench ? previewResult : view.benchResult).meter
   const placed = !!meter.red && !!meter.black
   bench.render(view, {
@@ -756,6 +775,7 @@ function meterAvailable(): boolean {
 function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
   if (!session || rewinding || bestView) return
   const doc = structuredClone(view.doc)
+  if (doc.bench.meter.mode !== mode) audio.play("dial")
   doc.bench.meter.mode = mode
   if (mode !== "off") lastMeterMode = mode
   update(doc, { commit: true })
@@ -815,7 +835,6 @@ function noticeMeterAndWarnings() {
     if (shownWarnings.has(key) || QUIET_WARNINGS.has(w.kind)) continue
     const text = warningText(w)
     if (text) toasts.show("warning", text)
-    if (w.kind === "shortCircuit") audio.play("soft-error")
   }
   shownWarnings = now
 }
@@ -1051,6 +1070,8 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   history = createHistory(doc)
   benchDiscrete = undefined
   blueprintDiscrete = undefined
+  lastCueResult = null
+  cueLastAt = {}
   view = compute(doc)
   observationNote.clear()
   tickObservations()
@@ -1368,7 +1389,10 @@ function showComplete(reward: CompleteReward, instant = false) {
       onRetry: () => restartPhase(true),
       onMap: showCurrentGroup,
       onNotebook: phase.lesson?.discovery && !isDaily(phase.id) ? showNotebook : null,
-      play: (name, pitch) => audio.play(name, pitch),
+      play: (name, pitch) => {
+        audio.play(name, pitch)
+        if (name === "win") audio.duck(2500)
+      },
     },
     instant,
   )
