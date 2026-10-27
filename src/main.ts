@@ -76,6 +76,7 @@ import {
   createMeterHud,
   createValuePicker,
   formatValue,
+  meterDisplayText,
   setReducedMotion,
   warningText,
   createPendingList,
@@ -615,11 +616,20 @@ function render() {
   const divergences = showMarkers && ev ? ev.divergences : []
   const previewResult = session?.previewIndex !== null && session?.previewIndex !== undefined ? ev?.scenarios[session.previewIndex]?.result : undefined
   const evaluatesBench = phase?.evaluateOn !== "blueprint"
-  bench.render(view, { currentView, reducedMotion, divergences, preview: evaluatesBench ? previewResult : undefined })
+  const meter = view.doc.bench.meter
+  const reading = (previewResult && evaluatesBench ? previewResult : view.benchResult).meter
+  const placed = !!meter.red && !!meter.black
+  bench.render(view, {
+    currentView,
+    reducedMotion,
+    divergences,
+    preview: evaluatesBench ? previewResult : undefined,
+    meterText: meterDisplayText(meter.mode, reading ?? null, placed),
+    meterVisible: meterAvailable(),
+  })
   blueprint.render(view, { currentView, reducedMotion, standard: store.data.settings.standard, divergences, preview: evaluatesBench ? undefined : previewResult })
   bar.show(divergences, (partId) => (view.doc.instances.find((i) => i.id === partId)?.type === "battery" ? "V" : "Ω"))
-  const meter = view.doc.bench.meter
-  meterHud.render(meter.mode, (previewResult && evaluatesBench ? previewResult : view.benchResult).meter, !!meter.red && !!meter.black)
+  meterHud.render(meter.mode, reading, placed)
   toolbar.setMeterAvailable(meterAvailable())
   pendingList.update(showMarkers ? pendingFor("blueprint") : [])
   tray.update(trayItems(view.doc), activePart)

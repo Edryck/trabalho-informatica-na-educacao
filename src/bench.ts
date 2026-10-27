@@ -51,12 +51,14 @@ import {
   makeDiodeBody,
   makeLedHead,
   makeMotor,
+  makeMultimeter,
   makeResistorBody,
   makeSwitch,
   offboardShape,
   PART_COLORS,
   PITCH,
   resistorBands,
+  setMultimeterState,
   shade,
   sparkTexture,
   std,
@@ -78,7 +80,14 @@ export type BenchCallbacks = {
   onSelect?(selection: BenchSelection | null): void
   onHint?(text: string | null): void
 }
-export type BenchRenderOpts = { currentView: boolean; reducedMotion: boolean; preview?: SolveResult; divergences?: Divergence[] }
+export type BenchRenderOpts = {
+  currentView: boolean
+  reducedMotion: boolean
+  preview?: SolveResult
+  divergences?: Divergence[]
+  meterText?: string
+  meterVisible?: boolean
+}
 
 const COLUMNS = 30
 const ROWS = "ABCDEFGHIJ"
@@ -196,6 +205,33 @@ const DECOR_SLOTS: Record<string, { x: number; z: number; rotY: number; scale: n
 const FLEX_MIN = PITCH * 0.99
 const FLEX_MAX = PITCH * 8.01
 
+// alvo em z=4 é o mesmo que o frame() sempre usou
+export const DEFAULT_CAMERA = { fov: 40, position: [0, 120, 135], target: [0, 0, 4] }
+export const METER_SLOT = { x: BOARD_HALF_X + 22, z: 4, rotY: -0.25 }
+
+function placeMeter(meter: Group) {
+  meter.position.set(METER_SLOT.x, MAT_Y + 2, METER_SLOT.z)
+  meter.rotation.y = METER_SLOT.rotY
+  meter.updateMatrixWorld(true)
+}
+
+export function meterSlotBox(): Box3 {
+  const meter = makeMultimeter()
+  placeMeter(meter)
+  return new Box3().setFromObject(meter)
+}
+
+export function boardHoleBox(): Box3 {
+  const corners = (["A1", "J30", "T+1", "B-30"] as HoleId[]).map((h) => holePosition(h)!)
+  const xs = corners.map((c) => c.x)
+  const zs = corners.map((c) => c.z)
+  return new Box3(new Vector3(Math.min(...xs) - PITCH, MAT_Y, Math.min(...zs) - PITCH), new Vector3(Math.max(...xs) + PITCH, 10, Math.max(...zs) + PITCH))
+}
+
+export function probeRest(meterOn: boolean, hole: HoleId | null): "hole" | "holder" {
+  return meterOn && hole !== null ? "hole" : "holder"
+}
+
 type Pickable = { kind: "part" | "wire" | "wireEnd" | "wireMid" | "leadEnd" | "probeEnd"; id: string; end?: "a" | "b"; pin?: string }
 type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
 type Mode =
@@ -216,7 +252,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   container.appendChild(renderer.domElement)
 
   const scene = new Scene()
-  const camera = new PerspectiveCamera(40, 1, 1, 3000)
+  const camera = new PerspectiveCamera(DEFAULT_CAMERA.fov, 1, 1, 3000)
   const controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
   controls.maxPolarAngle = Math.PI * 0.45
@@ -260,6 +296,14 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   const sparkGroup = new Group()
   scene.add(partsGroup, ghostGroup, particleGroup, sparkGroup)
 
+  const meter = makeMultimeter()
+  placeMeter(meter)
+  shade(meter)
+  const cableGroup = new Group()
+  scene.add(meter, cableGroup)
+  const cableEnds: Record<"red" | "black", Vector3 | null> = { red: null, black: null }
+  let cableKey = ""
+
   let view: AppView | null = null
   let opts: BenchRenderOpts = { currentView: false, reducedMotion: false }
   let mode: Mode = { kind: "idle" }
@@ -282,8 +326,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   const matPlane = new Plane(new Vector3(0, 1, 0), -MAT_Y)
 
   function frame() {
-    controls.target.set(0, 0, 4)
-    camera.position.set(0, 120, 135)
+    controls.target.fromArray(DEFAULT_CAMERA.target)
+    camera.position.fromArray(DEFAULT_CAMERA.position)
     controls.update()
   }
   frame()
@@ -717,13 +761,16 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
 
   function buildProbes(): Group {
     const g = new Group()
-    if (!view || view.doc.bench.meter.mode === "off") return g
-    const meter = view.doc.bench.meter
+    cableEnds.red = null
+    cableEnds.black = null
+    if (!view || !opts.meterVisible) return g
+    const reading = view.doc.bench.meter
+    const on = reading.mode !== "off"
     const offsets = { red: new Vector3(-6, 0, 10), black: new Vector3(6, 0, 10) }
     for (const color of ["red", "black"] as const) {
-      const hole = meter[color]
-      const p = hole ? holePosition(hole) : null
-      const tip = p ? new Vector3(p.x, 0.6, p.z) : new Vector3(color === "red" ? 30 : 40, MAT_Y + 1, 40)
+      const hole = reading[color]
+      const p = probeRest(on, hole) === "hole" && hole ? holePosition(hole) : null
+      const tip = p ? new Vector3(p.x, 0.6, p.z) : meter.getObjectByName(color === "red" ? "holderRed" : "holderBlack")!.getWorldPosition(new Vector3()).add(new Vector3(0, 1.4, 0))
       const handleEnd = tip.clone().add(offsets[color]).setY(tip.y + 16)
       const shaft = new Mesh(new TubeGeometry(new LineCurve3(tip.clone().setY(tip.y + 1.5), handleEnd), 2, 0.35, 8), std(0xd0d4d8, { metalness: 0.7 }))
       g.add(shaft)
@@ -732,16 +779,35 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       grip.position.copy(handleEnd.clone().add(dir.clone().multiplyScalar(4)))
       grip.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), dir)
       g.add(grip)
-      addPickable(grip, { kind: "probeEnd", id: "METER", pin: color })
+      cableEnds[color] = handleEnd.clone().add(dir.clone().multiplyScalar(8.5))
+      if (on) addPickable(grip, { kind: "probeEnd", id: "METER", pin: color })
       const point = new Mesh(new SphereGeometry(0.7, 12, 8), std(color === "red" ? 0xe5534b : 0x93a4b5))
       point.position.copy(tip)
       g.add(point)
-      addPickable(point, { kind: "probeEnd", id: "METER", pin: color })
+      if (on) addPickable(point, { kind: "probeEnd", id: "METER", pin: color })
       const glyph = label(color === "red" ? "+" : "−", 4, color === "red" ? "#E5534B" : "#93A4B5")
       glyph.position.copy(handleEnd).setY(handleEnd.y + 10)
       g.add(glyph)
     }
     return g
+  }
+
+  function updateCables() {
+    const visible = !!view && !!opts.meterVisible
+    meter.visible = visible
+    cableGroup.visible = visible
+    if (!view || !visible) return
+    const m = view.doc.bench.meter
+    const key = `${m.red}|${m.black}|${m.mode}`
+    if (key === cableKey) return
+    cableKey = key
+    clearGroup(cableGroup)
+    for (const color of ["red", "black"] as const) {
+      const end = cableEnds[color]
+      if (!end) continue
+      const start = meter.getObjectByName(color === "red" ? "jackRed" : "jackBlack")!.getWorldPosition(new Vector3()).add(new Vector3(0, 1.1, 0))
+      cableGroup.add(new Mesh(new TubeGeometry(wireCurve(start, end, 6), 32, 0.4, 8), std(color === "red" ? 0xc62828 : 0x202020)))
+    }
   }
 
   function leadColor(pin: string): number {
@@ -878,6 +944,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     }
     for (const wire of view.doc.bench.wires) hold(wire.id, buildWire(wire))
     partsGroup.add(buildProbes())
+    updateCables()
     if (opts.divergences) partsGroup.add(buildDivergences(opts.divergences))
     rebuildParticles()
   }
@@ -1472,6 +1539,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       }
       const short = result()?.warnings.find((w) => w.kind === "shortCircuit")
       fpsWatch.reset()
+      setMultimeterState(meter, next.doc.bench.meter.mode, nextOpts.meterText ?? "")
       rebuild()
       updateGhost()
       if (short?.partId && !shortWas && !opts.reducedMotion) spawnSparks(short.partId)
