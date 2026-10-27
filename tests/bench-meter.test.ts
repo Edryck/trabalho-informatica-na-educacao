@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { Box3, PerspectiveCamera, Vector3 } from "three"
-import { boardHoleBox, DEFAULT_CAMERA, meterSlotBox, probeRest } from "../src/bench"
+import { boardHoleBox, DEFAULT_CAMERA, meterSlotBox, nextMeterMode, probeRest } from "../src/bench"
 
 function corners(b: Box3): Vector3[] {
   const out: Vector3[] = []
@@ -28,5 +28,14 @@ describe("bench multimeter placement", () => {
     expect(probeRest(false, "A5")).toBe("holder")
     expect(probeRest(true, null)).toBe("holder")
     expect(probeRest(true, "A5")).toBe("hole")
+  })
+})
+
+describe("multimeter dial", () => {
+  it("cycles the dial", () => {
+    expect(nextMeterMode("off")).toBe("V")
+    expect(nextMeterMode("V")).toBe("A")
+    expect(nextMeterMode("A")).toBe("ohm")
+    expect(nextMeterMode("ohm")).toBe("off")
   })
 })

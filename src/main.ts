@@ -14,7 +14,7 @@ import datasheetsJson from "../data/datasheets.json"
 import rewardsJson from "../data/rewards.json"
 import { createAudio } from "./audio"
 import { markDiscovered, notebookEntries, applyDailyReward, applyPhaseReward, buildRewards, groupSummaries, cosmeticColors, dailyRepair, equipCosmetic, itemsUpTo, dailyUnlocked, evaluateStars, goalState, levelFor, starsTotal, updateStreak, type GoalState, type Rewards, type RewardsData, type StarContext } from "./game"
-import { bandHex, createBench, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
+import { bandHex, createBench, nextMeterMode, resistorBands, WIRE_PALETTE, type BenchTool } from "./bench"
 import { createBlueprint } from "./blueprint"
 import { benchToNetlist, blueprintToNetlist, type PartsCatalog } from "./netlist"
 import {
@@ -401,7 +401,11 @@ const callbacks = (name: ViewName) => ({
   },
 })
 
-const bench = createBench(benchLayer, catalog, { ...callbacks("bench"), onSelect: (selection) => palette.show(selection?.kind === "wire") })
+const bench = createBench(benchLayer, catalog, {
+  ...callbacks("bench"),
+  onSelect: (selection) => palette.show(selection?.kind === "wire"),
+  onMeterDial: () => turnMeterDial(),
+})
 const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
 
 const toolbar = createToolbar(toolbarEl, onToolbar)
@@ -767,6 +771,15 @@ function toggleMeter() {
     setMeterMode("off")
     setTool("select")
   }
+}
+
+function turnMeterDial() {
+  if (!meterAvailable() || activeView !== "bench") return
+  const next = nextMeterMode(view.doc.bench.meter.mode)
+  setMeterMode(next)
+  if (next === "off") return setTool("select")
+  const meter = view.doc.bench.meter
+  if (!meter.red || !meter.black) setTool("meter")
 }
 
 const QUIET_WARNINGS = new Set(["floatingInput", "undefinedInput", "unpoweredChip"])

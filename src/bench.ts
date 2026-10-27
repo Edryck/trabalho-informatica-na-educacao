@@ -69,7 +69,7 @@ import {
 export { bandHex, PITCH, resistorBands }
 import { stripOf, type Divergence, type HoleId, type PartsCatalog, type PointId } from "./netlist"
 import type { SolveResult } from "./solver"
-import { nextInstanceId, prefixFor, type AppView, type BenchPlacement, type CircuitDoc, type Wire } from "./state"
+import { nextInstanceId, prefixFor, type AppView, type BenchPlacement, type CircuitDoc, type Meter, type Wire } from "./state"
 import { particleSpeed } from "./ui"
 
 export type BenchTool = "select" | "wire" | { place: string; value?: number; id?: string } | "meter"
@@ -79,6 +79,7 @@ export type BenchCallbacks = {
   onEvent(name: string): void
   onSelect?(selection: BenchSelection | null): void
   onHint?(text: string | null): void
+  onMeterDial?(): void
 }
 export type BenchRenderOpts = {
   currentView: boolean
@@ -228,11 +229,17 @@ export function boardHoleBox(): Box3 {
   return new Box3(new Vector3(Math.min(...xs) - PITCH, MAT_Y, Math.min(...zs) - PITCH), new Vector3(Math.max(...xs) + PITCH, 10, Math.max(...zs) + PITCH))
 }
 
+const METER_ORDER: Meter["mode"][] = ["off", "V", "A", "ohm"]
+
+export function nextMeterMode(mode: Meter["mode"]): Meter["mode"] {
+  return METER_ORDER[(METER_ORDER.indexOf(mode) + 1) % METER_ORDER.length]
+}
+
 export function probeRest(meterOn: boolean, hole: HoleId | null): "hole" | "holder" {
   return meterOn && hole !== null ? "hole" : "holder"
 }
 
-type Pickable = { kind: "part" | "wire" | "wireEnd" | "wireMid" | "leadEnd" | "probeEnd"; id: string; end?: "a" | "b"; pin?: string }
+type Pickable = { kind: "part" | "wire" | "wireEnd" | "wireMid" | "leadEnd" | "probeEnd" | "meterDial"; id: string; end?: "a" | "b"; pin?: string }
 type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
 type Mode =
   | { kind: "idle" }
@@ -303,6 +310,10 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   scene.add(meter, cableGroup)
   const cableEnds: Record<"red" | "black", Vector3 | null> = { red: null, black: null }
   let cableKey = ""
+  const probeMeshes: Record<"red" | "black", Mesh[]> = { red: [], black: [] }
+  let hoverPin: "red" | "black" | null = null
+  let dialAnim: { from: number; to: number; start: number } | null = null
+  let dialSeen = false
 
   let view: AppView | null = null
   let opts: BenchRenderOpts = { currentView: false, reducedMotion: false }
@@ -763,6 +774,8 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     const g = new Group()
     cableEnds.red = null
     cableEnds.black = null
+    probeMeshes.red = []
+    probeMeshes.black = []
     if (!view || !opts.meterVisible) return g
     const reading = view.doc.bench.meter
     const on = reading.mode !== "off"
@@ -785,11 +798,23 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       point.position.copy(tip)
       g.add(point)
       if (on) addPickable(point, { kind: "probeEnd", id: "METER", pin: color })
+      probeMeshes[color] = [grip, point]
       const glyph = label(color === "red" ? "+" : "−", 4, color === "red" ? "#E5534B" : "#93A4B5")
       glyph.position.copy(handleEnd).setY(handleEnd.y + 10)
       g.add(glyph)
     }
+    glowProbes()
     return g
+  }
+
+  function glowProbes() {
+    for (const color of ["red", "black"] as const) {
+      for (const mesh of probeMeshes[color]) {
+        const material = mesh.material as MeshStandardMaterial
+        material.emissive.setHex(COLOR.accent)
+        material.emissiveIntensity = hoverPin === color ? 0.6 : 0
+      }
+    }
   }
 
   function updateCables() {
@@ -945,6 +970,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     for (const wire of view.doc.bench.wires) hold(wire.id, buildWire(wire))
     partsGroup.add(buildProbes())
     updateCables()
+    if (opts.meterVisible) addPickable(meter.getObjectByName("dial") as Mesh, { kind: "meterDial", id: "METER" })
     if (opts.divergences) partsGroup.add(buildDivergences(opts.divergences))
     rebuildParticles()
   }
@@ -1305,6 +1331,26 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       updateGhost()
     }
     if (mode.kind === "offboard") updateOffboardGhost(matHit())
+    updateHover()
+  }
+
+  function updateHover() {
+    const pick = view ? pickHit() : null
+    let cursor = ""
+    let pin: "red" | "black" | null = null
+    if (drag) {
+      if (drag.pick.kind === "probeEnd") cursor = "grabbing"
+    } else if (pick?.kind === "meterDial") {
+      cursor = "pointer"
+    } else if (pick?.kind === "probeEnd" && mode.kind === "idle" && (pick.pin === "red" || pick.pin === "black")) {
+      cursor = "grab"
+      pin = pick.pin
+    }
+    renderer.domElement.style.cursor = cursor
+    if (pin !== hoverPin) {
+      hoverPin = pin
+      glowProbes()
+    }
   }
 
   function onPointerDown(event: PointerEvent) {
@@ -1348,6 +1394,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     downAt = null
     if (!click || !view) return
     setPointer(event)
+    if (pickHit()?.kind === "meterDial") return cb.onMeterDial?.()
     const hole = boardHit()
     if (mode.kind === "wire") return hole ? clickWire(hole) : undefined
     if (mode.kind === "rigid") return hole ? placeRigid(hole) : undefined
@@ -1370,6 +1417,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   renderer.domElement.addEventListener("pointermove", onPointerMove)
   renderer.domElement.addEventListener("pointerdown", onPointerDown)
   renderer.domElement.addEventListener("pointerup", onPointerUp)
+  renderer.domElement.addEventListener("pointerleave", () => {
+    renderer.domElement.style.cursor = ""
+    if (hoverPin) {
+      hoverPin = null
+      glowProbes()
+    }
+  })
   renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault())
 
   const fpsWatch = createFpsWatch()
@@ -1424,6 +1478,11 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         s.obj.rotation.z -= s.direction * dt * 12
         if (s.body) s.body.position.x = s.baseX + 0.15 * Math.sin((now / 1000) * Math.PI * 2 * 30)
       }
+    }
+    if (dialAnim) {
+      const t = Math.min(1, (now - dialAnim.start) / 160)
+      meter.getObjectByName("dial")!.rotation.y = dialAnim.from + (dialAnim.to - dialAnim.from) * (1 - (1 - t) * (1 - t))
+      if (t >= 1) dialAnim = null
     }
     if (pops.size > 0) animatePops(now)
     if (sparks.length > 0) animateSparks(now, dt)
@@ -1539,7 +1598,16 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       }
       const short = result()?.warnings.find((w) => w.kind === "shortCircuit")
       fpsWatch.reset()
+      const dial = meter.getObjectByName("dial")!
+      const before = dial.rotation.y
       setMultimeterState(meter, next.doc.bench.meter.mode, nextOpts.meterText ?? "")
+      const to = dial.rotation.y
+      dialAnim = null
+      if (dialSeen && to !== before && !nextOpts.reducedMotion && !document.body.classList.contains("lite")) {
+        dial.rotation.y = before
+        dialAnim = { from: before, to, start: performance.now() }
+      }
+      dialSeen = true
       rebuild()
       updateGhost()
       if (short?.partId && !shortWas && !opts.reducedMotion) spawnSparks(short.partId)
