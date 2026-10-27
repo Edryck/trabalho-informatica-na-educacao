@@ -208,7 +208,8 @@ const FLEX_MAX = PITCH * 8.01
 
 // alvo em z=4 é o mesmo que o frame() sempre usou
 export const DEFAULT_CAMERA = { fov: 40, position: [0, 120, 135], target: [0, 0, 4] }
-export const METER_SLOT = { x: BOARD_HALF_X + 22, z: 4, rotY: -0.25 }
+// na frente e à esquerda: à direita o painel da fase cobre o aparelho
+export const METER_SLOT = { x: -30, z: BOARD_HALF_Z + 22, rotY: 0.25 }
 
 function placeMeter(meter: Group) {
   meter.position.set(METER_SLOT.x, MAT_Y + 2, METER_SLOT.z)

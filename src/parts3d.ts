@@ -1018,8 +1018,9 @@ export function makeMultimeter(): Group {
       ctx.textBaseline = "middle"
       for (const [label, angle] of METER_MARKS) ctx.fillText(label, 128 - 92 * Math.sin(angle), 128 - 92 * Math.cos(angle))
     }),
-    14,
-    14,
+    // maior que o seletor com folga: em 14 as letras ficavam embaixo do botão
+    19,
+    19,
   )
   marks.position.set(0, 2.05, -6)
   g.add(marks)
