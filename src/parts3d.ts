@@ -28,6 +28,7 @@ import {
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
+  Texture,
   TorusGeometry,
   TubeGeometry,
   type Curve,
@@ -96,12 +97,13 @@ export const CHIP_CODES: Record<string, string> = {
   chip_xnor: "XNOR",
 }
 
-const labelCache = new Map<string, CanvasTexture>()
+const labelCache = new Map<string, Texture>()
 
-export function textTexture(text: string, color = "#E6EDF3", background = "rgba(14,20,27,0.85)"): CanvasTexture {
+export function textTexture(text: string, color = "#E6EDF3", background = "rgba(14,20,27,0.85)"): Texture {
   const key = `${text}|${color}|${background}`
   const cached = labelCache.get(key)
   if (cached) return cached
+  if (typeof document === "undefined") return new Texture()
   const canvas = document.createElement("canvas")
   canvas.width = 128
   canvas.height = 64
@@ -385,11 +387,12 @@ function lathe(profile: [number, number][], segments = 32): LatheGeometry {
   return new LatheGeometry(profile.map(([r, y]) => new Vector2(r, y)), segments)
 }
 
-const decalCache = new Map<string, CanvasTexture>()
+const decalCache = new Map<string, Texture>()
 
-function decal(key: string, width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void): CanvasTexture {
+function decal(key: string, width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void): Texture {
   const cached = decalCache.get(key)
   if (cached) return cached
+  if (typeof document === "undefined") return new Texture()
   const canvas = document.createElement("canvas")
   canvas.width = width
   canvas.height = height
@@ -401,7 +404,7 @@ function decal(key: string, width: number, height: number, draw: (ctx: CanvasRen
   return texture
 }
 
-function printed(texture: CanvasTexture, w: number, d: number): Mesh {
+function printed(texture: Texture, w: number, d: number): Mesh {
   const mesh = new Mesh(new PlaneGeometry(w, d), new MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }))
   mesh.rotation.x = -Math.PI / 2
   return mesh
@@ -783,34 +786,35 @@ export function makeCuttingMat(w: number, d: number, color: string): Group {
 function deskLamp(): Group {
   const g = new Group()
   const shell = satin(PART_COLORS.yellow, { roughness: 0.4 })
-  const base = new Mesh(lathe([[0, 0], [11, 0], [11, 2.2], [9, 3.4], [0, 3.4]], 40), shell)
-  g.add(base)
-  const joint = (y: number) => {
+  const baseHeight = 3.4
+  const armLower = 34
+  const armUpper = 28
+  g.add(named(new Mesh(lathe([[0, 0], [11, 0], [11, 2.2], [9, baseHeight], [0, baseHeight]], 40), shell), "base"))
+  const joint = (name: string) => {
     const ball = new Mesh(new CylinderGeometry(1.8, 1.8, 3.4, 20), metal())
     ball.rotation.z = Math.PI / 2
-    ball.position.y = y
-    return ball
+    return named(ball, name)
   }
   const lower = new Group()
-  lower.position.y = 3.4
+  lower.position.y = baseHeight
   lower.rotation.z = -0.35
-  const arm1 = new Mesh(new CylinderGeometry(1.1, 1.1, 34, 14), shell)
-  arm1.position.y = 17
-  lower.add(joint(0), arm1)
+  const arm1 = named(new Mesh(new CylinderGeometry(1.1, 1.1, armLower, 14), shell), "arm1")
+  arm1.position.y = armLower / 2
+  lower.add(joint("joint0"), arm1)
   const upper = new Group()
-  upper.position.y = 34
+  upper.position.y = armLower
   upper.rotation.z = 1.5
-  const arm2 = new Mesh(new CylinderGeometry(1.1, 1.1, 28, 14), shell)
-  arm2.position.y = 14
-  upper.add(joint(0), arm2)
+  const arm2 = named(new Mesh(new CylinderGeometry(1.1, 1.1, armUpper, 14), shell), "arm2")
+  arm2.position.y = armUpper / 2
+  upper.add(joint("joint1"), arm2)
   const head = new Group()
-  head.position.y = 28
+  head.position.y = armUpper
   head.rotation.z = 0.9
-  const shade = new Mesh(lathe([[2.2, 0], [3.4, 1.5], [7.5, 9], [7.9, 10]], 32), satin(PART_COLORS.yellow, { roughness: 0.4 }))
+  const shade = named(new Mesh(lathe([[2.2, 0], [3.4, 1.5], [7.5, 9], [7.9, 10]], 32), satin(PART_COLORS.yellow, { roughness: 0.4 })), "shade")
   shade.material.side = DoubleSide
   shade.rotation.x = Math.PI
-  head.add(joint(0), shade)
-  const bulb = new Mesh(new CylinderGeometry(2.6, 2.6, 0.4, 20), satin(0xfff7e0, { emissive: 0xffe2a8, emissiveIntensity: 1.4 }))
+  head.add(joint("joint2"), shade)
+  const bulb = named(new Mesh(new CylinderGeometry(2.6, 2.6, 0.4, 20), satin(0xfff7e0, { emissive: 0xffe2a8, emissiveIntensity: 1.4 })), "bulb")
   bulb.position.y = -8.6
   head.add(bulb)
   upper.add(head)
@@ -856,14 +860,13 @@ function shelf(): Group {
 function poster(): Group {
   const g = new Group()
   const wood = satin(0x8b5e3c, { roughness: 0.7 })
-  for (const [x, z, r] of [[-14, 4, 0.12], [14, 4, -0.12], [0, -10, 0]] as const) {
-    const leg = new Mesh(new CylinderGeometry(0.9, 0.9, 72, 10), wood)
+  const legs = [[-14, -5, 0.12, 0.1], [14, -5, -0.12, 0.1], [0, -12, 0, -0.28]] as const
+  legs.forEach(([x, z, rz, rx], i) => {
+    const leg = named(new Mesh(new CylinderGeometry(0.9, 0.9, 72, 10), wood), `leg${i}`)
     leg.position.set(x, 35, z)
-    leg.rotation.z = r
-    if (z < 0) leg.rotation.x = -0.28
-    else leg.rotation.x = 0.1
+    leg.rotation.set(rx, 0, rz)
     g.add(leg)
-  }
+  })
   const tex = decal("poster", 400, 520, (ctx) => {
     ctx.fillStyle = "#0B2540"
     ctx.fillRect(0, 0, 400, 520)
@@ -924,7 +927,7 @@ function poster(): Group {
   board.rotation.x = -0.1
   const frame = rounded(42, 54, 1.6, 0.6, satin(0xf8fafc))
   board.add(frame)
-  const art = new Mesh(new PlaneGeometry(38, 49.4), new MeshBasicMaterial({ map: tex, toneMapped: false }))
+  const art = named(new Mesh(new PlaneGeometry(38, 49.4), new MeshBasicMaterial({ map: tex, toneMapped: false })), "face")
   art.position.z = 0.82
   board.add(art)
   g.add(board)
@@ -944,16 +947,21 @@ function tools(): Group {
   const pliers = new Group()
   pliers.position.set(-10, 1.1, 18)
   pliers.rotation.y = 0.5
+  const pivotX = -16
   for (const side of [-1, 1]) {
+    const half = named(new Group(), side < 0 ? "pliersA" : "pliersB")
+    half.position.set(pivotX, side * 0.55, 0)
+    half.rotation.y = side * 0.12
     const grip = rounded(26, 2.2, 3.6, 1, satin(PART_COLORS.blue, { roughness: 0.4 }))
-    grip.position.set(-6, 0, side * 4)
-    grip.rotation.y = side * -0.18
-    pliers.add(grip)
+    grip.position.x = 10
     const jaw = rounded(14, 2, 2.6, 0.6, metal())
-    jaw.position.set(-25, 0, side * 1.2)
-    jaw.rotation.y = side * 0.05
-    pliers.add(jaw)
+    jaw.position.x = -9
+    half.add(grip, jaw)
+    pliers.add(half)
   }
+  const pin = named(new Mesh(new CylinderGeometry(0.8, 0.8, 4.4, 12), metal()), "pliersPin")
+  pin.position.x = pivotX
+  pliers.add(pin)
   g.add(pliers)
   return g
 }
@@ -967,12 +975,14 @@ function trophy(): Group {
   const cup = new Mesh(lathe([[0, 0], [4, 0], [4, 1.2], [1.4, 2.4], [1.2, 9], [3, 11], [7.5, 15], [9, 24], [8.4, 24.4], [0, 16]], 40), gold)
   cup.position.y = 6
   g.add(cup)
-  for (const side of [-1, 1]) {
-    const ear = new Mesh(new TorusGeometry(3.6, 0.8, 10, 24, Math.PI * 1.2), gold)
-    ear.position.set(side * 8.6, 25, 0)
-    ear.rotation.z = side > 0 ? -Math.PI * 0.6 : Math.PI * 1.6
-    g.add(ear)
-  }
+  const handleR = named(new Mesh(new TorusGeometry(3.6, 0.8, 10, 24, Math.PI * 1.2), gold), "handleR")
+  handleR.position.set(8.6, 25, 0)
+  handleR.rotation.z = -Math.PI * 0.6
+  const handleL = named(handleR.clone(), "handleL")
+  handleL.position.x = -handleR.position.x
+  handleL.rotation.z = -handleR.rotation.z
+  handleL.scale.x = -1
+  g.add(handleR, handleL)
   return g
 }
 
