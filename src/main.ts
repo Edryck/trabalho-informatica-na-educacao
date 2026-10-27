@@ -104,7 +104,6 @@ import {
 } from "./ui"
 
 const catalog = partsJson as unknown as PartsCatalog
-const audio = createAudio({ volume: 0.8 })
 const phases = loadPhases(phasesJson)
 setPhaseLabels(phaseLabels(phases))
 const rewards = buildRewards(rewardsJson as RewardsData, phases)
@@ -141,6 +140,11 @@ function safeLocalStorage(): Storage | null {
 }
 
 const store = createStore(safeLocalStorage(), catalog)
+const audio = createAudio({
+  sfxVolume: store.data.settings.sfxVolume,
+  musicVolume: store.data.settings.musicVolume,
+  muted: store.data.settings.muted,
+})
 
 const app = document.getElementById("app")!
 app.innerHTML = `
@@ -324,7 +328,7 @@ setReducedMotion(reducedMotion)
   },
   onVolume: (v, done) => {
     store.data.settings.sfxVolume = v
-    audio.setVolume(v)
+    audio.setSfxVolume(v)
     if (done) {
       store.save()
       audio.play("tick")
@@ -1505,7 +1509,13 @@ document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest("button")
   if (button && !button.disabled) audio.play("click")
 })
-audio.setVolume(store.data.settings.sfxVolume)
+const unlockEvents = ["pointerdown", "pointerup", "keydown"] as const
+const unlockOnGesture = () => {
+  audio.unlock()
+  if (!audio.isUnlocked()) return
+  for (const type of unlockEvents) document.removeEventListener(type, unlockOnGesture)
+}
+for (const type of unlockEvents) document.addEventListener(type, unlockOnGesture)
 audio.preload()
 
 window.addEventListener("pagehide", () => {

@@ -2,7 +2,21 @@ export type SfxName = "click" | "snap" | "wire" | "toggle" | "tick" | "star" | "
 
 const SFX: SfxName[] = ["click", "snap", "wire", "toggle", "tick", "star", "win", "levelup", "unlock", "soft-error"]
 
-type AudioOptions = { volume: number; base?: string; make?: (src: string) => HTMLAudioElement | null }
+export const DEFAULT_TRACKS = ["workshop-1.mp3", "workshop-2.mp3"]
+
+const FADE_MS = 2000
+const FADE_STEP_MS = 100
+const FADE_STEPS = FADE_MS / FADE_STEP_MS
+
+type AudioOptions = {
+  sfxVolume: number
+  musicVolume: number
+  muted?: boolean
+  base?: string
+  musicBase?: string
+  tracks?: string[]
+  make?: (src: string) => HTMLAudioElement | null
+}
 
 function defaultMake(src: string): HTMLAudioElement | null {
   try {
@@ -15,31 +29,163 @@ function defaultMake(src: string): HTMLAudioElement | null {
   }
 }
 
+const clamp = (v: number) => Math.max(0, Math.min(1, v))
+
 export function createAudio(opts: AudioOptions) {
   const make = opts.make ?? defaultMake
   const base = opts.base ?? "sfx/"
-  let volume = opts.volume
+  const musicBase = opts.musicBase ?? "music/"
+  const tracks = opts.tracks ?? DEFAULT_TRACKS
   const loaded = new Map<SfxName, HTMLAudioElement | null>()
+  const elements = new Map<string, HTMLAudioElement | null>()
+  const bad = new Set<string>()
+
+  let sfxVolume = clamp(opts.sfxVolume)
+  let musicVolume = clamp(opts.musicVolume)
+  let muted = opts.muted ?? false
+  let gestureSeen = false
+  let unlocked = false
+  let pending = false
+  let attempt = 0
+  let trackIndex = 0
+  let active: HTMLAudioElement | null = null
+  let fade: ReturnType<typeof setInterval> | undefined
 
   const source = (name: SfxName) => {
     if (!loaded.has(name)) loaded.set(name, make(`${base}${name}.ogg`))
     return loaded.get(name) ?? null
   }
 
+  const musicTarget = () => (muted ? 0 : musicVolume)
+  const playAllowed = () => gestureSeen && !muted && musicVolume > 0
+
+  const clearFade = () => {
+    clearInterval(fade)
+    fade = undefined
+  }
+
+  const fadeIn = (el: HTMLAudioElement) => {
+    clearFade()
+    let step = 0
+    el.volume = 0
+    fade = setInterval(() => {
+      step++
+      el.volume = musicTarget() * Math.min(1, step / FADE_STEPS)
+      if (step >= FADE_STEPS) clearFade()
+    }, FADE_STEP_MS)
+  }
+
+  const pickTrack = (from: number) => {
+    for (let step = 0; step < tracks.length; step++) {
+      const index = (from + step) % tracks.length
+      if (!bad.has(tracks[index])) return index
+    }
+    return -1
+  }
+
+  const onTrackFail = (name: string, el: HTMLAudioElement) => {
+    bad.add(name)
+    if (active !== el) return
+    el.pause()
+    active = null
+    pending = false
+    startMusic()
+  }
+
+  const onTrackEnded = (index: number, el: HTMLAudioElement) => {
+    if (active !== el) return
+    trackIndex = (index + 1) % tracks.length
+    active = null
+    startMusic()
+  }
+
+  const element = (index: number) => {
+    const name = tracks[index]
+    if (!elements.has(name)) {
+      const el = make(`${musicBase}${name}`)
+      elements.set(name, el)
+      if (el) {
+        el.loop = tracks.length === 1
+        el.addEventListener("error", () => onTrackFail(name, el))
+        el.addEventListener("ended", () => onTrackEnded(index, el))
+      }
+    }
+    return elements.get(name) ?? null
+  }
+
+  function startMusic(): void {
+    if (pending || !playAllowed()) return
+    const index = pickTrack(trackIndex)
+    if (index < 0) return
+    trackIndex = index
+    const el = element(index)
+    if (!el) {
+      bad.add(tracks[index])
+      return startMusic()
+    }
+    const id = ++attempt
+    pending = true
+    active = el
+    el.volume = 0
+    el.play().then(
+      () => {
+        if (id !== attempt) return
+        pending = false
+        unlocked = true
+        if (playAllowed()) fadeIn(el)
+      },
+      (err: DOMException) => {
+        if (id !== attempt) return
+        pending = false
+        if (err.name === "NotAllowedError" || err.name === "AbortError") return
+        onTrackFail(tracks[index], el)
+      },
+    )
+  }
+
+  const refresh = () => {
+    if (!playAllowed()) {
+      clearFade()
+      if (active) {
+        active.pause()
+        active.volume = 0
+      }
+      return
+    }
+    if (!active || active.paused) return startMusic()
+    clearFade()
+    active.volume = musicTarget()
+  }
+
   return {
     preload() {
       for (const name of SFX) source(name)
     },
-    setVolume(v: number) {
-      volume = Math.max(0, Math.min(1, v))
+    setSfxVolume(v: number) {
+      sfxVolume = clamp(v)
+    },
+    setMusicVolume(v: number) {
+      musicVolume = clamp(v)
+      refresh()
+    },
+    setMuted(m: boolean) {
+      muted = m
+      refresh()
+    },
+    unlock() {
+      gestureSeen = true
+      if (!unlocked) startMusic()
+    },
+    isUnlocked() {
+      return unlocked
     },
     play(name: SfxName, pitch = 1) {
-      if (volume <= 0) return
+      if (muted || sfxVolume <= 0) return
       try {
         const original = source(name)
         if (!original) return
         const node = original.cloneNode(true) as HTMLAudioElement
-        node.volume = volume
+        node.volume = sfxVolume
         // sem isso o navegador acelera mas segura o tom, e a escada das estrelas some
         node.preservesPitch = false
         node.playbackRate = pitch
