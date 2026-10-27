@@ -448,7 +448,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
     }
     d.blueprint.placements.push({ id, x: point[0], y: point[1], rotation: mode.rotation })
     cb.onChange(d, true)
-    cb.onEvent("partPlaced")
+    cb.onEvent("partPlaced", `part:${id}`, mode.type)
     mode = { kind: "idle" }
     cb.onEvent("toolReset")
     renderGhost()
@@ -716,6 +716,7 @@ export function createBlueprint(container: HTMLElement, catalog: PartsCatalog, c
       if (!placement) return false
       placement.rotation = ((placement.rotation + 90) % 360) as Rotation
       cb.onChange(d, true)
+      cb.onEvent("partRotated", `part:${placement.id}`, d.instances.find((i) => i.id === placement.id)?.type)
       return true
     }
     if (k === "Delete" || k === "Backspace") {

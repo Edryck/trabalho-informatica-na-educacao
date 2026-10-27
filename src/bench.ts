@@ -69,6 +69,7 @@ import {
 export { bandHex, PITCH, resistorBands }
 import { stripOf, type Divergence, type HoleId, type PartsCatalog, type PointId } from "./netlist"
 import type { SolveResult } from "./solver"
+import type { TutorialEvent } from "./phases"
 import { nextInstanceId, prefixFor, type AppView, type BenchPlacement, type CircuitDoc, type Meter, type Wire } from "./state"
 import { particleSpeed } from "./ui"
 
@@ -76,7 +77,7 @@ export type BenchTool = "select" | "wire" | { place: string; value?: number; id?
 export type BenchSelection = { kind: "wire" | "part"; id: string }
 export type BenchCallbacks = {
   onChange(doc: CircuitDoc, commit: boolean): void
-  onEvent(name: string): void
+  onEvent(name: string, target?: string, partType?: string): void
   onSelect?(selection: BenchSelection | null): void
   onHint?(text: string | null): void
   onMeterDial?(): void
@@ -236,12 +237,19 @@ export function nextMeterMode(mode: Meter["mode"]): Meter["mode"] {
   return METER_ORDER[(METER_ORDER.indexOf(mode) + 1) % METER_ORDER.length]
 }
 
+export function dragEvent(kind: "part" | "leadEnd" | "probeEnd" | "wireEnd" | "wireMid", id: string, pin: string | undefined, hadHole: boolean, partType?: string): TutorialEvent | null {
+  if (!hadHole) return null
+  if (kind === "part" || kind === "leadEnd") return { type: "partMoved", target: `part:${id}`, ...(partType ? { partType } : {}) }
+  if (kind === "probeEnd") return { type: "probeMoved", target: `probe:${pin}` }
+  return null
+}
+
 export function probeRest(meterOn: boolean, hole: HoleId | null): "hole" | "holder" {
   return meterOn && hole !== null ? "hole" : "holder"
 }
 
 type Pickable = { kind: "part" | "wire" | "wireEnd" | "wireMid" | "leadEnd" | "probeEnd" | "meterDial"; id: string; end?: "a" | "b"; pin?: string }
-type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean }
+type Drag = { pick: Pickable; doc: CircuitDoc; moved: boolean; hadHole: boolean; partType?: string }
 type Mode =
   | { kind: "idle" }
   | { kind: "wire"; start: HoleId | null }
@@ -1144,16 +1152,18 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     d.bench.placements.push({ id, holes: { [pins[0]]: mode.first, [pins[1]]: hole }, rotation: 0 })
     popPart(id)
     cb.onChange(d, true)
-    cb.onEvent("partPlaced")
+    cb.onEvent("partPlaced", `part:${id}`, mode.type)
     finishPlacement()
   }
 
   function clickProbe(hole: HoleId) {
     if (mode.kind !== "probes" || !view) return
     const d = doc()
+    const before = d.bench.meter[mode.next]
     d.bench.meter[mode.next] = hole
     const done = mode.next === "black"
     cb.onChange(d, true)
+    if (before !== null && before !== hole) cb.onEvent("probeMoved", `probe:${mode.next}`)
     if (d.bench.meter.red && d.bench.meter.black) cb.onEvent("meterPlaced")
     if (done) finishPlacement()
     else {
@@ -1193,7 +1203,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     d.bench.placements.push({ id, holes: holesByPin, rotation: mode.rotation })
     popPart(id)
     cb.onChange(d, true)
-    cb.onEvent("partPlaced")
+    cb.onEvent("partPlaced", `part:${id}`, mode.type)
     finishPlacement()
   }
 
@@ -1207,7 +1217,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     d.bench.placements.push({ id, holes: Object.fromEntries(def.pins.map((p) => [p, null])), rotation: 0, offboard: { x: Math.round(at.x), z: Math.round(at.z) } })
     popPart(id)
     cb.onChange(d, true)
-    cb.onEvent("partPlaced")
+    cb.onEvent("partPlaced", `part:${id}`, mode.type)
     mode = { kind: "leads", id, pins: def.pins, index: 0 }
     clearGroup(ghostGroup)
   }
@@ -1223,7 +1233,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     placement.holes[pin] = hole
     popPart(`${leads.id}:leads`)
     cb.onChange(d, true)
-    cb.onEvent("partSnapped")
+    cb.onEvent("partSnapped", `part:${leads.id}`, d.instances.find((i) => i.id === leads.id)?.type)
     if (leads.index + 1 >= leads.pins.length) finishPlacement()
     else mode = { ...leads, index: leads.index + 1 }
   }
@@ -1257,19 +1267,19 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "on" ? "off" : "on"
       cb.onChange(d, true)
-      cb.onEvent("inputToggled")
+      cb.onEvent("inputToggled", `part:${id}`, instance.type)
     } else if (instance.type === "logic_switch") {
       const d = doc()
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "1" ? "0" : "1"
       cb.onChange(d, true)
-      cb.onEvent("inputToggled")
+      cb.onEvent("inputToggled", `part:${id}`, instance.type)
     } else if (instance.type === "battery") {
       const d = doc()
       const target = d.instances.find((i) => i.id === id)!
       target.inputState = target.inputState === "off" ? "on" : "off"
       cb.onChange(d, true)
-      cb.onEvent("inputToggled")
+      cb.onEvent("inputToggled", `part:${id}`, instance.type)
     }
   }
 
@@ -1284,7 +1294,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     instance.inputState = id ? "pressed" : "released"
     // botão é momentâneo: não entra no histórico
     cb.onChange(d, false)
-    if (id) cb.onEvent("inputToggled")
+    if (id) cb.onEvent("inputToggled", `part:${id}`, instance.type)
   }
 
   function applyDrag(hole: HoleId | null) {
@@ -1361,7 +1371,13 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (mode.kind !== "idle" || !view) return
     const pick = pickHit()
     if (pick && (pick.kind === "wireEnd" || pick.kind === "wireMid" || pick.kind === "leadEnd" || pick.kind === "probeEnd")) {
-      drag = { pick, doc: doc(), moved: false }
+      const base = doc()
+      const lead = pick.kind === "leadEnd" ? base.bench.placements.find((p) => p.id === pick.id) : undefined
+      const hadHole =
+        pick.kind === "probeEnd" && (pick.pin === "red" || pick.pin === "black")
+          ? base.bench.meter[pick.pin] !== null
+          : pick.kind === "leadEnd" && !!pick.pin && !!lead?.holes[pick.pin]
+      drag = { pick, doc: base, moved: false, hadHole, partType: base.instances.find((i) => i.id === pick.id)?.type }
       controls.enabled = false
       return
     }
@@ -1379,13 +1395,16 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     controls.enabled = true
     if (pressedButton) setButton(null)
     if (drag) {
-      const moved = drag.moved
-      const pick = drag.pick
+      const { moved, pick, hadHole, partType } = drag
       drag = null
       if (moved && view) {
         popPart(pick.kind === "leadEnd" ? `${pick.id}:leads` : pick.id)
         cb.onChange(doc(), true)
         cb.onEvent("partSnapped")
+        if (pick.kind !== "meterDial" && pick.kind !== "wire") {
+          const moveEvent = dragEvent(pick.kind, pick.id, pick.pin, hadHole, partType)
+          if (moveEvent) cb.onEvent(moveEvent.type, moveEvent.target, moveEvent.partType)
+        }
         const m = view.doc.bench.meter
         if (m.mode !== "off" && m.red && m.black) cb.onEvent("meterPlaced")
       }
@@ -1570,6 +1589,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         if (!placement) return false
         placement.holes = { a: placement.holes.k ?? null, k: placement.holes.a ?? null }
         cb.onChange(d, true)
+        cb.onEvent("partRotated", `part:${instance.id}`, instance.type)
         return true
       }
       return false

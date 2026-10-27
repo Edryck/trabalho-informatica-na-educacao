@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { Box3, PerspectiveCamera, Vector3 } from "three"
-import { boardHoleBox, DEFAULT_CAMERA, meterSlotBox, nextMeterMode, PITCH, probeRest } from "../src/bench"
+import { boardHoleBox, DEFAULT_CAMERA, dragEvent, meterSlotBox, nextMeterMode, PITCH, probeRest } from "../src/bench"
 
 function corners(b: Box3): Vector3[] {
   const out: Vector3[] = []
@@ -43,5 +43,24 @@ describe("multimeter dial", () => {
     expect(nextMeterMode("V")).toBe("A")
     expect(nextMeterMode("A")).toBe("ohm")
     expect(nextMeterMode("ohm")).toBe("off")
+  })
+})
+
+describe("drag events", () => {
+  it("first placement is not a move", () => {
+    expect(dragEvent("part", "L1", undefined, false)).toBeNull()
+    expect(dragEvent("leadEnd", "L1", "a", false, "lamp")).toBeNull()
+    expect(dragEvent("probeEnd", "METER", "red", false)).toBeNull()
+  })
+  it("moving a part or lead that had a hole carries the part type", () => {
+    expect(dragEvent("part", "L1", undefined, true, "lamp")).toEqual({ type: "partMoved", target: "part:L1", partType: "lamp" })
+    expect(dragEvent("leadEnd", "B1", "+", true, "battery")).toEqual({ type: "partMoved", target: "part:B1", partType: "battery" })
+  })
+  it("moving a probe targets its color", () => {
+    expect(dragEvent("probeEnd", "METER", "red", true)).toEqual({ type: "probeMoved", target: "probe:red" })
+  })
+  it("wire ends and middles never count", () => {
+    expect(dragEvent("wireEnd", "W1", "a", true)).toBeNull()
+    expect(dragEvent("wireMid", "W1", undefined, true)).toBeNull()
   })
 })

@@ -387,10 +387,9 @@ const callbacks = (name: ViewName) => ({
     if (session?.previewIndex !== null && session?.previewIndex !== undefined) return
     update(doc, { commit })
   },
-  onEvent: (event: string) => {
+  onEvent: (event: string, target?: string, partType?: string) => {
     const sound = SOUND_EVENTS[event]
     if (sound) audio.play(sound)
-    if (event === "inputToggled" || event === "partSnapped") return
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
     else if (event === "lightMode") {
@@ -398,7 +397,7 @@ const callbacks = (name: ViewName) => ({
       notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
     }
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
-    else record(event as TutorialEventType)
+    else record(event as TutorialEventType, target, partType)
   },
   onHint: (text: string | null) => {
     hints[name] = text
@@ -535,6 +534,7 @@ async function pickFromTray(type: string) {
     }
   }
   setTool(item ? { place: item.type, id: item.id, value } : { place: type, value, id: claimableId(view.doc, activeView, type, session.phase.keyParts) })
+  record("partPicked", `part:${partType}`, partType)
   activePart = type
   tray.update(trayItems(view.doc), activePart)
 }
@@ -778,10 +778,12 @@ function meterAvailable(): boolean {
 function setMeterMode(mode: "off" | "V" | "A" | "ohm") {
   if (!session || rewinding || bestView) return
   const doc = structuredClone(view.doc)
-  if (doc.bench.meter.mode !== mode) audio.play("dial")
+  const changed = doc.bench.meter.mode !== mode
+  if (changed) audio.play("dial")
   doc.bench.meter.mode = mode
   if (mode !== "off") lastMeterMode = mode
   update(doc, { commit: true })
+  if (changed) record("meterModeChanged", `meter:${mode}`)
 }
 
 function toggleMeter() {
