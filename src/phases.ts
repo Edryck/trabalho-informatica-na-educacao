@@ -396,6 +396,29 @@ export function findPhase(data: PhaseData, phaseId: string): Phase | undefined {
   return data.groups.flatMap((g) => g.phases).find((p) => p.id === phaseId)
 }
 
+const TARGET_PREFIXES = ["css:", "hole:", "part:", "probe:", "meter:"]
+const PROBE_TARGETS = ["red", "black"]
+const METER_TARGETS = ["dial", "off", "V", "A", "ohm"]
+const HOLE_COLUMN = "([1-9]|[12]\\d|30)"
+
+export function targetError(target: string, phase: Phase, catalog: PartsCatalog): string | null {
+  const colon = target.indexOf(":")
+  const prefix = colon < 0 ? "" : target.slice(0, colon + 1)
+  const value = target.slice(colon + 1)
+  if (!TARGET_PREFIXES.includes(prefix)) return `alvo "${target}": prefixo inválido`
+  if (prefix === "css:") return value.trim() ? null : `alvo "${target}": seletor vazio`
+  if (prefix === "hole:") {
+    const valid = new RegExp(`^([A-J]${HOLE_COLUMN}|(T\\+|T-|B\\+|B-)${HOLE_COLUMN})$`).test(value)
+    return valid ? null : `alvo "${target}": esse furo não existe na placa`
+  }
+  if (prefix === "part:") {
+    if (value in catalog || phase.initial?.instances.some((i) => i.id === value)) return null
+    return `alvo "${target}": não é tipo de peça nem peça do circuito inicial`
+  }
+  if (prefix === "probe:") return PROBE_TARGETS.includes(value) ? null : `alvo "${target}": ponta inválida`
+  return METER_TARGETS.includes(value) ? null : `alvo "${target}": seletor do multímetro inválido`
+}
+
 export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheets: Record<string, unknown>): string[] {
   const errors: string[] = []
   const groupIds = new Set<string>()
@@ -424,6 +447,13 @@ export function validatePhases(data: PhaseData, catalog: PartsCatalog, datasheet
         if (!(key.part in catalog)) errors.push(`${where}: peça-chave ${key.id} tem tipo "${key.part}" inexistente`)
         if (!initialIds.has(key.id) && !(phase.tray[key.part] > 0)) errors.push(`${where}: peça-chave ${key.id} não está na bandeja nem no circuito inicial`)
       }
+      phase.steps?.forEach((step, index) => {
+        const targets = [step.target, "event" in step.until ? step.until.target : undefined]
+        for (const target of targets) {
+          const error = target === undefined ? null : targetError(target, phase, catalog)
+          if (error) errors.push(`${where}: passo ${index + 1}: ${error}`)
+        }
+      })
       if (!group.demo) continue
       if (phase.expect.length === 0 && (phase.steps?.length ?? 0) === 0) errors.push(`${where}: sem estado esperado nem passos`)
       if (phase.type !== "tutorial" && !phase.referenceSolution) errors.push(`${where}: sem solução de referência`)

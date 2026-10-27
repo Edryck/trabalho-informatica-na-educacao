@@ -9,7 +9,7 @@ import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
 import { starLabel, type Datasheet } from "../src/ui"
 import { solve } from "../src/solver"
-import { eventMatches, freshTutorialState, stepEventDone, type TutorialEvent } from "../src/phases"
+import { eventMatches, freshTutorialState, stepEventDone, targetError, type TutorialEvent } from "../src/phases"
 
 const catalog = parts as unknown as PartsCatalog
 
@@ -984,5 +984,49 @@ describe("tutorial events", () => {
   it("fresh tutorial state starts at step 0 with an empty log, or null without steps", () => {
     expect(freshTutorialState({ steps: [{ text: "x", until: { event: "wireDrawn" } }] } as unknown as Phase)).toEqual({ stepIndex: 0, events: [] })
     expect(freshTutorialState({ steps: null } as unknown as Phase)).toEqual({ stepIndex: null, events: [] })
+  })
+})
+
+describe("step targets", () => {
+  const phase = { id: "t", initial: { instances: [{ id: "B1", type: "battery" }] } } as unknown as Phase
+
+  it("accepts known prefixes with valid values", () => {
+    expect(targetError("hole:A5", phase, catalog)).toBeNull()
+    expect(targetError("hole:T+30", phase, catalog)).toBeNull()
+    expect(targetError("part:battery", phase, catalog)).toBeNull()
+    expect(targetError("part:B1", phase, catalog)).toBeNull()
+    expect(targetError("probe:red", phase, catalog)).toBeNull()
+    expect(targetError("meter:ohm", phase, catalog)).toBeNull()
+    expect(targetError("css:.tour", phase, catalog)).toBeNull()
+  })
+
+  it("rejects holes, parts, probes, meter modes and prefixes that do not exist", () => {
+    expect(targetError("hole:K5", phase, catalog)).not.toBeNull()
+    expect(targetError("part:L9", phase, catalog)).not.toBeNull()
+    expect(targetError("probe:green", phase, catalog)).not.toBeNull()
+    expect(targetError("meter:x", phase, catalog)).not.toBeNull()
+    expect(targetError("tray:lamp", phase, catalog)).not.toBeNull()
+    expect(targetError("css:", phase, catalog)).not.toBeNull()
+  })
+
+  it("accepts every hole the board generates and rejects the edges outside it", () => {
+    const holes: string[] = []
+    for (let col = 1; col <= 30; col++) {
+      for (const row of "ABCDEFGHIJ") holes.push(`${row}${col}`)
+      for (const rail of ["T+", "T-", "B+", "B-"]) holes.push(`${rail}${col}`)
+    }
+    expect(holes).toHaveLength(420)
+    for (const hole of holes) expect(targetError(`hole:${hole}`, phase, catalog), hole).toBeNull()
+    for (const bad of ["A0", "A31", "K1", "T+0", "T+31", "X+1"]) expect(targetError(`hole:${bad}`, phase, catalog), bad).not.toBeNull()
+  })
+
+  it("real phase data has no bad step targets", () => {
+    expect(validatePhases(loadPhases(phasesRaw), catalog, datasheets).filter((e) => e.includes("passo"))).toEqual([])
+  })
+
+  it("validatePhases reports a bad step target in any phase, demo or not", () => {
+    const bad = structuredClone(loadPhases(phasesRaw))
+    bad.groups[0].phases[0].steps = [{ text: "x", until: { event: "wireDrawn" }, target: "tray:lamp" }]
+    expect(validatePhases(bad, catalog, datasheets).some((e) => e.startsWith(`fase ${bad.groups[0].phases[0].id}: passo 1:`))).toBe(true)
   })
 })
