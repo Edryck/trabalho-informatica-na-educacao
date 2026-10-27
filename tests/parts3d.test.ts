@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { Box3, Mesh, Vector3, type CylinderGeometry, type Object3D } from "three"
-import { makeDecor } from "../src/parts3d"
+import { makeDecor, makeMultimeter, METER_DIAL_ANGLE, setMultimeterState } from "../src/parts3d"
 
 function worldBox(root: Object3D, name: string): Box3 {
   root.updateMatrixWorld(true)
@@ -63,5 +63,17 @@ describe("pliers", () => {
     const pin = worldBox(tools, "pliersPin")
     expect(pin.intersectsBox(worldBox(tools, "pliersA"))).toBe(true)
     expect(pin.intersectsBox(worldBox(tools, "pliersB"))).toBe(true)
+  })
+})
+
+describe("multimeter", () => {
+  it("has named body, screen, dial, jacks and holders", () => {
+    const m = makeMultimeter()
+    for (const n of ["body", "screen", "dial", "jackRed", "jackBlack", "holderRed", "holderBlack"]) expect(m.getObjectByName(n)).toBeDefined()
+  })
+  it("dial turns to the mode angle", () => {
+    const m = makeMultimeter()
+    setMultimeterState(m, "A", "12,0 mA")
+    expect(m.getObjectByName("dial")!.rotation.y).toBeCloseTo(METER_DIAL_ANGLE.A)
   })
 })

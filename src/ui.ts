@@ -1157,6 +1157,14 @@ const MODE_LABELS: Record<Exclude<MeterMode, "off">, { short: string; name: stri
   ohm: { short: "Ω", name: "Resistência", unit: "Ω" },
 }
 
+export function meterDisplayText(mode: MeterMode, reading: MeterView | null, probesPlaced: boolean): string {
+  if (mode === "off") return ""
+  if (!probesPlaced || !reading) return "— —"
+  if (reading.display === "OL") return "OL"
+  if (reading.display === "----") return "----"
+  return formatValue(reading.value ?? 0, MODE_LABELS[mode].unit)
+}
+
 export function createMeterHud(el: HTMLElement, onMode: (mode: Exclude<MeterMode, "off">) => void) {
   el.className = "meter-hud"
   el.setAttribute("aria-label", "Multímetro")
@@ -1184,10 +1192,7 @@ export function createMeterHud(el: HTMLElement, onMode: (mode: Exclude<MeterMode
       for (const [m, button] of buttons) button.setAttribute("aria-checked", String(m === mode))
       modeEl.textContent = MODE_LABELS[mode].name
       el.classList.toggle("overload", reading?.display === "OL")
-      if (!probesPlaced || !reading) valueEl.textContent = "— —"
-      else if (reading.display === "OL") valueEl.textContent = "OL"
-      else if (reading.display === "----") valueEl.textContent = "----"
-      else valueEl.textContent = formatValue(reading.value ?? 0, MODE_LABELS[mode].unit)
+      valueEl.textContent = meterDisplayText(mode, reading, probesPlaced)
     },
   }
 }

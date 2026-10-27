@@ -998,3 +998,56 @@ export function makeDecor(id: string, color = 0xb87333): Group {
   g.add(box)
   return g
 }
+
+export const METER_DIAL_ANGLE: Record<"off" | "V" | "A" | "ohm", number> = { off: 0, V: Math.PI / 4, A: Math.PI / 2, ohm: (3 * Math.PI) / 4 }
+const METER_MARKS: [string, number][] = [
+  ["OFF", METER_DIAL_ANGLE.off],
+  ["V", METER_DIAL_ANGLE.V],
+  ["A", METER_DIAL_ANGLE.A],
+  ["Ω", METER_DIAL_ANGLE.ohm],
+]
+
+export function makeMultimeter(): Group {
+  const g = new Group()
+  g.add(named(rounded(22, 4, 34, 1.5, satin(PART_COLORS.yellow)), "body"))
+  const marks = printed(
+    decal("multimeter-marks", 256, 256, (ctx) => {
+      ctx.fillStyle = "#1f2937"
+      ctx.font = "700 26px Rubik, sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      for (const [label, angle] of METER_MARKS) ctx.fillText(label, 128 - 92 * Math.sin(angle), 128 - 92 * Math.cos(angle))
+    }),
+    14,
+    14,
+  )
+  marks.position.set(0, 2.05, -6)
+  g.add(marks)
+  const dial = named(new Mesh(new CylinderGeometry(4.2, 4.2, 1.6, 24), satin(0x111827, { roughness: 0.4 })), "dial")
+  dial.position.set(0, 2.8, -6)
+  const pointer = new Mesh(new BoxGeometry(0.9, 0.2, 3.4), satin(0xf8fafc))
+  pointer.position.set(0, 0.85, -2.6)
+  dial.add(pointer)
+  g.add(dial)
+  const screen = named(new Mesh(new PlaneGeometry(13, 6.5), new MeshBasicMaterial({ map: textTexture("", "#B8F5C8", "#1B2A1F") })), "screen")
+  screen.rotation.x = -Math.PI / 2
+  screen.position.set(0, 2.05, 6)
+  g.add(screen)
+  for (const [name, x, color] of [["jackRed", -5, 0xc62828], ["jackBlack", 5, 0x1b1b1b]] as const) {
+    const jack = named(new Mesh(new CylinderGeometry(1.5, 1.5, 2.2, 16), satin(color)), name)
+    jack.position.set(x, 3.1, 14)
+    g.add(jack)
+  }
+  for (const [name, x] of [["holderRed", -7.5], ["holderBlack", 7.5]] as const) {
+    const holder = named(rounded(4, 2.4, 3, 0.8, satin(0x6b7280)), name)
+    holder.position.set(x, 3.2, -14)
+    g.add(holder)
+  }
+  return g
+}
+
+export function setMultimeterState(meter: Group, mode: "off" | "V" | "A" | "ohm", text: string): void {
+  meter.getObjectByName("dial")!.rotation.y = METER_DIAL_ANGLE[mode]
+  const screen = meter.getObjectByName("screen") as Mesh<PlaneGeometry, MeshBasicMaterial>
+  screen.material.map = textTexture(text, "#B8F5C8", "#1B2A1F")
+}

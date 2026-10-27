@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
+import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, meterDisplayText, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 import type { Star } from "../src/phases"
 
@@ -332,5 +332,16 @@ describe("orderFrom", () => {
     expect(orderFrom("repair", { client: "Seu Jorge, pescador" })).toBe("Seu Jorge, pescador")
     expect(orderFrom("order", {})).toBe("Cliente de balcão")
     expect(orderFrom("build", null)).toBe("Cliente de balcão")
+  })
+})
+
+describe("meter display text", () => {
+  it("matches the HUD rules", () => {
+    expect(meterDisplayText("off", null, true)).toBe("")
+    expect(meterDisplayText("V", null, true)).toBe("— —")
+    expect(meterDisplayText("V", { mode: "V", value: 9, display: "value" }, false)).toBe("— —")
+    expect(meterDisplayText("V", { mode: "V", value: null, display: "OL" }, true)).toBe("OL")
+    expect(meterDisplayText("A", { mode: "A", value: null, display: "----" }, true)).toBe("----")
+    expect(meterDisplayText("V", { mode: "V", value: 9, display: "value" }, true)).toBe(formatValue(9, "V"))
   })
 })
