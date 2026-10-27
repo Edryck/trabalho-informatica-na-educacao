@@ -9,19 +9,29 @@ export type WitnessSpec = { from: "initial" | "reference"; inputs?: Record<strin
 export type Observation = { if: Record<string, ThenValue>; say: string; witness: WitnessSpec; on?: "bench" | "blueprint" }
 export type Lesson = { concept: string; discovery: string; observations: Observation[] }
 export type WorkOrder = { client?: string; object: string; thanks: string }
-export type TutorialEvent =
+export type TutorialEventType =
   | "viewSwitched"
   | "cameraOrbited"
   | "holeHovered"
   | "partPlaced"
+  | "partSnapped"
+  | "partPicked"
+  | "partMoved"
+  | "partRotated"
   | "wireDrawn"
+  | "inputToggled"
   | "currentViewToggled"
   | "meterPlaced"
+  | "probeMoved"
+  | "meterModeChanged"
   | "meterReadVoltage"
   | "meterReadCurrent"
   | "meterReadLampBothSides"
   | "datasheetOpened"
-export type Step = { text: string; until: { event: TutorialEvent } | { expect: Scenario[] } }
+export type TutorialEvent = { type: TutorialEventType; target?: string; partType?: string }
+export type StepEvent = { event: TutorialEventType; target?: string }
+export type StepUntil = StepEvent | { expect: Scenario[] }
+export type Step = { text: string; until: StepUntil; target?: string }
 export type PhaseType = "tutorial" | "build" | "repair" | "order"
 export type Star =
   | { kind: "solved" }
@@ -454,4 +464,18 @@ function validateStars(phase: Phase, meterOk: boolean, catalog: PartsCatalog): s
     })
   }
   return errors
+}
+
+export function eventMatches(until: StepEvent, event: TutorialEvent): boolean {
+  if (until.event !== event.type) return false
+  if (until.target === undefined) return true
+  return event.target === until.target || (event.partType !== undefined && `part:${event.partType}` === until.target)
+}
+
+export function stepEventDone(until: StepEvent, log: TutorialEvent[]): boolean {
+  return log.some((event) => eventMatches(until, event))
+}
+
+export function freshTutorialState(phase: Phase): { stepIndex: number | null; events: TutorialEvent[] } {
+  return { stepIndex: phase.steps ? 0 : null, events: [] }
 }

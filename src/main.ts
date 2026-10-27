@@ -37,7 +37,10 @@ import {
   type Evaluation,
   type ObservationTracker,
   type Phase,
+  freshTutorialState,
+  stepEventDone,
   type TutorialEvent,
+  type TutorialEventType,
 } from "./phases"
 import { solve, type DiscreteState, type SolveResult } from "./solver"
 import {
@@ -185,7 +188,7 @@ type Session = {
   offeredAt: number
   hintOffered: number
   stepIndex: number | null
-  events: Set<TutorialEvent>
+  events: TutorialEvent[]
   previewIndex: number | null
   won: boolean
   everAllPassed: boolean
@@ -395,7 +398,7 @@ const callbacks = (name: ViewName) => ({
       notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
     }
     else if (event.startsWith("editValue:")) void editValue(event.slice("editValue:".length))
-    else record(event as TutorialEvent)
+    else record(event as TutorialEventType)
   },
   onHint: (text: string | null) => {
     hints[name] = text
@@ -868,9 +871,9 @@ function setPreview(index: number | null) {
   render()
 }
 
-function record(event: TutorialEvent) {
+function record(type: TutorialEventType, target?: string, partType?: string) {
   if (!session || bestView) return
-  session.events.add(event)
+  session.events.push({ type, target, partType })
   if (advanceSteps()) {
     checkVictory()
     render()
@@ -880,7 +883,7 @@ function record(event: TutorialEvent) {
 function stepDone(phase: Phase, index: number): boolean {
   const step = phase.steps?.[index]
   if (!step || !session) return false
-  if ("event" in step.until) return session.events.has(step.until.event)
+  if ("event" in step.until) return stepEventDone(step.until, session.events)
   return evaluateScenarios(step.until.expect, { bench: view.benchNet, blueprint: view.blueprintNet }, phase.evaluateOn, catalog).every((s) => s.ok)
 }
 
@@ -891,7 +894,6 @@ function advanceSteps(): boolean {
     session.stepIndex++
     moved = true
   }
-  if (moved && session.stepIndex < session.phase.steps.length) session.events.clear()
   return moved
 }
 
@@ -1041,6 +1043,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   }
   const doc = structuredClone(resumed ?? phase.initial ?? emptyDoc())
   const now = performance.now()
+  const tutorial = freshTutorialState(phase)
   session = {
     phase,
     startedAt: now,
@@ -1048,8 +1051,8 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     hintsOpened: 0,
     offeredAt: now,
     hintOffered: 0,
-    stepIndex: phase.steps ? 0 : null,
-    events: new Set(),
+    stepIndex: tutorial.stepIndex,
+    events: tutorial.events,
     previewIndex: null,
     won: false,
     everAllPassed: false,

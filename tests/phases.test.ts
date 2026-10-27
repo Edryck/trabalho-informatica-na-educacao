@@ -9,6 +9,7 @@ import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
 import { starLabel, type Datasheet } from "../src/ui"
 import { solve } from "../src/solver"
+import { eventMatches, freshTutorialState, stepEventDone, type TutorialEvent } from "../src/phases"
 
 const catalog = parts as unknown as PartsCatalog
 
@@ -959,5 +960,29 @@ describe("lamp current phase", () => {
 
   it("its observation can rise", () => {
     for (const o of lampPhase.lesson!.observations) expect(observationCanRise(lampPhase, o, catalog), o.say).toBe(true)
+  })
+})
+
+describe("tutorial events", () => {
+  it("matches by type when until has no target", () => {
+    expect(eventMatches({ event: "partPlaced" }, { type: "partPlaced", target: "part:L1", partType: "lamp" })).toBe(true)
+    expect(eventMatches({ event: "partPlaced" }, { type: "wireDrawn" })).toBe(false)
+  })
+
+  it("matches target by id or by the part type recorded in the event", () => {
+    expect(eventMatches({ event: "partPicked", target: "part:battery" }, { type: "partPicked", target: "part:battery", partType: "battery" })).toBe(true)
+    expect(eventMatches({ event: "partSnapped", target: "part:lamp" }, { type: "partSnapped", target: "part:L1", partType: "lamp" })).toBe(true)
+    expect(eventMatches({ event: "partMoved", target: "part:lamp" }, { type: "partMoved", target: "part:B1", partType: "battery" })).toBe(false)
+    expect(eventMatches({ event: "partMoved", target: "part:lamp" }, { type: "partMoved", target: "part:L1" })).toBe(false)
+  })
+
+  it("an action done before its step still counts", () => {
+    const log: TutorialEvent[] = [{ type: "wireDrawn" }, { type: "cameraOrbited" }]
+    expect(stepEventDone({ event: "wireDrawn" }, log)).toBe(true)
+  })
+
+  it("fresh tutorial state starts at step 0 with an empty log, or null without steps", () => {
+    expect(freshTutorialState({ steps: [{ text: "x", until: { event: "wireDrawn" } }] } as unknown as Phase)).toEqual({ stepIndex: 0, events: [] })
+    expect(freshTutorialState({ steps: null } as unknown as Phase)).toEqual({ stepIndex: null, events: [] })
   })
 })
