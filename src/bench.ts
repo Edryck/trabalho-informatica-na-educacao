@@ -1211,7 +1211,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
 
   function clickFlexible(hole: HoleId) {
     if (mode.kind !== "flexible" || !view) return
-    if (occupiedHoles(view.doc).has(hole)) return
+    if (occupiedHoles(view.doc).has(hole)) return cb.onEvent("holeBusy")
     if (!mode.first) {
       mode = { ...mode, first: hole }
       updateGhost()
@@ -1299,7 +1299,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (mode.kind !== "leads" || !view) return
     const leads = mode
     const d = doc()
-    if (occupiedHoles(d).has(hole)) return
+    if (occupiedHoles(d).has(hole)) return cb.onEvent("holeBusy")
     const placement = d.bench.placements.find((p) => p.id === leads.id)
     const pin = leads.pins[leads.index]
     if (!placement || !pin) return finishPlacement()
@@ -1314,7 +1314,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
   function clickWire(hole: HoleId) {
     if (mode.kind !== "wire" || !view) return
     const used = occupiedHoles(view.doc)
-    if (used.has(hole)) return
+    if (used.has(hole)) return cb.onEvent("holeBusy")
     if (!mode.start) {
       mode = { kind: "wire", start: hole }
       return
@@ -1441,7 +1441,9 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
     if (event.button !== 0) return
     setPointer(event)
     downAt = { x: event.clientX, y: event.clientY }
-    if (mode.kind !== "idle" || !view) return
+    // sem ponta de fio pendente, dá pra arrastar cabinho e ponta mesmo com a ferramenta de fio
+    const canGrab = mode.kind === "idle" || (mode.kind === "wire" && !mode.start)
+    if (!canGrab || !view) return
     const pick = pickHit()
     if (pick && (pick.kind === "wireEnd" || pick.kind === "wireMid" || pick.kind === "leadEnd" || pick.kind === "probeEnd")) {
       const base = doc()
@@ -1454,7 +1456,7 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
       controls.enabled = false
       return
     }
-    if (pick?.kind === "part") {
+    if (pick?.kind === "part" && mode.kind === "idle") {
       const instance = view.doc.instances.find((i) => i.id === pick.id)
       if (instance?.type === "push_button") {
         controls.enabled = false
@@ -1480,8 +1482,10 @@ export function createBench(container: HTMLElement, catalog: PartsCatalog, cb: B
         }
         const m = view.doc.bench.meter
         if (m.mode !== "off" && m.red && m.black) cb.onEvent("meterPlaced")
+        return
       }
-      return
+      // com o fio na mão, um clique parado na ponta vira clique no furo (e explica se estiver ocupado)
+      if (mode.kind !== "wire") return
     }
     const click = downAt && Math.hypot(event.clientX - downAt.x, event.clientY - downAt.y) < 5
     downAt = null

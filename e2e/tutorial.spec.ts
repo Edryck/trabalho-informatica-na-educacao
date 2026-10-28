@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
 type Box = { x: number; y: number; w: number; h: number; r: number }
-type TestHook = { startPhase(id: string): void; screenBox(target: string): Box | null }
+type TestHook = { startPhase(id: string): void; screenBox(target: string): Box | null; update(doc: unknown, opts: { commit: boolean }): void; reference(id: string): unknown }
 
 const PARTS = ["battery", "lamp", "switch", "push_button", "dc_motor", "buzzer", "resistor", "led", "diode", "chip_nand", "chip_nor", "chip_not", "chip_and", "chip_or", "chip_xor", "chip_xnor", "logic_switch", "logic_probe", "multimeter", "breadboard", "jumper_wire"]
 
@@ -155,3 +155,25 @@ test("g2p1: plays every guided step and reaches the victory screen", async ({ pa
 
   await expect(page.locator(".complete-card")).toBeVisible()
 })
+
+test("g0p3: an occupied hole explains itself and the wire tool still lets the lamp leads move", async ({ page }) => {
+  test.setTimeout(240_000)
+  await open(page, ["g0p1", "g0p2"], "g0p3")
+  await page.evaluate(() => {
+    const hook = (window as unknown as { __fioTest: TestHook }).__fioTest
+    const doc = structuredClone(hook.reference("g0p3")) as { bench: { placements: { id: string; holes: Record<string, string | null> }[] } }
+    doc.bench.placements.find((p) => p.id === "L1")!.holes = { a: "A11", b: "A13" }
+    hook.update(doc, { commit: true })
+  })
+
+  await page.keyboard.press("w")
+  await clickTarget(page, "hole:C20")
+  await clickTarget(page, "hole:A11")
+  await expect(page.locator(".toast").filter({ hasText: "Esse furo já está ocupado" })).toBeVisible()
+
+  await page.keyboard.press("Escape")
+  await dragTarget(page, "hole:A11", "hole:A10")
+  await dragTarget(page, "hole:A13", "hole:A14")
+  await expect(page.locator(".complete-card")).toBeVisible()
+})
+

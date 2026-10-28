@@ -422,6 +422,10 @@ const callbacks = (name: ViewName) => ({
     if (sound) audio.play(sound)
     if (event === "toolReset") setTool("select")
     else if (event === "lockedLabel") toasts.show("info", "A fase usa esse nome pra conferir o circuito, então ele fica assim.")
+    else if (event === "holeBusy") {
+      const text = "Esse furo já está ocupado. Os outros furos da mesma coluna de cinco, ou do mesmo trilho, ligam no mesmo ponto."
+      if (!toastEl.textContent?.includes(text)) toasts.show("info", text)
+    }
     else if (event === "lightMode") {
       document.body.classList.add("lite")
       notify("info", "Ativei o modo leve pra deixar a bancada mais fluida neste computador.")
