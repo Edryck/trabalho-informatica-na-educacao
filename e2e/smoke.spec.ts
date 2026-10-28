@@ -50,7 +50,7 @@ test("runs without storage and says so", async ({ browser, browserName }) => {
   await context.close()
 })
 
-type TestHook = { startPhase(id: string): void; update(doc: unknown, opts: { commit: boolean }): void; reference(id: string): unknown }
+type TestHook = { startPhase(id: string): void; update(doc: unknown, opts: { commit: boolean }): void; reference(id: string): unknown; screenBox(target: string): { x: number; y: number; w: number; h: number; r: number } | null }
 
 test("new game shows the tour and it can be skipped", async ({ page }) => {
   await page.goto("/")

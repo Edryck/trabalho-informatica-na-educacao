@@ -1689,6 +1689,6 @@ showTitle()
 if (!store.available) toasts.show("warning", "Não deu pra salvar neste navegador. Dá pra jogar normal, só o progresso não fica guardado.", undefined, 12000)
 
 // gancho mínimo pro e2e; só existe no build com --mode e2e, o de produção nem carrega isso
-if (import.meta.env.MODE === "e2e") Object.assign(window, { __fioTest: { startPhase, update, notify, reference: (id: string) => findPhase(phases, id)?.referenceSolution } })
+if (import.meta.env.MODE === "e2e") Object.assign(window, { __fioTest: { startPhase, update, notify, reference: (id: string) => findPhase(phases, id)?.referenceSolution, screenBox: (target: string) => locateTarget(target) } })
 
 if (import.meta.env.DEV) Object.assign(window, { __fio: { update, getView: () => view, getEvaluation: () => evaluation, getSave: () => store.data, bench, blueprint, switchView, startPhase, startSandbox, dailyRef: () => session?.phase.referenceSolution } })
