@@ -37,6 +37,7 @@ import {
   type Evaluation,
   type ObservationTracker,
   type Phase,
+  checklistLines,
   freshTutorialState,
   stepEventDone,
   type TutorialEvent,
@@ -216,6 +217,7 @@ type Session = {
   hintOffered: number
   stepIndex: number | null
   events: TutorialEvent[]
+  positiveSeen: Set<number>
   previewIndex: number | null
   won: boolean
   everAllPassed: boolean
@@ -736,6 +738,8 @@ function render() {
   if (bestView) preview.show("Solução de menor custo", "")
   else preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
   if (phase && ev && session) {
+    if (history.index === 0) session.positiveSeen = new Set()
+    session.positiveSeen = checklistLines(phase.expect, ev.scenarios, session.positiveSeen).positiveSeen
     // estado no meio de um arrasto não conta: só o que o jogador soltou ou desfez
     const settled = renderSound || renderSettled
     if (settled && (ev.scenarios.length > 0 ? ev.scenarios.every((s) => s.ok) : session.won)) session.everAllPassed = true
@@ -1126,6 +1130,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
     hintOffered: 0,
     stepIndex: tutorial.stepIndex,
     events: tutorial.events,
+    positiveSeen: new Set(),
     previewIndex: null,
     won: false,
     everAllPassed: false,

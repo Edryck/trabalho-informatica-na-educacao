@@ -10,7 +10,7 @@ import { dailyRepair } from "../src/game"
 import { TOUR_STEPS } from "../src/screens"
 import { starLabel, type Datasheet } from "../src/ui"
 import { solve } from "../src/solver"
-import { eventMatches, freshTutorialState, newPartsFor, seedIntroduced, stepEventDone, targetError, type TutorialEvent } from "../src/phases"
+import { checklistLines, eventMatches, freshTutorialState, isNegative, newPartsFor, seedIntroduced, stepEventDone, targetError, type Scenario, type ScenarioResult, type TutorialEvent } from "../src/phases"
 
 const catalog = splitParts(parts).catalog
 const guideKeys = Object.keys(splitParts(parts).guides)
@@ -1072,3 +1072,36 @@ describe("guides split", () => {
     expect(guides.jumper_wire.name.length).toBeGreaterThan(0)
   })
 })
+
+describe("checklist by condition", () => {
+  const expect2: Scenario[] = [
+    { when: { S1: "on" }, then: { L1: "lit" } },
+    { when: { S1: "off" }, then: { L1: "off" } },
+  ]
+  const okAll = (n: number) => Array.from({ length: n }, () => ({ ok: true, failures: [] }) as unknown as ScenarioResult)
+
+  it("negative condition waits for a positive one", () => {
+    const empty = [{ ok: false, failures: [{ partId: "L1", reason: "missing" }] }, { ok: true, failures: [] }] as unknown as ScenarioResult[]
+    const first = checklistLines(expect2, empty, new Set())
+    expect(first.lines.map((l) => l.ok)).toEqual([false, false])
+    const later = checklistLines(expect2, okAll(2), first.positiveSeen)
+    expect(later.lines.map((l) => l.ok)).toEqual([true, true])
+  })
+
+  it("[RF 2] fresh set after restart hides the negative again", () => {
+    const onlyNegative = [{ ok: false, failures: [{ partId: "L1", reason: "state" }] }, { ok: true, failures: [] }] as unknown as ScenarioResult[]
+    expect(checklistLines(expect2, onlyNegative, new Set()).lines[1].ok).toBe(false)
+  })
+
+  it("same-scenario rule: positive in the scenario unlocks its own negative", () => {
+    const one: Scenario[] = [{ when: {}, then: { L1: "lit", L2: "off" } }]
+    const r = [{ ok: true, failures: [] }] as unknown as ScenarioResult[]
+    expect(checklistLines(one, r, new Set()).lines.map((l) => l.ok)).toEqual([true, true])
+  })
+
+  it("isNegative only for off, 0 and blocking", () => {
+    expect(["off", "0", "blocking"].every((v) => isNegative(v))).toBe(true)
+    expect(isNegative("lit") || isNegative("1") || isNegative({ current: [0, 1] })).toBe(false)
+  })
+})
+

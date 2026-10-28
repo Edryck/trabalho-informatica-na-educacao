@@ -537,6 +537,32 @@ export function stepEventDone(until: StepEvent, log: TutorialEvent[]): boolean {
   return log.some((event) => eventMatches(until, event))
 }
 
+export type ChecklistLine = { scenario: number; partId: string; value: ThenValue; ok: boolean; negative: boolean }
+
+const NEGATIVE_VALUES = ["off", "0", "blocking"]
+
+export function isNegative(value: ThenValue): boolean {
+  return typeof value === "string" && NEGATIVE_VALUES.includes(value)
+}
+
+export function checklistLines(expect: Scenario[], results: ScenarioResult[], positiveSeen: Set<number>): { lines: ChecklistLine[]; positiveSeen: Set<number> } {
+  const conditionOk = (index: number, partId: string) => results[index] !== undefined && !results[index].failures.some((f) => f.partId === partId)
+  const seen = new Set(positiveSeen)
+  expect.forEach((scenario, index) => {
+    if (Object.entries(scenario.then).some(([partId, value]) => !isNegative(value) && conditionOk(index, partId))) seen.add(index)
+  })
+  const lines = expect.flatMap((scenario, index) => {
+    const hasPositive = Object.values(scenario.then).some((value) => !isNegative(value))
+    return Object.entries(scenario.then).map(([partId, value]) => {
+      const negative = isNegative(value)
+      const met = conditionOk(index, partId)
+      const unlocked = seen.has(index) || (!hasPositive && seen.size > 0)
+      return { scenario: index, partId, value, ok: negative ? met && unlocked : met, negative }
+    })
+  })
+  return { lines, positiveSeen: seen }
+}
+
 export function freshTutorialState(phase: Phase): { stepIndex: number | null; events: TutorialEvent[] } {
   return { stepIndex: phase.steps ? 0 : null, events: [] }
 }

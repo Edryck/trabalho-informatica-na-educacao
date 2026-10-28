@@ -2,7 +2,7 @@ import type { Divergence, PartsCatalog, PinRef } from "./netlist"
 import type { BlueprintPlacement, BlueprintSegment, Instance } from "./state"
 import { resistorBands } from "./parts3d"
 import type { Warning } from "./solver"
-import type { Lesson, Star, WorkOrder } from "./phases"
+import type { Lesson, Star, ThenValue, WorkOrder } from "./phases"
 import type { GoalState, LevelInfo } from "./game"
 
 export type Unit = "V" | "A" | "Ω" | "W"
@@ -598,16 +598,18 @@ function offWord(id: string): string {
 
 type ScenarioLike = { when: Record<string, string>; then: Record<string, string | { current?: [number, number]; voltage?: [number, number] }> }
 
+export function conditionLabel(partId: string, value: ThenValue): string {
+  if (value === "off") return `${partId} ${offWord(partId)}`
+  if (typeof value === "string") return `${partId} ${STATE_WORDS[value] ?? value}`
+  const parts: string[] = []
+  if (value.current) parts.push(`corrente entre ${formatValue(value.current[0], "A")} e ${formatValue(value.current[1], "A")}`)
+  if (value.voltage) parts.push(`tensão entre ${formatValue(value.voltage[0], "V")} e ${formatValue(value.voltage[1], "V")}`)
+  return `${partId} com ${parts.join(" e ")}`
+}
+
 export function scenarioLabel(scenario: ScenarioLike): { when: string; then: string } {
   const when = Object.entries(scenario.when).map(([id, v]) => (v === "removed" ? `sem ${id}` : `${id} ${INPUT_WORDS[v] ?? v}`))
-  const then = Object.entries(scenario.then).map(([id, v]) => {
-    if (v === "off") return `${id} ${offWord(id)}`
-    if (typeof v === "string") return `${id} ${STATE_WORDS[v] ?? v}`
-    const parts: string[] = []
-    if (v.current) parts.push(`corrente entre ${formatValue(v.current[0], "A")} e ${formatValue(v.current[1], "A")}`)
-    if (v.voltage) parts.push(`tensão entre ${formatValue(v.voltage[0], "V")} e ${formatValue(v.voltage[1], "V")}`)
-    return `${id} com ${parts.join(" e ")}`
-  })
+  const then = Object.entries(scenario.then).map(([id, v]) => conditionLabel(id, v))
   return { when: when.join(", "), then: then.join(", ") }
 }
 

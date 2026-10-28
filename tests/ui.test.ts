@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, meterDisplayText, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
+import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, meterDisplayText, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, conditionLabel, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 import type { Star } from "../src/phases"
 
@@ -374,3 +374,11 @@ describe("step guide mode", () => {
     expect(nextGuideMode({ mode: "spot", missingSince: null }, false, 300).mode).toBe("spot")
   })
 })
+
+describe("condition label", () => {
+  it("reads like the scenario label", () => {
+    expect(conditionLabel("L1", "lit")).toBe("L1 acesa")
+    expect(conditionLabel("M1", "off")).toBe("M1 parado")
+  })
+})
+
