@@ -20,7 +20,8 @@ function circuitMet(star: Star, ctx: StarContext): boolean {
     case "maxCost":
       return ctx.evaluation.cost <= star.value
     case "maxWires":
-      return ctx.doc.bench.wires.length <= star.value
+      // fase de desenho conta os traços do blueprint, que é onde o jogador liga as peças
+      return (ctx.side === "blueprint" ? ctx.doc.blueprint.segments.length : ctx.doc.bench.wires.length) <= star.value
     case "usedMeter":
       return ctx.meterModesUsed.includes(star.mode)
   }

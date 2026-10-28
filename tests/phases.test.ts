@@ -1026,6 +1026,24 @@ describe("step targets", () => {
     expect(validatePhases(loadPhases(phasesRaw), catalog, datasheets, guideKeys).filter((e) => e.includes("passo"))).toEqual([])
   })
 
+  it("noDivergence is rejected in a phase judged only on the blueprint", () => {
+    const bad = structuredClone(loadPhases(phasesRaw))
+    const phase = bad.groups[0].phases.find((p) => p.id === "g0p2")!
+    phase.stars = [{ kind: "solved" }, { kind: "maxCost", value: 4 }, { kind: "noDivergence" }]
+    expect(validatePhases(bad, catalog, datasheets, guideKeys).some((e) => e.includes("g0p2") && e.includes("noDivergence"))).toBe(true)
+  })
+
+  it("g0p2 can reach all three stars by drawing a clean two-wire loop", () => {
+    const phase = findPhase(loadPhases(phasesRaw), "g0p2")!
+    const doc = emptyDoc()
+    doc.instances.push({ id: "B1", type: "battery", value: 9, actualValue: 9 }, { id: "L1", type: "lamp", value: 0, actualValue: 0 })
+    doc.blueprint.placements.push({ id: "B1", x: -6, y: 0, rotation: 0 }, { id: "L1", x: 6, y: 0, rotation: 90 })
+    doc.blueprint.segments.push({ id: "F1", x1: -6, y1: -2, x2: 6, y2: -2 }, { id: "F2", x1: -6, y1: 2, x2: 6, y2: 2 })
+    const e = evaluate(phase, doc, catalog)
+    expect(e.won).toBe(true)
+    expect(evaluateStars(phase.stars, { won: true, evaluation: e, doc, side: phase.evaluateOn, meterModesUsed: [] })).toEqual([true, true, true])
+  })
+
   it("validatePhases rejects introduces that is neither a guide nor a part", () => {
     const bad = structuredClone(loadPhases(phasesRaw))
     bad.groups[0].phases[0].introduces = ["nope"]

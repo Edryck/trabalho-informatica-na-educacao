@@ -33,6 +33,15 @@ describe("stars", () => {
     expect(evaluateStars(stars, ctx({ evaluation: evaluation({ divergences: [div], cost: 6 }), doc: docWithWires(3), meterModesUsed: ["V"] }))).toEqual([true, false, false, false, false])
   })
 
+  it("maxWires counts the drawing segments when the phase is judged on the blueprint", () => {
+    const doc = docWithWires(0)
+    for (let i = 0; i < 3; i++) doc.blueprint.segments.push({ id: `F${i}`, x1: 0, y1: i, x2: 1, y2: i })
+    const wires: Star[] = [{ kind: "maxWires", value: 2 }]
+    expect(evaluateStars(wires, ctx({ doc, side: "blueprint" }))).toEqual([false])
+    doc.blueprint.segments.pop()
+    expect(evaluateStars(wires, ctx({ doc, side: "blueprint" }))).toEqual([true])
+  })
+
   it("no star without a win", () => {
     expect(evaluateStars([{ kind: "solved" }, { kind: "maxWires", value: 9 }], ctx({ won: false }))).toEqual([false, false])
   })

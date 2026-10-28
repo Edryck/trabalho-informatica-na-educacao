@@ -516,6 +516,7 @@ function validateStars(phase: Phase, meterOk: boolean, catalog: PartsCatalog): s
     if (star.kind === "usedMeter" && !meterOk) errors.push(`${where}: usedMeter antes de liberar o multímetro`)
     if (star.kind === "usedMeter" && meterSteps) errors.push(`${where}: usedMeter repete um passo obrigatório do tutorial`)
     if (star.kind === "noDivergence" && !phase.showDivergence) errors.push(`${where}: noDivergence precisa dos marcadores de divergência ligados`)
+    if (star.kind === "noDivergence" && phase.evaluateOn === "blueprint") errors.push(`${where}: noDivergence não dá pra ganhar em fase avaliada só no blueprint`)
   }
   const doc = phase.referenceSolution ?? phase.initial
   if (doc && errors.length === 0) {
