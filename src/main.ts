@@ -82,6 +82,7 @@ import {
   createMeterHud,
   createValuePicker,
   formatValue,
+  sentenceCase,
   meterDisplayText,
   setReducedMotion,
   warningText,
@@ -739,7 +740,8 @@ function render() {
   else preview.show(previewResult !== undefined && session ? previewText(session.previewIndex!) : null)
   if (phase && ev && session) {
     if (history.index === 0) session.positiveSeen = new Set()
-    session.positiveSeen = checklistLines(phase.expect, ev.scenarios, session.positiveSeen).positiveSeen
+    const checklist = checklistLines(phase.expect, ev.scenarios, session.positiveSeen)
+    session.positiveSeen = checklist.positiveSeen
     // estado no meio de um arrasto não conta: só o que o jogador soltou ou desfez
     const settled = renderSound || renderSettled
     if (settled && (ev.scenarios.length > 0 ? ev.scenarios.every((s) => s.ok) : session.won)) session.everAllPassed = true
@@ -758,6 +760,7 @@ function render() {
     brief.render(phase, {
       goals,
       rows: ev.scenarios.map((s) => ({ ok: s.ok, isCurrent: s.isCurrent })),
+      lines: checklist.lines,
       cost: ev.cost,
       budgetOk: ev.budgetOk,
       previewIndex: session.previewIndex,
@@ -988,15 +991,20 @@ function tickObservations() {
   }
 }
 
-function workOrderView(phase: Phase): WorkOrderView | null {
-  if (!phase.order && !phase.lesson) return null
-  return { label: phaseLabel(phase.id), from: orderFrom(phase.type, phase.order), object: phase.order?.object ?? phase.goal, concept: phase.lesson?.concept ?? null }
+function workOrderView(phase: Phase): WorkOrderView {
+  return {
+    label: phaseLabel(phase.id),
+    from: orderFrom(phase.type, phase.order),
+    object: phase.order?.object ?? sentenceCase(phase.goal),
+    goal: sentenceCase(phase.goal),
+    concept: phase.lesson?.concept ?? null,
+    brief: phase.brief,
+  }
 }
 
 function openWorkOrder() {
-  const v = session ? workOrderView(session.phase) : null
-  if (!v) return
-  workOrder.show(v)
+  if (!session) return
+  workOrder.show(workOrderView(session.phase))
   audio.play("click")
 }
 
@@ -1172,7 +1180,8 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   maybeStartTour()
   // tour do primeiro acesso tem prioridade; o cartão volta na próxima vez
   const tourComing = tourPending || (phase.id === phaseOrder(phases)[0] && !store.data.tutorialSeen)
-  if (!synthetic && !tour.isOpen() && !tourComing && !store.data.conceptSeen.includes(phase.id)) openWorkOrder()
+  const hasOrder = !!phase.order || !!phase.lesson
+  if (!synthetic && hasOrder && !tour.isOpen() && !tourComing && !store.data.conceptSeen.includes(phase.id)) openWorkOrder()
   maybeOpenPartCard()
 }
 
@@ -1648,7 +1657,8 @@ stageEl.addEventListener(
 
 document.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest("button")
-  if (button && !button.disabled) audio.play("click")
+  // pré-visualizar um cenário não faz barulho
+  if (button && !button.disabled && !button.hasAttribute("data-silent")) audio.play("click")
 })
 const unlockEvents = ["pointerdown", "pointerup", "keydown"] as const
 const unlockOnGesture = () => {

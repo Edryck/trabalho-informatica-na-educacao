@@ -2,7 +2,7 @@ import type { Divergence, PartsCatalog, PinRef } from "./netlist"
 import type { BlueprintPlacement, BlueprintSegment, Instance } from "./state"
 import { resistorBands } from "./parts3d"
 import type { Warning } from "./solver"
-import type { Lesson, Star, ThenValue, WorkOrder } from "./phases"
+import type { ChecklistLine, Lesson, Star, ThenValue, WorkOrder } from "./phases"
 import type { GoalState, LevelInfo } from "./game"
 
 export type Unit = "V" | "A" | "Ω" | "W"
@@ -635,7 +635,9 @@ export function orderFrom(type: string, order: { client?: string } | null): stri
   return order?.client ?? "Cliente de balcão"
 }
 
-export type WorkOrderView = { label: string; from: string; object: string; concept: string | null }
+export const sentenceCase = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
+
+export type WorkOrderView = { label: string; from: string; object: string; goal: string; concept: string | null; brief: string | null }
 
 export function createWorkOrderCard(el: HTMLElement, onClose: () => void) {
   el.className = "work-order"
@@ -653,7 +655,8 @@ export function createWorkOrderCard(el: HTMLElement, onClose: () => void) {
         <p class="work-order-tag">Ordem de serviço <span class="mono">${view.label}</span></p>
         <h2 id="work-order-title" class="work-order-object">${view.object}</h2>
         <p class="work-order-from">${view.from}</p>
-        ${view.concept ? `<p class="work-order-concept">${view.concept}</p>` : ""}
+        ${view.goal !== view.object ? `<p class="work-order-goal"><strong>Objetivo:</strong> ${view.goal}</p>` : ""}
+        ${view.concept ?? view.brief ? `<p class="work-order-concept">${view.concept ?? view.brief}</p>` : ""}
         <button type="button" class="btn-primary" data-action="close">Bora pra bancada</button>`
       void fadeSlide(el, { y: 16, duration: 300 })
       el.querySelector<HTMLButtonElement>("[data-action=close]")?.focus()
@@ -662,6 +665,16 @@ export function createWorkOrderCard(el: HTMLElement, onClose: () => void) {
       el.hidden = true
     },
   }
+}
+
+export type ChecklistGroup = { scenario: number; when: string; conditions: { label: string; ok: boolean }[] }
+
+export function checklistGroups(expect: ScenarioLike[], lines: ChecklistLine[]): ChecklistGroup[] {
+  return expect.map((scenario, index) => ({
+    scenario: index,
+    when: scenarioLabel(scenario).when,
+    conditions: lines.filter((line) => line.scenario === index).map((line) => ({ label: conditionLabel(line.partId, line.value), ok: line.ok })),
+  }))
 }
 
 export type BriefPhase = { id: string; type: string; goal: string; brief: string; budget: number | null; expect: ScenarioLike[]; steps: { text: string }[] | null; hints: string[]; order?: WorkOrder | null; lesson?: Lesson | null }
@@ -693,6 +706,7 @@ function goalPops(prev: GoalState[], next: Goal[]): number[] {
 export type BriefState = {
   goals: Goal[]
   rows: { ok: boolean; isCurrent: boolean }[]
+  lines: ChecklistLine[]
   cost: number
   budgetOk: boolean
   previewIndex: number | null
@@ -743,14 +757,17 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
       el.hidden = false
       const fresh = lastPhase !== phase.id
       const step = state.stepIndex !== null && phase.steps ? phase.steps[state.stepIndex] : null
-      const rows = phase.expect
-        .map((s, i) => {
-          const label = scenarioLabel(s)
-          const row = state.rows[i]
-          const ok = row?.ok ?? false
-          const classes = ["check-row", ok ? "ok" : "fail", row?.isCurrent ? "current" : "", state.previewIndex === i ? "previewing" : ""].join(" ")
-          const when = label.when ? `<span class="check-when">${label.when}</span>` : ""
-          return `<li><button type="button" class="${classes}" data-row="${i}" aria-pressed="${state.previewIndex === i}" aria-label="${ok ? "Cumprido" : "Ainda não"}: ${label.when ? `${label.when}, ` : ""}${label.then}. Clique pra pré-visualizar."><span class="check-icon">${ok ? CHECK_ICON : CROSS_ICON}</span><span class="check-text">${when}<span class="check-then">${label.then}</span></span>${row?.isCurrent ? '<span class="check-now">agora</span>' : ""}</button></li>`
+      const rows = checklistGroups(phase.expect, state.lines)
+        .map((group) => {
+          const row = state.rows[group.scenario]
+          const previewing = state.previewIndex === group.scenario
+          const head = group.when
+            ? `<button type="button" class="check-head${previewing ? " previewing" : ""}" data-row="${group.scenario}" data-silent aria-pressed="${previewing}" aria-label="${group.when}. Clique pra pré-visualizar."><span class="check-when">${group.when}</span>${row?.isCurrent ? '<span class="check-now">agora</span>' : ""}</button>`
+            : ""
+          const conditions = group.conditions
+            .map((c) => `<li class="check-cond ${c.ok ? "ok" : "fail"}"><span class="check-icon" role="img" aria-label="${c.ok ? "Cumprido" : "Ainda não"}">${c.ok ? CHECK_ICON : CROSS_ICON}</span><span class="check-then">${c.label}</span></li>`)
+            .join("")
+          return `<li class="check-group">${head}<ul class="check-conds">${conditions}</ul></li>`
         })
         .join("")
       const budget =
@@ -774,13 +791,13 @@ export function createPhaseBrief(el: HTMLElement, handlers: { onPreview(index: n
           <span class="brief-id mono">${phaseLabel(phase.id)}</span>
           <button type="button" class="brief-link" data-action="restart" title="Volta a fase pro começo">${confirmingRestart ? "Confirmar recomeço" : "Recomeçar"}</button>
           ${phase.id === "sandbox" && handlers.onDatasheets ? '<button type="button" class="brief-link" data-action="datasheets">Datasheets</button>' : ""}
-          ${handlers.onOrder && (phase.order || phase.lesson) ? '<button type="button" class="brief-link" data-action="order">Ordem</button>' : ""}
+          ${handlers.onOrder ? '<button type="button" class="brief-link" data-action="order">Objetivo</button>' : ""}
           <button type="button" class="brief-link" data-action="phases">Fases</button>
         </header>
         ${phase.order ? `<p class="brief-order">${orderFrom(phase.type, phase.order)} · ${phase.order.object}</p>` : ""}
-        <h2 class="brief-title">${phase.goal.charAt(0).toUpperCase()}${phase.goal.slice(1)}</h2>
-        <p class="brief-text">${phase.brief}</p>
+        <h2 class="brief-title">${sentenceCase(phase.goal)}</h2>
         ${step ? `<p class="brief-step"><span class="mono">${(state.stepIndex ?? 0) + 1}/${phase.steps!.length}</span>${step.text}</p>` : ""}
+        <p class="brief-text">${phase.brief}</p>
         ${rows ? `<ul class="checklist">${rows}</ul>` : ""}
         ${budget}
         ${goals ? `<section class="brief-goals" aria-label="Estrelas da fase"><h3>Estrelas</h3><ul>${goals}</ul></section>` : ""}

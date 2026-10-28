@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, meterDisplayText, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, conditionLabel, scenarioLabel, setReducedMotion, visibleDivergences } from "../src/ui"
+import { MENTOR, bounceLand, cssLinear, divergenceLabel, formatValue, meterDisplayText, orderFrom, particleSpeed, pop, sampleBounce, sampleSpring, checklistGroups, conditionLabel, scenarioLabel, sentenceCase, setReducedMotion, visibleDivergences } from "../src/ui"
 import type { Divergence } from "../src/netlist"
 import type { Star } from "../src/phases"
 
@@ -382,3 +382,25 @@ describe("condition label", () => {
   })
 })
 
+describe("checklist groups", () => {
+  it("groups lines by scenario, with a readable header only when there is a when", () => {
+    const expectList: { when: Record<string, string>; then: Record<string, string> }[] = [
+      { when: { S1: "on" }, then: { L1: "lit" } },
+      { when: {}, then: { L1: "off", M1: "off" } },
+    ]
+    const lines = [
+      { scenario: 0, partId: "L1", value: "lit", ok: true, negative: false },
+      { scenario: 1, partId: "L1", value: "off", ok: false, negative: true },
+      { scenario: 1, partId: "M1", value: "off", ok: false, negative: true },
+    ]
+    expect(checklistGroups(expectList, lines)).toEqual([
+      { scenario: 0, when: "S1 ligada", conditions: [{ label: "L1 acesa", ok: true }] },
+      { scenario: 1, when: "", conditions: [{ label: "L1 apagada", ok: false }, { label: "M1 parado", ok: false }] },
+    ])
+  })
+
+  it("keeps the panel title capitalization for the goal", () => {
+    expect(sentenceCase("montar na protoboard o que foi desenhado")).toBe("Montar na protoboard o que foi desenhado")
+    expect(sentenceCase("")).toBe("")
+  })
+})
