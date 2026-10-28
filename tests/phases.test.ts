@@ -1049,6 +1049,11 @@ describe("part cards", () => {
     expect(seeded).not.toContain("resistor")
   })
 
+  it("[RF 5] a won phase also seeds the parts that came in its initial circuit", () => {
+    // g1p3 traz bateria e motor já montados e não tem bandeja
+    expect(seedIntroduced(data, new Set(["g1p3"]), catalog)).toEqual(expect.arrayContaining(["battery", "dc_motor"]))
+  })
+
   it("lists new parts for the first phase of a group, unlocks first", () => {
     const g2p1 = findPhase(data, "g2p1")!
     const known = new Set(["resistor", "multimeter", "battery", "lamp"])

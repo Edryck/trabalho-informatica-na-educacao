@@ -367,6 +367,7 @@ export function seedIntroduced(data: PhaseData, won: Set<string>, catalog: Parts
       if (!won.has(phase.id)) continue
       for (const key of phase.introduces) add(key)
       for (const type of Object.keys(phase.tray)) add(type)
+      for (const instance of phase.initial?.instances ?? []) add(instance.type)
     }
   }
   return out
