@@ -2948,6 +2948,53 @@ body.showcase .layout {
   z-index: 50;
 }
 
+.step-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.step-guide[hidden],
+.step-guide.is-away {
+  display: none;
+}
+
+.step-guide-hole {
+  position: fixed;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 3px var(--color-accent),
+    0 0 0 200vmax rgba(43, 33, 24, 0.3);
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.step-guide.is-bubble .step-guide-hole {
+  opacity: 0;
+}
+
+.step-guide-bubble {
+  position: fixed;
+  width: min(280px, calc(100vw - 32px));
+  padding: 12px 14px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
+}
+
+.step-guide-text {
+  margin: 0;
+  font: 500 14px/1.45 var(--font-ui);
+  color: var(--color-text);
+}
+
+.reduce-motion .step-guide-hole {
+  transition: none;
+}
+
 .tour[hidden] {
   display: none;
 }

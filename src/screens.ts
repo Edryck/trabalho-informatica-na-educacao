@@ -257,6 +257,85 @@ function placeBubble(bubble: HTMLElement, box: Box) {
   bubble.style.top = `${pick.y}px`
 }
 
+export type GuideMode = "spot" | "bubble"
+export type GuideState = { mode: GuideMode; missingSince: number | null }
+const GUIDE_GRACE_MS = 250
+
+export function nextGuideMode(prev: GuideState, hasBox: boolean, now: number): GuideState {
+  if (hasBox) return { mode: "spot", missingSince: null }
+  const since = prev.missingSince ?? now
+  // o alvo some por um instante quando a câmera gira: só vira balão se a falta durar
+  return { mode: prev.mode === "bubble" || now - since >= GUIDE_GRACE_MS ? "bubble" : "spot", missingSince: since }
+}
+
+export function createStepGuide(el: HTMLElement, isBlocked: () => boolean) {
+  el.className = "step-guide is-bubble"
+  el.hidden = true
+  el.setAttribute("aria-hidden", "true")
+  el.innerHTML = `<div class="step-guide-hole"></div><div class="step-guide-bubble"><p class="step-guide-text"></p></div>`
+  const hole = el.querySelector<HTMLElement>(".step-guide-hole")!
+  const bubble = el.querySelector<HTMLElement>(".step-guide-bubble")!
+  const textEl = el.querySelector<HTMLElement>(".step-guide-text")!
+  let locate: (() => Box | null) | null = null
+  let shownText = ""
+  let state: GuideState = { mode: "bubble", missingSince: null }
+  let placedKey = ""
+  let raf = 0
+
+  const anchorToBrief = () => {
+    const brief = document.querySelector<HTMLElement>(".phase-brief")?.getBoundingClientRect()
+    const onScreen = brief && brief.width > 0
+    const x = onScreen ? Math.max(GAP, brief.left - bubble.offsetWidth - GAP) : GAP
+    // desce um pouco pra não cobrir o seletor bancada/blueprint
+    const y = onScreen ? brief.top + 48 : GAP
+    return { x, y }
+  }
+
+  const tick = () => {
+    raf = requestAnimationFrame(tick)
+    const away = isBlocked()
+    el.classList.toggle("is-away", away)
+    if (away || !locate) return
+    const box = locate()
+    state = nextGuideMode(state, box !== null, performance.now())
+    el.classList.toggle("is-bubble", state.mode === "bubble")
+    // o buraco segue o último lugar conhecido durante a tolerância
+    if (box) {
+      const key = `${Math.round(box.x)}|${Math.round(box.y)}|${Math.round(box.w)}|${Math.round(box.h)}|${box.r}`
+      if (key === placedKey) return
+      placedKey = key
+      Object.assign(hole.style, { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px`, borderRadius: `${box.r}px` })
+      placeBubble(bubble, box)
+    } else if (state.mode === "bubble") {
+      placedKey = ""
+      const spot = anchorToBrief()
+      bubble.style.left = `${spot.x}px`
+      bubble.style.top = `${spot.y}px`
+    }
+  }
+
+  return {
+    show(text: string, find: () => Box | null) {
+      locate = find
+      if (!el.hidden && text === shownText) return
+      shownText = text
+      textEl.textContent = text
+      state = { mode: "bubble", missingSince: null }
+      placedKey = ""
+      el.hidden = false
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(tick)
+    },
+    hide() {
+      cancelAnimationFrame(raf)
+      raf = 0
+      locate = null
+      shownText = ""
+      el.hidden = true
+    },
+  }
+}
+
 export function createTour(el: HTMLElement) {
   el.className = "tour"
   el.hidden = true

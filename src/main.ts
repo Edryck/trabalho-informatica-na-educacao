@@ -1,4 +1,4 @@
-import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createNotebookScreen, createPartCard, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary, type PartCardInfo } from "./screens"
+import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createNotebookScreen, createPartCard, createStepGuide, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary, type PartCardInfo } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -104,6 +104,7 @@ import {
   type Datasheet,
   type Goal,
   type PendingItem,
+  type Box,
   type ToolId,
   type TrayItem,
   type ViewName,
@@ -197,6 +198,12 @@ const partCard = createPartCard(partCardEl, {
   onDatasheet: (key) => showSheetScreen(key, false),
 })
 let partCardQueue: string[] = []
+const stepGuideEl = document.createElement("div")
+document.body.appendChild(stepGuideEl)
+const stepGuide = createStepGuide(
+  stepGuideEl,
+  () => overlayOpen() || tour.isOpen() || workOrder.isOpen() || partCard.isOpen() || sheetCard.isOpen() || sheetScreen.isOpen() || rewinding || bestView !== null,
+)
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -663,6 +670,22 @@ function previewText(index: number): string {
   return label.when || "estado atual"
 }
 
+function locateTarget(target: string): Box | null {
+  if (target.startsWith("css:")) {
+    const rect = document.querySelector(target.slice("css:".length))?.getBoundingClientRect()
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null
+    return { x: rect.left - 6, y: rect.top - 6, w: rect.width + 12, h: rect.height + 12, r: 14 }
+  }
+  return activeEditor().screenBox(target)
+}
+
+function updateStepGuide() {
+  const step = session && session.stepIndex !== null ? session.phase.steps?.[session.stepIndex] : undefined
+  const target = step?.target
+  if (!step || !target) return stepGuide.hide()
+  stepGuide.show(step.text, () => locateTarget(target))
+}
+
 function applyCues() {
   const prev = lastCueResult
   const result = view.benchResult
@@ -707,6 +730,7 @@ function render() {
   toolbar.setHistory(history.index > 0, history.index < history.snapshots.length - 1)
   toolbar.setRewind(history.snapshots.length > 1)
   toolbar.setCurrentView(currentView)
+  updateStepGuide()
   stageEl.classList.toggle("previewing", previewResult !== undefined || bestView !== null)
   document.body.classList.toggle("viewing-best", bestView !== null)
   if (bestView) preview.show("Solução de menor custo", "")

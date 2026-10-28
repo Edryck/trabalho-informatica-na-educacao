@@ -346,3 +346,31 @@ describe("meter display text", () => {
     expect(meterDisplayText("V", { mode: "V", value: 9, display: "value" }, true)).toBe(formatValue(9, "V"))
   })
 })
+
+import { nextGuideMode } from "../src/screens"
+
+describe("step guide mode", () => {
+  it("[RF 3] does not flicker when the target blinks out for a moment", () => {
+    let s = nextGuideMode({ mode: "spot", missingSince: null }, false, 1000)
+    expect(s.mode).toBe("spot")
+    s = nextGuideMode(s, false, 1200)
+    expect(s.mode).toBe("spot")
+    s = nextGuideMode(s, false, 1300)
+    expect(s.mode).toBe("bubble")
+    expect(nextGuideMode(s, true, 1310)).toEqual({ mode: "spot", missingSince: null })
+  })
+
+  it("stays a bubble while the target is missing and comes back as soon as it shows", () => {
+    let s = nextGuideMode({ mode: "bubble", missingSince: null }, false, 500)
+    expect(s.mode).toBe("bubble")
+    s = nextGuideMode(s, false, 5000)
+    expect(s.mode).toBe("bubble")
+    expect(nextGuideMode(s, true, 5016)).toEqual({ mode: "spot", missingSince: null })
+  })
+
+  it("a blink that ends before 250 ms never leaves the spotlight", () => {
+    const gone = nextGuideMode({ mode: "spot", missingSince: null }, false, 100)
+    expect(nextGuideMode(gone, true, 200)).toEqual({ mode: "spot", missingSince: null })
+    expect(nextGuideMode({ mode: "spot", missingSince: null }, false, 300).mode).toBe("spot")
+  })
+})
