@@ -11,7 +11,7 @@ const demo = data.groups.filter((g) => g.demo).flatMap((g) => g.phases)
 
 const COVERED_GROUPS: string[] = ["g0", "g1", "g2", "g3", "g6"]
 const KEY_PHASES = ["g1p4", "g2p3", "g3p3", "g6p2"]
-const LIMITS = { concept: 280, observation: 140, discovery: 140, client: 60, object: 80, thanks: 200 }
+const LIMITS = { concept: 280, observation: 140, discovery: 140, client: 60, object: 80, thanks: 200, howToPlace: 140, howToWorks: 160, step: 160 }
 const BANNED = [/ótima pergunta/i, /vamos mergulhar/i, /mergulh/i, /jornada/i, /parabéns!/i, /incrível/i, /\p{Extended_Pictographic}/u, /—/]
 const PART_ID = /\b[A-Z]{1,3}\d+\b/
 const IMPERATIVE = /^(coloca|coloque|põe|ponha|liga|ligue|troca|troque|tira|tire|muda|mude|usa|use|inverte|inverta|move|mova)\b/i
@@ -134,3 +134,38 @@ describe("text guard", () => {
     }
   })
 })
+
+describe("howTo and step guard", () => {
+  const { catalog: cat, guides } = splitParts(parts)
+  const howToKeys = [...Object.keys(cat), ...Object.keys(guides)]
+
+  it("every part and guide has a howTo within limits and free of banned patterns", () => {
+    for (const key of howToKeys) {
+      const h = key in cat ? cat[key].howTo : guides[key].howTo
+      expect(h, key).toBeDefined()
+      expect(h!.place.length, key).toBeLessThanOrEqual(LIMITS.howToPlace)
+      expect(h!.works.length, key).toBeLessThanOrEqual(LIMITS.howToWorks)
+      for (const re of BANNED) {
+        expect(h!.place, key).not.toMatch(re)
+        expect(h!.works, key).not.toMatch(re)
+      }
+    }
+  })
+
+  it("every demo tutorial phase has steps, and step texts are short and clean", () => {
+    for (const p of demo) {
+      if (p.type === "tutorial") expect(p.steps?.length ?? 0, p.id).toBeGreaterThan(0)
+      for (const s of p.steps ?? []) {
+        expect(s.text.length, p.id).toBeLessThanOrEqual(LIMITS.step)
+        for (const re of BANNED) expect(s.text, p.id).not.toMatch(re)
+      }
+    }
+  })
+
+  it("phases from the spec table have guided steps", () => {
+    for (const id of ["g0p2", "g0p4", "g1p1", "g1p2", "g1p3", "g1p4", "g2p1", "g2p2", "g6p1", "g6p3"]) {
+      expect(demo.find((p) => p.id === id)!.steps?.length ?? 0, id).toBeGreaterThan(0)
+    }
+  })
+})
+

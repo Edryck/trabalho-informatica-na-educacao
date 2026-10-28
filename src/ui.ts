@@ -349,6 +349,7 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
         const button = document.createElement("button")
         button.type = "button"
         button.className = "tray-item"
+        button.dataset.part = (item.icon ?? item.type).replace(/^pending:/, "")
         button.disabled = item.count <= 0
         button.classList.toggle("active", item.type === active)
         button.setAttribute("aria-label", `${item.label}, ${item.count === Infinity ? "sem limite" : item.count + " disponível"}`)
