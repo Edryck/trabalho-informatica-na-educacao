@@ -1,4 +1,4 @@
-import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createNotebookScreen, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary } from "./screens"
+import { createCompleteScreen, createDatasheetScreen, createGroupScreen, createMapScreen, createNotebookScreen, createPartCard, createTour, createWorkshopScreen, TOUR_STEPS, type CompleteSummary, type PartCardInfo } from "./screens"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
@@ -41,6 +41,7 @@ import {
   stepEventDone,
   type TutorialEvent,
   type TutorialEventType,
+  newPartsFor,
   seedIntroduced,
 } from "./phases"
 import { solve, type DiscreteState, type SolveResult } from "./solver"
@@ -108,7 +109,7 @@ import {
   type ViewName,
 } from "./ui"
 
-const catalog = splitParts(partsJson).catalog
+const { catalog, guides } = splitParts(partsJson)
 const phases = loadPhases(phasesJson)
 setPhaseLabels(phaseLabels(phases))
 const rewards = buildRewards(rewardsJson as RewardsData, phases)
@@ -182,6 +183,20 @@ const observationNote = createObservationNote(observationEl)
 const workOrderEl = document.createElement("div")
 stageEl.append(workOrderEl)
 const workOrder = createWorkOrderCard(workOrderEl, () => closeWorkOrder())
+const partCardEl = document.createElement("div")
+stageEl.append(partCardEl)
+const partCard = createPartCard(partCardEl, {
+  onClose: (key) => {
+    const introduced = store.data.partsIntroduced ?? []
+    if (!introduced.includes(key)) store.data.partsIntroduced = [...introduced, key]
+    const sheetKey = catalog[key]?.datasheet ?? key
+    if (sheetKey in datasheets && !store.data.seenDatasheets.includes(sheetKey)) store.data.seenDatasheets.push(sheetKey)
+    store.save()
+    maybeOpenPartCard()
+  },
+  onDatasheet: (key) => showSheetScreen(key, false),
+})
+let partCardQueue: string[] = []
 benchLayer.append(paletteEl, meterEl)
 blueprintLayer.append(pendingEl)
 
@@ -418,7 +433,7 @@ const bench = createBench(benchLayer, catalog, {
 const blueprint = createBlueprint(blueprintLayer, catalog, callbacks("blueprint"))
 
 const toolbar = createToolbar(toolbarEl, onToolbar)
-const tray = createTray(trayEl, (type) => void pickFromTray(type), (type) => showSheetScreen(type, false))
+const tray = createTray(trayEl, (type) => void pickFromTray(type), (type) => openPartCard(type))
 const datasheets = datasheetsJson as unknown as Record<string, Datasheet>
 let sheetQueue: string[] = []
 const sheetScreenEl = document.createElement("div")
@@ -426,6 +441,7 @@ app.append(sheetScreenEl)
 const sheetScreen = createDatasheetScreen(sheetScreenEl, {
   onClose: () => {
     maybeStartTour()
+    maybeOpenPartCard()
   },
   onPick: (type) => showSheetScreen(type, sheetListOpen),
 })
@@ -460,6 +476,7 @@ function maybeStartTour() {
   tour.start(TOUR_STEPS, () => {
     store.data.tutorialSeen = true
     store.save()
+    maybeOpenPartCard()
   })
 }
 
@@ -505,11 +522,34 @@ function openSheetList() {
   if (first) showSheetScreen(first, true)
 }
 
-function queueNewDatasheets(phase: Phase) {
-  const group = phases.groups.find((g) => g.phases.some((p) => p.id === phase.id))
-  const fresh = (group?.unlocks ?? []).filter((key) => key in catalog && key in datasheets && !store.data.seenDatasheets.includes(key))
-  sheetQueue = fresh.slice(1)
-  if (fresh[0]) openDatasheet(fresh[0], true)
+function partCardInfo(key: string): PartCardInfo | null {
+  const howTo = catalog[key]?.howTo ?? guides[key]?.howTo
+  if (!howTo) return null
+  return { name: PART_LABELS[key] ?? guides[key]?.name ?? key, howTo, hasDatasheet: (catalog[key]?.datasheet ?? key) in datasheets }
+}
+
+function queuePartCards(phase: Phase) {
+  const known = new Set([...Object.keys(catalog).filter((key) => catalog[key].howTo), ...Object.keys(guides)])
+  partCardQueue = newPartsFor(phases, phase, store.data.partsIntroduced ?? [], known, catalog)
+}
+
+function maybeOpenPartCard() {
+  if (!session || partCard.isOpen() || partCardQueue.length === 0) return
+  if (overlayOpen() || tour.isOpen() || tourPending || workOrder.isOpen() || sheetCard.isOpen() || sheetScreen.isOpen()) return
+  const key = partCardQueue.shift()!
+  const info = partCardInfo(key)
+  if (!info) return maybeOpenPartCard()
+  partCard.open(key, info)
+  audio.play("click")
+}
+
+function openPartCard(key: string) {
+  if (tour.isOpen()) return
+  const info = partCardInfo(key)
+  // sem texto de como usar ainda: o "?" cai no datasheet, como o "i" fazia
+  if (!info) return showSheetScreen(key, false)
+  partCardQueue = partCardQueue.filter((k) => k !== key)
+  partCard.open(key, info)
 }
 
 async function pickFromTray(type: string) {
@@ -934,9 +974,11 @@ function openWorkOrder() {
 
 function closeWorkOrder() {
   workOrder.hide()
-  if (!session || store.data.conceptSeen.includes(session.phase.id)) return
-  store.data = { ...store.data, conceptSeen: [...store.data.conceptSeen, session.phase.id] }
-  store.save()
+  if (session && !store.data.conceptSeen.includes(session.phase.id)) {
+    store.data = { ...store.data, conceptSeen: [...store.data.conceptSeen, session.phase.id] }
+    store.save()
+  }
+  maybeOpenPartCard()
 }
 
 const CELEBRATE_MS = 700
@@ -1077,6 +1119,7 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   valuePicker.close()
   sheetQueue = []
   sheetCard.close()
+  partCardQueue = []
   history = createHistory(doc)
   benchDiscrete = undefined
   blueprintDiscrete = undefined
@@ -1095,17 +1138,19 @@ function startPhase(phaseId: string, synthetic?: Phase) {
   renderSettled = true
   render()
   renderSettled = false
-  if (!synthetic) queueNewDatasheets(phase)
+  if (!synthetic) queuePartCards(phase)
   flushNotices()
   maybeStartTour()
   // tour do primeiro acesso tem prioridade; o cartão volta na próxima vez
   const tourComing = tourPending || (phase.id === phaseOrder(phases)[0] && !store.data.tutorialSeen)
   if (!synthetic && !tour.isOpen() && !tourComing && !store.data.conceptSeen.includes(phase.id)) openWorkOrder()
+  maybeOpenPartCard()
 }
 
 function hideOverlays() {
   cancelCelebrate()
   workOrder.hide()
+  partCard.dismiss()
   tour.stop()
   document.body.classList.remove("showcase", "overlay")
   bench.setShowcase(false)
@@ -1158,6 +1203,7 @@ function closeOverlay() {
   hideOverlays()
   render()
   flushNotices()
+  maybeOpenPartCard()
 }
 
 function progressWon(): Set<string> {
@@ -1479,6 +1525,13 @@ window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault()
       sheetScreen.close()
+    }
+    return
+  }
+  if (partCard.isOpen()) {
+    if (event.key === "Escape") {
+      event.preventDefault()
+      partCard.close()
     }
     return
   }

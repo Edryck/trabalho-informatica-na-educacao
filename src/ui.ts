@@ -362,9 +362,9 @@ export function createTray(el: HTMLElement, onPick: (type: string) => void, onIn
           const info = document.createElement("button")
           info.type = "button"
           info.className = "tray-info"
-          info.setAttribute("aria-label", `Datasheet: ${item.label}`)
-          info.title = "Datasheet"
-          info.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>'
+          info.setAttribute("aria-label", `Como usar: ${item.label}`)
+          info.title = "Como usar"
+          info.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.8M12 16.8v.01"/></svg>'
           info.addEventListener("click", () => onInfo(infoType))
           wrap.appendChild(info)
         }

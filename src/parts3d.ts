@@ -30,6 +30,7 @@ import {
   SRGBColorSpace,
   Texture,
   TorusGeometry,
+  SphereGeometry,
   TubeGeometry,
   type Curve,
   Vector2,
@@ -1051,4 +1052,45 @@ export function setMultimeterState(meter: Group, mode: "off" | "V" | "A" | "ohm"
   meter.getObjectByName("dial")!.rotation.y = METER_DIAL_ANGLE[mode]
   const screen = meter.getObjectByName("screen") as Mesh<PlaneGeometry, MeshBasicMaterial>
   screen.material.map = textTexture(text, "#B8F5C8", "#1B2A1F")
+}
+
+const PREVIEW_ROW_Z: Record<string, number> = { A: -5.5, B: -4.5, C: -3.5, D: -2.5, E: -1.5, F: 1.5, G: 2.5, H: 3.5, I: 4.5, J: 5.5 }
+const PREVIEW_RAIL_Z: Record<string, number> = { "T+": -8.5, "T-": -7.5, "B+": 7.5, "B-": 8.5 }
+
+export function previewModel(key: string): Group {
+  const g = new Group()
+  const lay = (model: Group) => {
+    model.rotation.z = Math.PI / 2
+    return model
+  }
+  if (key === "battery") g.add(makeBattery(PART_COLORS.blue, "9 V"))
+  else if (key === "lamp") g.add(makeLampBody(), makeBulb())
+  else if (key === "switch") g.add(makeSwitch(true, 8))
+  else if (key === "push_button") g.add(makeButton(PART_COLORS.green, false))
+  else if (key === "dc_motor") g.add(makeMotor())
+  else if (key === "buzzer") g.add(makeBuzzer())
+  else if (key === "resistor") g.add(lay(makeResistorBody(resistorBands(220), 10)))
+  else if (key === "led") g.add(makeLedHead(LED_COLORS.red, 0.4))
+  else if (key === "diode") g.add(lay(makeDiodeBody(10)))
+  else if (key.startsWith("chip_")) g.add(makeChip(CHIP_CODES[key] ?? key, 20, 8, -1))
+  else if (key === "logic_switch") g.add(makeSwitch(true, 8, 0x1e3a5f, PART_COLORS.yellow))
+  else if (key === "logic_probe") g.add(makeLedHead(PART_COLORS.green, 0.4))
+  else if (key === "multimeter") g.add(makeMultimeter())
+  else if (key === "breadboard") {
+    const columns = 10
+    g.add(makeBreadboard({ halfX: (columns / 2 + 1.5) * PITCH, halfZ: 10 * PITCH, height: 8.5, pitch: PITCH, columns, rowZ: PREVIEW_ROW_Z, railZ: PREVIEW_RAIL_Z }))
+  } else if (key === "jumper_wire") {
+    const wire = new Mesh(new TubeGeometry(wireCurve(new Vector3(-8, 0, 0), new Vector3(8, 0, 0), 4), 32, 0.5, 8), satin(PART_COLORS.blue))
+    g.add(wire)
+    for (const x of [-8, 8]) {
+      const tip = new Mesh(new SphereGeometry(0.9, 12, 8), metal())
+      tip.position.set(x, 0, 0)
+      g.add(tip)
+    }
+  } else {
+    const box = rounded(10, 10, 10, 2, satin(0xb87333))
+    box.position.y = 5
+    g.add(box)
+  }
+  return g
 }

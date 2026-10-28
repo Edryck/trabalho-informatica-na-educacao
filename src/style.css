@@ -3469,6 +3469,79 @@ body.lite .part-sketch .sketch-side {
   display: none;
 }
 
+.part-card {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  width: min(440px, calc(100% - 32px));
+  display: grid;
+  gap: 12px;
+  padding: 20px 24px 22px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--color-accent);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-pop);
+  z-index: 6;
+}
+
+.part-card[hidden] {
+  display: none;
+}
+
+.part-card-title {
+  margin: 0;
+  font: 600 22px/1.25 var(--font-display);
+  color: var(--color-text);
+}
+
+.part-card-stage {
+  height: 220px;
+  overflow: hidden;
+  background: var(--color-panel-soft);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.part-card-stage canvas {
+  display: block;
+}
+
+.part-card-block {
+  display: grid;
+  gap: 4px;
+}
+
+.part-card-block h3 {
+  margin: 0;
+  font: 600 14px/1.3 var(--font-display);
+  color: var(--color-accent-deep);
+}
+
+.part-card-block p {
+  margin: 0;
+  max-width: 65ch;
+  font: 400 14px/1.55 var(--font-ui);
+  color: var(--color-text);
+}
+
+.part-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+@media (max-height: 640px) {
+  .part-card-stage {
+    height: 150px;
+  }
+}
+
 .work-order-tag {
   margin: 0;
   font: 500 12px/1.2 var(--font-ui);

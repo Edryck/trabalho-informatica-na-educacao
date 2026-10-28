@@ -1,4 +1,7 @@
+import { Box3, DirectionalLight, Group, HemisphereLight, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three"
 import type { GroupSummary, LevelInfo, NotebookGroup, RewardItem } from "./game"
+import type { HowTo } from "./netlist"
+import { previewModel } from "./parts3d"
 import type { PhaseType } from "./phases"
 import type { Datasheet } from "./ui"
 import type { Cosmetics } from "./state"
@@ -714,4 +717,137 @@ export function createNotebookScreen(el: HTMLElement, handlers: { onBack(): void
       el.hidden = true
     },
   }
+}
+
+const PART_CARD_STAGE_HEIGHT = 220
+const previewScene = new Scene()
+const previewCamera = new PerspectiveCamera(35, 1, 0.1, 2000)
+let previewRenderer: WebGLRenderer | null = null
+let previewFailed = false
+
+function sharedPreviewRenderer(): WebGLRenderer | null {
+  if (previewRenderer || previewFailed) return previewRenderer
+  try {
+    previewRenderer = new WebGLRenderer({ antialias: true, alpha: true })
+    previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    previewScene.add(new HemisphereLight(0xffffff, 0xcfc6b5, 1.8))
+    const key = new DirectionalLight(0xffffff, 2.2)
+    key.position.set(30, 60, 40)
+    previewScene.add(key)
+  } catch {
+    previewFailed = true
+    previewRenderer = null
+  }
+  return previewRenderer
+}
+
+function disposeGeometries(root: Group) {
+  root.traverse((o) => {
+    const mesh = o as { geometry?: { dispose(): void } }
+    mesh.geometry?.dispose()
+  })
+}
+
+export type PartCardInfo = { name: string; howTo: HowTo; hasDatasheet: boolean }
+
+export function createPartCard(el: HTMLElement, handlers: { onClose(key: string): void; onDatasheet(key: string): void }) {
+  el.className = "part-card"
+  el.hidden = true
+  el.setAttribute("role", "dialog")
+  el.setAttribute("aria-labelledby", "part-card-title")
+  let current: string | null = null
+  let pivot: Group | null = null
+  let raf = 0
+
+  const stopLoop = () => {
+    cancelAnimationFrame(raf)
+    raf = 0
+  }
+
+  const frame = () => {
+    const renderer = previewRenderer
+    if (!renderer || !pivot) return
+    pivot.rotation.y = performance.now() * 0.0006
+    renderer.render(previewScene, previewCamera)
+    raf = requestAnimationFrame(frame)
+  }
+
+  const clearModel = () => {
+    if (!pivot) return
+    previewScene.remove(pivot)
+    disposeGeometries(pivot)
+    pivot = null
+  }
+
+  const mountModel = (key: string, stage: HTMLElement) => {
+    const renderer = sharedPreviewRenderer()
+    if (!renderer) {
+      stage.hidden = true
+      return
+    }
+    const width = stage.clientWidth || 390
+    renderer.setSize(width, PART_CARD_STAGE_HEIGHT)
+    stage.appendChild(renderer.domElement)
+    previewCamera.aspect = width / PART_CARD_STAGE_HEIGHT
+    previewCamera.updateProjectionMatrix()
+    clearModel()
+    const model = previewModel(key)
+    const box = new Box3().setFromObject(model)
+    const center = box.getCenter(new Vector3())
+    const radius = box.getSize(new Vector3()).length() / 2
+    model.position.sub(center)
+    pivot = new Group()
+    pivot.add(model)
+    pivot.rotation.x = 0.35
+    previewScene.add(pivot)
+    const distance = (radius / Math.sin((previewCamera.fov * Math.PI) / 360)) * 1.05
+    previewCamera.position.set(0, distance * 0.25, distance)
+    previewCamera.lookAt(0, 0, 0)
+    // com movimento reduzido o modelo fica parado, só um quadro
+    if (motionReduced()) renderer.render(previewScene, previewCamera)
+    else raf = requestAnimationFrame(frame)
+  }
+
+  const hide = () => {
+    stopLoop()
+    clearModel()
+    el.hidden = true
+  }
+
+  el.addEventListener("click", (event) => {
+    const action = (event.target as HTMLElement).closest("[data-action]")?.getAttribute("data-action")
+    if (action === "close") api.close()
+    else if (action === "datasheet" && current) handlers.onDatasheet(current)
+  })
+
+  const api = {
+    isOpen: () => !el.hidden,
+    open(key: string, info: PartCardInfo) {
+      stopLoop()
+      current = key
+      el.hidden = false
+      el.innerHTML = `
+        <h2 id="part-card-title" class="part-card-title">${info.name}</h2>
+        <div class="part-card-stage"></div>
+        <section class="part-card-block"><h3>Como encaixar</h3><p>${info.howTo.place}</p></section>
+        <section class="part-card-block"><h3>Como funciona</h3><p>${info.howTo.works}</p></section>
+        <div class="part-card-actions">
+          ${info.hasDatasheet ? '<button type="button" class="btn-secondary" data-action="datasheet">Datasheet</button>' : ""}
+          <button type="button" class="btn-primary" data-action="close">Entendi</button>
+        </div>`
+      mountModel(key, el.querySelector<HTMLElement>(".part-card-stage")!)
+      void fadeSlide(el, { y: 16, duration: 300 })
+      el.querySelector<HTMLButtonElement>("[data-action=close]")?.focus()
+    },
+    close() {
+      if (el.hidden || !current) return
+      const key = current
+      hide()
+      handlers.onClose(key)
+    },
+    dismiss() {
+      hide()
+    },
+  }
+  return api
 }

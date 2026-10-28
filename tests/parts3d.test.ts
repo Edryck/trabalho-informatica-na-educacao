@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { Box3, Mesh, Vector3, type CylinderGeometry, type Object3D } from "three"
-import { makeDecor, makeMultimeter, METER_DIAL_ANGLE, setMultimeterState } from "../src/parts3d"
+import parts from "../data/parts.json"
+import { splitParts } from "../src/netlist"
+import { makeDecor, makeMultimeter, METER_DIAL_ANGLE, previewModel, setMultimeterState } from "../src/parts3d"
 
 function worldBox(root: Object3D, name: string): Box3 {
   root.updateMatrixWorld(true)
@@ -75,5 +77,19 @@ describe("multimeter", () => {
     const m = makeMultimeter()
     setMultimeterState(m, "A", "12,0 mA")
     expect(m.getObjectByName("dial")!.rotation.y).toBeCloseTo(METER_DIAL_ANGLE.A)
+  })
+})
+
+describe("previewModel", () => {
+  it("builds a non-empty model for every catalog part and guide", () => {
+    const { catalog, guides } = splitParts(parts)
+    for (const key of [...Object.keys(catalog), ...Object.keys(guides)]) {
+      const model = previewModel(key)
+      expect(new Box3().setFromObject(model).isEmpty(), key).toBe(false)
+    }
+  })
+
+  it("falls back to a neutral box for an unknown key", () => {
+    expect(new Box3().setFromObject(previewModel("nope")).isEmpty()).toBe(false)
   })
 })
