@@ -358,7 +358,46 @@
           "order": {
             "object": "Esquema da lanterna de teste",
             "thanks": "Esse desenho é a lanterna inteira, só que no papel. Quem sabe ler o esquema já sabe metade do conserto."
-          }
+          },
+          "steps": [
+            {
+              "text": "No blueprint (V troca de vista), pega a bateria na bandeja.",
+              "until": {
+                "event": "partPicked",
+                "target": "part:battery"
+              },
+              "target": "css:.tray-item[data-part=battery]"
+            },
+            {
+              "text": "Clica numa área livre do blueprint pra soltar a bateria.",
+              "until": {
+                "event": "partPlaced",
+                "target": "part:battery"
+              }
+            },
+            {
+              "text": "Agora a lâmpada: pega na bandeja e solta no blueprint.",
+              "until": {
+                "event": "partPlaced",
+                "target": "part:lamp"
+              },
+              "target": "css:.tray-item[data-part=lamp]"
+            },
+            {
+              "text": "Liga os terminais com fio até fechar o laço. A lâmpada acende no desenho e a fase fecha.",
+              "until": {
+                "expect": [
+                  {
+                    "when": {},
+                    "then": {
+                      "L1": "lit"
+                    },
+                    "on": "blueprint"
+                  }
+                ]
+              }
+            }
+          ]
         },
         {
           "id": "g0p3",
@@ -822,7 +861,66 @@
           "order": {
             "object": "Lanterna de teste montada na placa",
             "thanks": "Desenho e placa batendo é o que a gente quer. Daqui pra frente a conversa é essa."
-          }
+          },
+          "steps": [
+            {
+              "text": "Aperta V pra ir pra bancada.",
+              "until": {
+                "event": "viewSwitched"
+              },
+              "target": "css:[data-view-toggle=bench]"
+            },
+            {
+              "text": "Pega a bateria na bandeja. O B1 do desenho aparece como peça pendente.",
+              "until": {
+                "event": "partPicked",
+                "target": "part:battery"
+              },
+              "target": "css:.tray-item[data-part=battery]"
+            },
+            {
+              "text": "Solta a bateria fora da placa e espeta os dois cabos nos trilhos + e −.",
+              "until": {
+                "event": "partSnapped",
+                "target": "part:battery"
+              }
+            },
+            {
+              "text": "Faz o mesmo com a lâmpada: solta fora da placa e espeta os dois cabinhos em colunas diferentes.",
+              "until": {
+                "event": "partSnapped",
+                "target": "part:lamp"
+              },
+              "target": "css:.tray-item[data-part=lamp]"
+            },
+            {
+              "text": "Escolhe o fio (W) e puxa um de um trilho até a coluna de um cabinho da lâmpada.",
+              "until": {
+                "event": "wireDrawn"
+              }
+            },
+            {
+              "text": "Arrasta um cabinho da lâmpada pra outra coluna e solta.",
+              "until": {
+                "event": "partMoved",
+                "target": "part:lamp"
+              },
+              "target": "part:lamp"
+            },
+            {
+              "text": "Fecha o laço até a lâmpada acender.",
+              "until": {
+                "expect": [
+                  {
+                    "when": {},
+                    "then": {
+                      "L1": "lit"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         },
         {
           "id": "g0p5",
@@ -1384,7 +1482,17 @@
             "client": "Dona Marta, vizinha da oficina",
             "object": "Abajur que não tem como desligar",
             "thanks": "Agora apago da cama mesmo. Deixei um bolo de fubá aí na bancada pra vocês."
-          }
+          },
+          "steps": [
+            {
+              "text": "Monta o circuito e clica na alavanca da chave. Ligada, a lâmpada acende; desligada, apaga.",
+              "until": {
+                "event": "inputToggled",
+                "target": "part:switch"
+              },
+              "target": "part:switch"
+            }
+          ]
         },
         {
           "id": "g1p2",
@@ -1616,7 +1724,17 @@
             "client": "Seu Zé, dono do mercadinho da esquina",
             "object": "Campainha do portão",
             "thanks": "Já toquei umas dez vezes pra testar. Os fregueses que me perdoem."
-          }
+          },
+          "steps": [
+            {
+              "text": "Monta o circuito e segura o botão apertado. A campainha só toca enquanto você aperta.",
+              "until": {
+                "event": "inputToggled",
+                "target": "part:push_button"
+              },
+              "target": "part:push_button"
+            }
+          ]
         },
         {
           "id": "g1p3",
@@ -1923,7 +2041,22 @@
             "client": "Rafa e o pai dele",
             "object": "Carrinho que só anda de ré",
             "thanks": "Agora ele vai pra frente! O Rafa já quer fazer uma corrida com o do primo."
-          }
+          },
+          "steps": [
+            {
+              "text": "Troca de lugar os fios que levam o + e o − até o motor, pra ele girar pro outro lado.",
+              "until": {
+                "expect": [
+                  {
+                    "when": {},
+                    "then": {
+                      "M1": "ccw"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
         },
         {
           "id": "g1p4",
@@ -2175,7 +2308,16 @@
             "client": "Dona Lúcia, do bazar de enfeites",
             "object": "Enfeite de Natal com duas lâmpadas",
             "thanks": "Ficou lindo na vitrine. E olha que as duas acendem igual, sem uma ficar mais fraca."
-          }
+          },
+          "steps": [
+            {
+              "text": "Monta as duas lâmpadas em fila e liga a visão de corrente. Compara a corrente antes e depois de cada uma.",
+              "until": {
+                "event": "currentViewToggled"
+              },
+              "target": "css:[data-tool=currentView]"
+            }
+          ]
         },
         {
           "id": "g1p5",
@@ -2989,13 +3131,29 @@
           "showDivergence": false,
           "steps": [
             {
-              "text": "Aperta M e encosta as duas pontas em furos do circuito.",
+              "text": "Gira o seletor do multímetro pra V. Clica nele ou aperta M.",
               "until": {
-                "event": "meterPlaced"
-              }
+                "event": "meterModeChanged",
+                "target": "meter:V"
+              },
+              "target": "meter:dial"
             },
             {
-              "text": "Na escala V, encosta as pontas nos trilhos + e − e lê a bateria. Depois encosta nas duas pernas da lâmpada e compara.",
+              "text": "Arrasta a ponta vermelha até um furo e depois a preta até outro, dentro do circuito.",
+              "until": {
+                "event": "meterPlaced"
+              },
+              "target": "probe:red"
+            },
+            {
+              "text": "Troca uma ponta de furo e repara na leitura mudando.",
+              "until": {
+                "event": "probeMoved"
+              },
+              "target": "probe:red"
+            },
+            {
+              "text": "Lê a bateria nos trilhos + e −. Depois encosta nas duas pernas da lâmpada e compara as leituras.",
               "until": {
                 "event": "meterReadVoltage"
               }
@@ -3286,7 +3444,35 @@
             "client": "Seu Anselmo, morador do segundo andar",
             "object": "Luz de leitura forte demais",
             "thanks": "Agora dá pra ler sem ofuscar a minha mulher. Ela agradece, eu também."
-          }
+          },
+          "steps": [
+            {
+              "text": "Abre o ? do resistor na bandeja e toca em Datasheet pra ver o código de cores das faixas.",
+              "until": {
+                "event": "datasheetOpened"
+              },
+              "target": "css:.tray-slot:has([data-part=resistor]) .tray-info"
+            },
+            {
+              "text": "Põe o resistor em série com a lâmpada, até ela ficar mais fraca, mas ainda acesa.",
+              "until": {
+                "expect": [
+                  {
+                    "when": {},
+                    "then": {
+                      "L1": {
+                        "current": [
+                          0.02,
+                          0.085
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "target": "css:.tray-item[data-part=resistor]"
+            }
+          ]
         },
         {
           "id": "g2p3",
@@ -6665,7 +6851,8 @@
                     }
                   }
                 ]
-              }
+              },
+              "target": "part:diode"
             }
           ],
           "hints": [

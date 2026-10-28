@@ -523,6 +523,7 @@ export function createViewToggle(el: HTMLElement, onSwitch: (view: ViewName) => 
     const button = document.createElement("button")
     button.type = "button"
     button.setAttribute("role", "tab")
+    button.dataset.viewToggle = name
     button.textContent = text
     button.title = `${text} (V)`
     button.addEventListener("click", () => onSwitch(name))

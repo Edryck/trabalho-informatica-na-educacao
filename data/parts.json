@@ -28,8 +28,8 @@
     },
     "datasheet": "battery",
     "howTo": {
-      "place": "Ligue o + e o − em furos de linhas diferentes da protoboard, ou em um trilho.",
-      "works": "Fornece a tensão que empurra a corrente pelo circuito."
+      "place": "Solta a bateria fora da placa e espeta os dois cabos nos furos ou nos trilhos. O vermelho é o +, o preto é o −.",
+      "works": "Dá a tensão do circuito. A corrente sai pelo + e volta pelo −; sem caminho de volta, nada anda."
     }
   },
   "lamp": {
@@ -60,8 +60,8 @@
     },
     "datasheet": "lamp",
     "howTo": {
-      "place": "Encaixe as duas pernas em furos de colunas diferentes, sem encostar uma na outra.",
-      "works": "A corrente aquece o filamento até ele brilhar. Quanta mais corrente, mais forte a luz."
+      "place": "Solta a lâmpada fora da placa e espeta os dois cabinhos em colunas diferentes. Na mesma coluna, vira curto.",
+      "works": "A corrente passa pelo filamento e ele esquenta até brilhar. A mesma corrente que entra sai do outro lado."
     }
   },
   "switch": {
@@ -94,7 +94,11 @@
         0
       ]
     },
-    "datasheet": "switch"
+    "datasheet": "switch",
+    "howTo": {
+      "place": "Encaixa a chave com cada ponta numa coluna diferente. Clica na alavanca pra ligar e desligar.",
+      "works": "Ligada, fecha o caminho e a corrente passa. Desligada, abre o caminho e o circuito para."
+    }
   },
   "push_button": {
     "pins": [
@@ -144,7 +148,11 @@
         1
       ]
     },
-    "datasheet": "push_button"
+    "datasheet": "push_button",
+    "howTo": {
+      "place": "Encaixa o botão com os pinos em furos livres. Segura o clique pra apertar; soltou, o caminho abre.",
+      "works": "Enquanto apertado, liga os dois lados. Solto, abre o caminho e a corrente para."
+    }
   },
   "dc_motor": {
     "pins": [
@@ -171,7 +179,11 @@
         0
       ]
     },
-    "datasheet": "dc_motor"
+    "datasheet": "dc_motor",
+    "howTo": {
+      "place": "Solta o motor fora da placa e espeta os dois cabos nos furos. O sentido do giro depende de qual cabo leva o +.",
+      "works": "A corrente faz a hélice girar. Trocar o + e o − de lugar inverte o sentido do giro."
+    }
   },
   "buzzer": {
     "pins": [
@@ -198,7 +210,11 @@
         0
       ]
     },
-    "datasheet": "buzzer"
+    "datasheet": "buzzer",
+    "howTo": {
+      "place": "Solta o buzzer fora da placa e espeta os dois cabos. O vermelho vai no lado do +, o preto no do −.",
+      "works": "Com corrente passando no sentido certo, ele toca. Sem corrente, fica em silêncio."
+    }
   },
   "resistor": {
     "pins": [
@@ -231,7 +247,11 @@
         0
       ]
     },
-    "datasheet": "resistor"
+    "datasheet": "resistor",
+    "howTo": {
+      "place": "Clica num furo e depois em outro. Cada perna numa coluna diferente; as duas na mesma coluna é curto.",
+      "works": "Segura a corrente: quanto mais ohms, menos passa. As faixas coloridas dizem o valor."
+    }
   },
   "led": {
     "pins": [
@@ -265,7 +285,11 @@
         0
       ]
     },
-    "datasheet": "led"
+    "datasheet": "led",
+    "howTo": {
+      "place": "Clica num furo e depois em outro. A perna comprida (ânodo) vai pro lado do +; a curta é o cátodo. R inverte o LED.",
+      "works": "Só conduz do ânodo pro cátodo e fica com cerca de 2 V. Precisa de resistor em série pra limitar a corrente."
+    }
   },
   "diode": {
     "pins": [
@@ -292,7 +316,11 @@
         0
       ]
     },
-    "datasheet": "diode"
+    "datasheet": "diode",
+    "howTo": {
+      "place": "Clica num furo e depois em outro. A faixa marca o cátodo e vai pro lado do −. R inverte o diodo.",
+      "works": "Deixa a corrente passar num sentido só. Invertido, bloqueia e o resto do circuito apaga."
+    }
   },
   "chip_nand": {
     "pins": [
@@ -462,7 +490,11 @@
         -6
       ]
     },
-    "datasheet": "chip_nand"
+    "datasheet": "chip_nand",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas NAND: a saída é o contrário do AND. Só fica em 0 com as duas entradas em 1."
+    }
   },
   "chip_nor": {
     "pins": [
@@ -632,7 +664,11 @@
         -6
       ]
     },
-    "datasheet": "chip_nor"
+    "datasheet": "chip_nor",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas NOR: a saída é o contrário do OR. Só fica em 1 com as duas entradas em 0."
+    }
   },
   "chip_not": {
     "pins": [
@@ -806,7 +842,11 @@
         -6
       ]
     },
-    "datasheet": "chip_not"
+    "datasheet": "chip_not",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Seis portas NOT: a saída é o contrário da entrada. 0 vira 1 e 1 vira 0."
+    }
   },
   "chip_and": {
     "pins": [
@@ -976,7 +1016,11 @@
         -6
       ]
     },
-    "datasheet": "chip_and"
+    "datasheet": "chip_and",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas AND: a saída só vai pra 1 quando as duas entradas estão em 1."
+    }
   },
   "chip_or": {
     "pins": [
@@ -1146,7 +1190,11 @@
         -6
       ]
     },
-    "datasheet": "chip_or"
+    "datasheet": "chip_or",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas OR: a saída vai pra 1 quando pelo menos uma entrada está em 1."
+    }
   },
   "chip_xor": {
     "pins": [
@@ -1316,7 +1364,11 @@
         -6
       ]
     },
-    "datasheet": "chip_xor"
+    "datasheet": "chip_xor",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas XOR: a saída vai pra 1 quando as duas entradas são diferentes."
+    }
   },
   "chip_xnor": {
     "pins": [
@@ -1486,7 +1538,11 @@
         -6
       ]
     },
-    "datasheet": "chip_xnor"
+    "datasheet": "chip_xnor",
+    "howTo": {
+      "place": "Encaixa o chip atravessando o vão do meio, com o chanfro pro lado do pino 1. Liga o VCC no + e o GND no − ou ele não funciona.",
+      "works": "Quatro portas XNOR: a saída vai pra 1 quando as duas entradas são iguais."
+    }
   },
   "logic_switch": {
     "pins": [
@@ -1527,7 +1583,11 @@
         0
       ]
     },
-    "datasheet": "logic_switch"
+    "datasheet": "logic_switch",
+    "howTo": {
+      "place": "Encaixa a chave lógica com os três pinos em colunas livres. Liga o VCC no + e o GND no −. A alavanca manda 0 ou 1.",
+      "works": "Entrega 0 ou 1 pela saída OUT, pronto pra ligar na entrada de um chip."
+    }
   },
   "logic_probe": {
     "pins": [
@@ -1555,7 +1615,11 @@
         2
       ]
     },
-    "datasheet": "logic_probe"
+    "datasheet": "logic_probe",
+    "howTo": {
+      "place": "Solta a ponta lógica fora da placa. Espeta o IN no ponto que quer ver e o GND no −.",
+      "works": "Mostra o nível lógico do ponto: 1, 0 ou indefinido, quando nada empurra o fio pra lado nenhum."
+    }
   },
   "multimeter": {
     "pins": [
@@ -1585,21 +1649,25 @@
         0
       ]
     },
-    "datasheet": "multimeter"
+    "datasheet": "multimeter",
+    "howTo": {
+      "place": "Aperta M pra ligar. Arrasta a ponta vermelha e a preta pros furos do circuito. O seletor escolhe V, A ou Ω.",
+      "works": "Tensão (V) mede com as pontas em paralelo. Corrente (A) pede abrir o caminho e passar pelas pontas, em série."
+    }
   },
   "guides": {
     "jumper_wire": {
       "name": "Fio jumper",
       "howTo": {
-        "place": "Clique num furo e depois em outro para ligar os dois com um fio.",
-        "works": "Liga dois pontos do circuito sem nenhuma peça no meio."
+        "place": "Escolhe o fio (W), clica num furo e depois em outro. Fio comprido faz arco, fio curto fica rente à placa.",
+        "works": "Liga dois pontos do circuito sem peça no meio. A corrente passa pelo fio como se as duas colunas fossem uma só."
       }
     },
     "breadboard": {
       "name": "Protoboard",
       "howTo": {
-        "place": "Encaixe as peças nos furos. Cada coluna de A a E e de F a J é uma ligação só.",
-        "works": "Os furos de uma mesma coluna estão ligados por dentro. Os trilhos das laterais formam as linhas de + e −."
+        "place": "Os trilhos + e − correm na horizontal. As colunas de cinco furos são ligadas por dentro; o vão do meio separa as metades.",
+        "works": "Furos da mesma coluna de cinco são o mesmo ponto elétrico. Peças em colunas diferentes só se falam se um fio ou perna ligar as duas."
       }
     }
   }

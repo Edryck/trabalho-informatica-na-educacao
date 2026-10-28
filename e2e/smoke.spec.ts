@@ -70,12 +70,12 @@ test("winning a phase shows stars and xp", async ({ page }) => {
   await page.goto("/")
   await page.evaluate(() => {
     const hook = (window as unknown as { __fioTest: TestHook }).__fioTest
-    hook.startPhase("g1p1")
+    hook.startPhase("g3p1")
   })
   while (await page.locator(".part-card:not([hidden])").count()) await page.getByRole("button", { name: "Entendi" }).click()
   await page.evaluate(() => {
     const hook = (window as unknown as { __fioTest: TestHook }).__fioTest
-    hook.update(structuredClone(hook.reference("g1p1")), { commit: true })
+    hook.update(structuredClone(hook.reference("g3p1")), { commit: true })
   })
   await expect(page.locator(".complete-card")).toBeVisible()
   await expect(page.locator(".complete-star")).toHaveCount(3)
@@ -97,11 +97,14 @@ test("datasheet opens from the sandbox tray and closes with Esc", async ({ page 
   await page.goto("/")
   await page.getByRole("button", { name: "Sandbox" }).click()
   await page.locator('[aria-label="Como usar: Resistor"]').click()
+  await expect(page.locator(".part-card")).toBeVisible()
+  await page.locator(".part-card").getByRole("button", { name: "Datasheet" }).click()
   await expect(page.locator(".sheet-screen")).toBeVisible()
   await expect(page.locator(".sheet-spec")).toContainText("vermelho")
   await page.locator(".sheet-columns p").first().click()
   await page.keyboard.press("Escape")
   await expect(page.locator(".sheet-screen")).toBeHidden()
+  await page.locator(".part-card").getByRole("button", { name: "Entendi" }).click()
   await page.getByRole("button", { name: "Datasheets" }).click()
   await expect(page.locator(".sheet-list-item")).toHaveCount(19)
 })
