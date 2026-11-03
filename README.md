@@ -14,11 +14,15 @@ Demo feita para a disciplina **Informática na Educação** (UTFPR). Ela traz 24
 ## Como rodar
 
 ```bash
+git clone https://github.com/Edryck/trabalho-informatica-na-educacao.git
+cd trabalho-informatica-na-educacao
 npm install
 npm run dev
 ```
 
 Abre o endereço que aparecer no terminal (normalmente http://localhost:5173) e clica em **Nova partida**.
+
+Pra abrir de outro aparelho na mesma rede (celular, outro PC), roda `npm run dev -- --host` e usa o endereço `Network` que aparece no terminal.
 
 ### Versão de produção
 
